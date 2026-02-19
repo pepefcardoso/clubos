@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Tenant registry (schema public)
+model Club {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  planTier  String   @default("starter")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      String   @default("TREASURER")
+  clubId    String
+  createdAt DateTime @default(now())
+}

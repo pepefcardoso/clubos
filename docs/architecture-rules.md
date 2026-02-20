@@ -1,12 +1,11 @@
 # Architecture Rules — ClubOS v1.0
 
 > Regras não-negociáveis de arquitetura. Qualquer desvio requer RFC aprovado com justificativa explícita.
+> Para o racional de cada decisão, consulte `design-docs.md`.
 
 ---
 
 ## Separação de Camadas
-
-### Regra geral
 
 ```
 [Frontend Web]  ──┐
@@ -16,19 +15,18 @@
 ```
 
 - **Nenhum frontend acessa o banco diretamente.** Toda leitura e escrita passa pela API.
-- **A API é uma só.** Não existem APIs separadas para web e mobile — os dois consomem o mesmo backend.
+- **A API é uma só.** Web e mobile consomem o mesmo backend.
 - **Lógica de negócio fica no backend.** O frontend apenas exibe e envia dados.
 
 ---
 
 ## Multi-Tenancy
 
-- Estratégia adotada: **schema-per-tenant** no PostgreSQL.
-- Cada clube tem seu próprio schema `clube_{id}` criado automaticamente no onboarding.
+- Estratégia: **schema-per-tenant** no PostgreSQL. Cada clube tem seu próprio schema `clube_{id}`.
 - O schema `public` contém apenas o registro master de clubes e usuários globais.
+- Todo request autenticado deve ter o `club_id` extraído do JWT e usado para selecionar o schema correto via `withTenantSchema` antes de qualquer query.
 - **Proibido:** queries que façam JOIN entre schemas de clubes diferentes.
 - **Proibido:** retornar dados de um tenant em uma requisição autenticada de outro tenant.
-- Todo request autenticado deve ter o `club_id` extraído do JWT e usado para selecionar o schema correto antes de qualquer query.
 
 ---
 
@@ -53,22 +51,10 @@ PaymentGateway          ← interface
 ### Regras obrigatórias
 
 - **Proibido:** importar `AsaasGateway` (ou qualquer gateway concreto) fora do diretório `modules/payments/gateways/`.
-- **Proibido:** adicionar campos específicos de um provider no schema do banco (ex: `pixCobId`, `boletoUrl`). Use `gatewayMeta` (JSONB).
+- **Proibido:** adicionar campos específicos de um provider no schema do banco. Use `gatewayMeta` (JSONB) em `Charge`.
 - **Obrigatório:** todo novo gateway deve implementar a interface `PaymentGateway` completa, incluindo `parseWebhook` com validação de assinatura.
 - **Obrigatório:** registrar o gateway em `gateways/index.ts` no bootstrap da aplicação.
-- **Obrigatório:** toda rota de webhook usa a assinatura do gateway correspondente — `GatewayRegistry.get(params.gateway).parseWebhook(...)`.
-
-### Schema agnóstico
-
-O modelo `Charge` armazena dados do provider em dois campos genéricos:
-
-| Campo         | Tipo      | Propósito                                                                                 |
-| ------------- | --------- | ----------------------------------------------------------------------------------------- |
-| `gatewayName` | `String?` | Slug do gateway que criou a cobrança (`"asaas"`, `"pagarme"`). Null para métodos offline. |
-| `externalId`  | `String?` | ID da cobrança no gateway externo. Usado para cancelamento e lookup.                      |
-| `gatewayMeta` | `Json?`   | Dados específicos do provider/método (QR Code, URL do boleto, etc.).                      |
-
-Adicionar suporte a um novo gateway **nunca exige migration de schema**.
+- **Obrigatório:** toda rota de webhook usa `GatewayRegistry.get(params.gateway).parseWebhook(...)`.
 
 ### Métodos offline (CASH, BANK_TRANSFER)
 
@@ -82,7 +68,7 @@ Pagamentos em dinheiro ou transferência não passam por gateway. O `ChargeServi
 
 - Access token JWT com validade de **15 minutos**.
 - Refresh token com validade de **7 dias**, armazenado em **httpOnly cookie** (nunca em localStorage).
-- Rotação de refresh token a cada uso — o token anterior é invalidado imediatamente.
+- Rotação de refresh token a cada uso — o token anterior é invalidado imediatamente via Redis.
 - RBAC com dois papéis: `ADMIN` e `TREASURER`. Guards aplicados no nível de rota no Fastify.
 - Tesoureiro não pode deletar sócios, alterar planos ou acessar configurações do clube.
 
@@ -95,7 +81,7 @@ Pagamentos em dinheiro ou transferência não passam por gateway. O `ChargeServi
 ### Webhooks
 
 - Todo webhook recebido deve ter a assinatura **HMAC-SHA256** validada via `PaymentGateway.parseWebhook()` antes de qualquer processamento.
-- A rota de webhook é paramétrica: `POST /webhooks/:gateway`. O gateway é resolvido via `GatewayRegistry.get(params.gateway)`.
+- A rota de webhook é paramétrica: `POST /webhooks/:gateway`.
 - Rejeitar com HTTP 401 qualquer payload com assinatura inválida.
 - Responder **HTTP 200 imediatamente** e processar a lógica em job assíncrono (BullMQ).
 - Idempotência obrigatória: checar se `gateway_txid` já existe antes de criar um `payment`.
@@ -105,7 +91,7 @@ Pagamentos em dinheiro ou transferência não passam por gateway. O `ChargeServi
 - HTTPS obrigatório em todos os ambientes exceto desenvolvimento local.
 - HSTS habilitado em produção.
 - CSP básico configurado no Next.js para prevenir XSS.
-- Rate limiting global: **100 req/min por IP** via `fastify-rate-limit` + Redis.
+- Rate limiting global: **100 req/min por IP** via `@fastify/rate-limit` + Redis.
 
 ---
 
@@ -121,8 +107,8 @@ Pagamentos em dinheiro ou transferência não passam por gateway. O `ChargeServi
 ### Disponibilidade
 
 - Meta: **≥ 99,5% de uptime** mensal para o fluxo de cobrança.
-- Deploys sem downtime via Railway/Render (zero-downtime deployments).
-- Backups automáticos do PostgreSQL via Supabase (retenção de 7 dias no plano padrão).
+- Deploys sem downtime (zero-downtime deployments).
+- Backups automáticos do PostgreSQL (retenção de 7 dias).
 
 ---
 
@@ -149,7 +135,7 @@ Pagamentos em dinheiro ou transferência não passam por gateway. O `ChargeServi
 
 - Valores monetários são sempre armazenados e processados em **centavos (integer)**. Nunca usar `float` para dinheiro.
 - Formatação para exibição (`R$ 1.490,00`) acontece apenas no frontend, via `Intl.NumberFormat`.
-- **Mínimo 2 aprovações em PR** para qualquer mudança nos módulos: `charges`, `payments`, `webhooks`.
+- **Mínimo 2 aprovações em PR** para qualquer mudança nos módulos: `charges`, `payments`, `webhooks`, `jobs`.
 - Cobertura de testes mínima de **80%** nesses módulos, verificada no CI.
 - Alterações em `payments` são imutáveis — um pagamento confirmado nunca é deletado, apenas cancelado com registro de motivo.
 
@@ -157,15 +143,15 @@ Pagamentos em dinheiro ou transferência não passam por gateway. O `ChargeServi
 
 ## O que é Explicitamente Proibido
 
-| Proibido                                                          | Alternativa Correta                                           |
-| ----------------------------------------------------------------- | ------------------------------------------------------------- |
-| `any` explícito no TypeScript                                     | Definir o tipo correto ou usar `unknown` com type guard       |
-| `@ts-ignore` sem comentário explicando                            | Corrigir o tipo ou documentar o motivo                        |
-| Commitar `.env`                                                   | Manter `.env.example` atualizado no repo                      |
-| Float para valores monetários                                     | Armazenar em centavos como integer                            |
-| Frontend acessando banco diretamente                              | Toda operação via API                                         |
-| Query entre schemas de tenants diferentes                         | Operações sempre dentro do schema do tenant autenticado       |
-| Processar webhook de forma síncrona                               | Responder 200 imediatamente e enfileirar no BullMQ            |
-| Chave de API ou secret em código-fonte                            | Variáveis de ambiente via Railway/Render                      |
-| Importar gateway concreto fora de `modules/payments/gateways/`    | Usar `GatewayRegistry.get()` ou `GatewayRegistry.forMethod()` |
-| Adicionar campo específico de provider no schema (ex: `pixCobId`) | Usar o campo `gatewayMeta` (JSONB) em `Charge`                |
+| Proibido                                                       | Alternativa Correta                                           |
+| -------------------------------------------------------------- | ------------------------------------------------------------- |
+| `any` explícito no TypeScript                                  | Definir o tipo correto ou usar `unknown` com type guard       |
+| `@ts-ignore` sem comentário explicando                         | Corrigir o tipo ou documentar o motivo                        |
+| Commitar `.env`                                                | Manter `.env.example` atualizado no repo                      |
+| Float para valores monetários                                  | Armazenar em centavos como integer                            |
+| Frontend acessando banco diretamente                           | Toda operação via API                                         |
+| Query entre schemas de tenants diferentes                      | Operações sempre dentro do schema do tenant autenticado       |
+| Processar webhook de forma síncrona                            | Responder 200 imediatamente e enfileirar no BullMQ            |
+| Chave de API ou secret em código-fonte                         | Variáveis de ambiente                                         |
+| Importar gateway concreto fora de `modules/payments/gateways/` | Usar `GatewayRegistry.get()` ou `GatewayRegistry.forMethod()` |
+| Adicionar campo específico de provider no schema               | Usar o campo `gatewayMeta` (JSONB) em `Charge`                |

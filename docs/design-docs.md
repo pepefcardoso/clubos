@@ -1,7 +1,7 @@
 # Design Doc (RFC) — ClubOS v1.0
 
-> **Status:** Vivo — decisões técnicas tornam-se definitivas após revisão de 48h sem objeção.  
-> **Módulo:** Gestão Financeira & Sócios  
+> **Status:** Vivo — decisões técnicas tornam-se definitivas após revisão de 48h sem objeção.
+> **Módulo:** Gestão Financeira & Sócios
 > **Versão:** 1.0
 
 ---
@@ -33,49 +33,36 @@ O ClubOS v1.0 é um SaaS multi-tenant voltado exclusivamente para clubes de fute
 
 ### Back-end
 
-| Tecnologia           | Versão                  | Justificativa                                                                   |
-| -------------------- | ----------------------- | ------------------------------------------------------------------------------- |
-| Node.js + Fastify    | Node 20 LTS / Fastify 4 | Performance superior ao Express; schema validation nativo via JSON Schema       |
-| TypeScript           | 5.x                     | Consistência full-stack; tipos compartilhados entre front e back                |
-| Prisma ORM           | 5.x                     | Migrations versionadas, type-safe queries, multi-tenant com row-level isolation |
-| Zod                  | 3.x                     | Validação de payloads na entrada da API; compartilhado com front-end            |
-| BullMQ + Redis       | latest                  | Filas de jobs assíncronos para cobranças recorrentes e WhatsApp                 |
-| JWT + Refresh Tokens | —                       | Auth stateless; refresh token rotativo em httpOnly cookie                       |
+| Tecnologia           | Versão                    | Justificativa                                                             |
+| -------------------- | ------------------------- | ------------------------------------------------------------------------- |
+| Node.js + Fastify    | Node 20 LTS / Fastify 5.x | Performance superior ao Express; schema validation nativo via JSON Schema |
+| TypeScript           | 5.x                       | Consistência full-stack; tipos compartilhados entre front e back          |
+| Prisma ORM           | 7.x                       | Migrations versionadas, type-safe queries, multi-tenant via search_path   |
+| Zod                  | 4.x                       | Validação de payloads na entrada da API; compartilhado com front-end      |
+| BullMQ + Redis       | latest                    | Filas de jobs assíncronos para cobranças recorrentes e WhatsApp           |
+| JWT + Refresh Tokens | —                         | Auth stateless; refresh token rotativo em httpOnly cookie                 |
 
 ### Banco de Dados
 
-| Tecnologia    | Justificativa                                                                                                                       |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| PostgreSQL 15 | Banco principal. ACID completo para transações financeiras. JSONB para metadados de gateway. Row-Level Security para multi-tenancy. |
-| Redis 7       | Cache de sessão, filas BullMQ, rate limiting por clube, pub/sub de notificações em tempo real.                                      |
-
-### Infraestrutura e Deploy
-
-| Componente             | Serviço                     | Observação                                               |
-| ---------------------- | --------------------------- | -------------------------------------------------------- |
-| Hospedagem API + Front | Railway ou Render (PaaS)    | Deploy via Git push; sem DevOps dedicado no MVP          |
-| Banco de Dados         | Supabase (Postgres managed) | Conexão pooling, backups automáticos, painel de consulta |
-| CDN / Assets           | Cloudflare                  | Free tier cobre 100% do MVP                              |
-| Monitoramento          | Sentry + Logtail            | Error tracking em prod; logs estruturados                |
-| CI/CD                  | GitHub Actions              | Pipeline: lint → test → build → deploy em push para main |
-| Secrets                | Railway Env Vars / .env     | Nunca comitar .env; template .env.example no repo        |
+| Tecnologia    | Justificativa                                                                                                                      |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL 15 | Banco principal. ACID completo para transações financeiras. JSONB para metadados de gateway. Schema-per-tenant para multi-tenancy. |
+| Redis 7       | Cache de sessão, filas BullMQ, rate limiting por clube, pub/sub de notificações em tempo real.                                     |
 
 ---
 
 ## Integrações de Pagamento — Gateway Abstraction
 
-A camada de pagamento do ClubOS é **agnóstica ao provedor**. Nenhum módulo de negócio (ChargeService, jobs, webhooks) acessa um gateway diretamente — tudo passa pela interface `PaymentGateway`.
+A camada de pagamento do ClubOS é **agnóstica ao provedor**. Nenhum módulo de negócio (`ChargeService`, jobs, webhooks) acessa um gateway diretamente — tudo passa pela interface `PaymentGateway` e é resolvido pelo `GatewayRegistry`.
 
-### Por que essa decisão
-
-O MVP usa Asaas como gateway principal (PIX + boleto). Porém, acoplar o schema e o código ao Asaas criaria dívida técnica significativa ao adicionar Pagarme, Stripe ou métodos offline. A abstração tem custo baixo agora e elimina um refactor caro depois.
+O desacoplamento tem custo baixo agora e elimina um refactor caro ao adicionar Pagarme, Stripe ou métodos offline futuramente.
 
 ### Interface central
 
 ```typescript
 interface PaymentGateway {
   readonly name: string; // "asaas" | "pagarme" | ...
-  readonly supportedMethods: PaymentMethod[];
+  readonly supportedMethods: ReadonlyArray<PaymentMethod>;
 
   createCharge(input: CreateChargeInput): Promise<ChargeResult>;
   cancelCharge(externalId: string): Promise<void>;
@@ -117,14 +104,12 @@ Nenhum outro arquivo precisa mudar.
 
 ### Asaas (gateway primário do MVP)
 
-| Aspecto             | Decisão                            | Detalhe                                                           |
-| ------------------- | ---------------------------------- | ----------------------------------------------------------------- |
-| PSP principal       | Asaas                              | SDK Node.js maduro, suporte a Pix com webhook                     |
-| PSP fallback        | Efí Bank                           | Redundância — implementado como segundo gateway quando necessário |
-| Modelo de cobrança  | Pix com vencimento (cob) + QR Code | API Open Banking do BC; webhook de confirmação em < 5s            |
-| Split de receita    | Asaas Marketplace                  | 1,5% por transação retido automaticamente pelo ClubOS             |
-| Tratamento de falha | Retry com backoff exponencial      | 3 tentativas em 24h; após exaustão → status `PENDING_RETRY`       |
-| Conformidade        | HMAC-SHA256                        | Validar header `X-Asaas-Signature` em todo webhook recebido       |
+| Aspecto             | Decisão                       | Detalhe                                                     |
+| ------------------- | ----------------------------- | ----------------------------------------------------------- |
+| PSP principal       | Asaas                         | Suporte a Pix com webhook; ambiente sandbox disponível      |
+| Modelo de cobrança  | Pix com vencimento + QR Code  | Webhook de confirmação em < 5s                              |
+| Tratamento de falha | Retry com backoff exponencial | 3 tentativas em 24h; após exaustão → status `PENDING_RETRY` |
+| Conformidade        | HMAC-SHA256                   | Validar header `X-Asaas-Signature` em todo webhook recebido |
 
 ### WhatsApp — Régua de Cobrança
 
@@ -140,6 +125,8 @@ Nenhum outro arquivo precisa mudar.
 ## Arquitetura Multi-Tenancy
 
 Cada clube é um tenant isolado. A estratégia adotada é **schema-per-tenant** no PostgreSQL: cada clube tem seu próprio schema (`clube_{id}`). Isso garante isolamento total de dados sem complexidade de Row-Level Security no código da aplicação.
+
+O schema correto é selecionado em cada request via `SET search_path TO "clube_{clubId}", public`, executado pelo helper `withTenantSchema` em `src/lib/prisma.ts`.
 
 ```
 public.clubs          -- cadastro master de clubes (tenant registry)
@@ -173,8 +160,8 @@ O campo `gatewayMeta` (JSONB) em `Charge` absorve dados específicos de cada com
 | `method`                     | Shape de `gatewayMeta`                           |
 | ---------------------------- | ------------------------------------------------ |
 | `PIX`                        | `{ qrCodeBase64: string, pixCopyPaste: string }` |
-| `BOLETO`                     | `{ bankSlipUrl: string, pdfUrl?: string }`       |
-| `CREDIT_CARD` / `DEBIT_CARD` | `{ checkoutUrl: string }`                        |
+| `BOLETO`                     | `{ bankSlipUrl: string, invoiceUrl?: string }`   |
+| `CREDIT_CARD` / `DEBIT_CARD` | `{ invoiceUrl: string }`                         |
 | `CASH` / `BANK_TRANSFER`     | `{}` (sem dados externos)                        |
 
 ---
@@ -184,7 +171,7 @@ O campo `gatewayMeta` (JSONB) em `Charge` absorve dados específicos de cada com
 ```
 [Job Scheduler — BullMQ / Cron]
          |
-         | D-3 antes do vencimento
+         | Dia 1 de cada mês, 08h
          ▼
 [ChargeService.generateMonthly()]
          |
@@ -193,7 +180,7 @@ O campo `gatewayMeta` (JSONB) em `Charge` absorve dados específicos de cada com
 [PaymentGateway.createCharge()]      ← interface, não importa qual gateway
          |
          |── Sucesso ──▶  Salva charge: status PENDING + externalId + gatewayMeta
-         |                Envia WhatsApp template 'lembrete'
+         |                Envia WhatsApp template 'lembrete' (D-3)
          |
          |── Falha ────▶  Retry fila (3x, backoff 1h / 6h / 24h)
                            Se falhar 3x → status PENDING_RETRY + alerta no dashboard
@@ -213,31 +200,34 @@ Dispara evento para dashboard (Redis pub/sub)
 
 ---
 
-## Estrutura de Projetos (Monorepo)
+## Estrutura do Monorepo
 
 ```
 clubos/
 ├── apps/
 │   ├── web/                        # Next.js (browser/desktop)
 │   └── api/                        # Fastify (backend)
-│       ├── modules/
-│       │   ├── charges/
-│       │   │   ├── charges.routes.ts
-│       │   │   ├── charges.service.ts  # depende de PaymentGateway, nunca de Asaas
-│       │   │   ├── charges.schema.ts
-│       │   │   └── charges.test.ts
-│       │   └── payments/
-│       │       ├── gateway.interface.ts   # contrato central
-│       │       ├── gateway.registry.ts    # resolve gateways por nome/método
-│       │       └── gateways/
-│       │           ├── index.ts           # bootstrap dos gateways
-│       │           ├── asaas.gateway.ts
-│       │           ├── pagarme.gateway.ts # (futuro)
-│       │           └── stripe.gateway.ts  # (futuro)
-│       ├── jobs/                   # BullMQ workers
-│       ├── webhooks/               # handlers de PSP e WhatsApp
+│       ├── src/
+│       │   ├── modules/
+│       │   │   ├── charges/
+│       │   │   │   ├── charges.routes.ts
+│       │   │   │   ├── charges.service.ts  # depende de PaymentGateway, nunca de Asaas
+│       │   │   │   ├── charges.schema.ts
+│       │   │   │   └── charges.test.ts
+│       │   │   └── payments/
+│       │   │       ├── gateway.interface.ts
+│       │   │       ├── gateway.registry.ts
+│       │   │       └── gateways/
+│       │   │           ├── index.ts
+│       │   │           ├── asaas.gateway.ts
+│       │   │           ├── pagarme.gateway.ts  # (futuro)
+│       │   │           └── stripe.gateway.ts   # (futuro)
+│       │   ├── jobs/               # BullMQ workers
+│       │   ├── webhooks/           # handlers de PSP e WhatsApp
+│       │   ├── plugins/            # Fastify plugins (auth, sensible, etc.)
+│       │   └── lib/                # prisma, redis, tokens
 │       └── prisma/                 # schema.prisma + migrations
 └── packages/
-    ├── shared-types/               # tipos TypeScript compartilhados (inclui PaymentMethod)
+    ├── shared-types/               # tipos TypeScript compartilhados
     └── config/                     # tsconfig, eslint, prettier bases
 ```

@@ -81,25 +81,3 @@ protection rule. With 2 CODEOWNERS listed, both must approve.
 For a small team, rely on the CI warning annotation plus a manual
 convention: any PR touching financial modules gets the
 `needs-2-approvals` label and is not merged until 2 reviews are done.
-
----
-
-## 4. Turbo remote cache (optional, speeds up CI)
-
-Add to repo secrets:
-
-```
-TURBO_TOKEN   → from vercel.com/account/tokens
-TURBO_TEAM    → your Vercel team slug
-```
-
-Then add to the CI workflow env:
-
-```yaml
-env:
-  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-```
-
-This caches Turbo build/lint/test outputs across CI runs,
-reducing pipeline time by 60–80% after the first run.

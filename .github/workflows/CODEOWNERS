@@ -1,0 +1,21 @@
+# CODEOWNERS — ClubOS
+#
+# These owners are automatically requested for review when someone
+# opens a pull request that modifies the listed paths.
+#
+# Financial modules require review from both lead and senior dev
+# to satisfy the 2-approval rule (architecture-guidelines.md).
+# Replace the placeholder handles with your actual GitHub usernames.
+#
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+apps/api/src/modules/charges/    @pepefcardoso @pepefcardoso
+apps/api/src/modules/payments/   @pepefcardoso @pepefcardoso
+apps/api/src/webhooks/           @pepefcardoso @pepefcardoso
+apps/api/src/jobs/               @pepefcardoso @pepefcardoso
+apps/api/prisma/schema.prisma    @pepefcardoso @pepefcardoso
+
+docs/                            @pepefcardoso
+.github/                         @pepefcardoso
+turbo.json                       @pepefcardoso
+pnpm-workspace.yaml              @pepefcardoso

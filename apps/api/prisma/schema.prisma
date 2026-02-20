@@ -16,6 +16,15 @@
 //     Tenant schemas are created during onboarding (T-001) via raw SQL:
 //       CREATE SCHEMA IF NOT EXISTS "clube_{clubId}"
 //     followed by running the tenant migrations inside that schema.
+//
+// PAYMENT GATEWAY ABSTRACTION
+//
+//   The Charge model is intentionally gateway-agnostic. Provider-specific
+//   data (Pix QR code, boleto URL, card checkout link, etc.) is stored in
+//   the `gatewayMeta` JSONB column rather than as typed columns.
+//
+//   This allows adding new gateways (Pagarme, Stripe, etc.) without schema
+//   migrations. See apps/api/src/modules/payments/ for the gateway layer.
 // =============================================================================
 
 generator client {
@@ -42,6 +51,15 @@ enum PlanInterval {
   monthly
   quarterly
   annual
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  BOLETO
+  CASH
+  BANK_TRANSFER
 }
 
 enum ChargeStatus {
@@ -113,10 +131,6 @@ model User {
 
 // =============================================================================
 // TENANT SCHEMA MODELS — live inside clube_{id} PostgreSQL schemas
-//
-// These models are NOT directly backed by the public schema. They are used
-// exclusively for Prisma type generation and search_path-based queries.
-// See the multi-tenancy note at the top of this file.
 // =============================================================================
 
 model Member {
@@ -168,19 +182,29 @@ model MemberPlan {
   @@map("member_plans")
 }
 
+/// Gateway fields:
+///   method      → what payment method was requested (PIX, CARD, CASH, …)
+///   gatewayName → which provider handled it ("asaas", "pagarme", null for offline)
+///   externalId  → charge ID in the external gateway (used for cancellation / lookup)
+///   gatewayMeta → provider + method-specific data stored as JSONB, e.g.:
+///                   PIX   → { qrCodeBase64, pixCopyPaste }
+///                   Boleto→ { bankSlipUrl, pdfUrl }
+///                   Card  → { checkoutUrl }
+///                   Cash  → {}  (no external data)
 model Charge {
-  id           String       @id @default(cuid())
-  memberId     String
-  amountCents  Int
-  dueDate      DateTime
-  status       ChargeStatus @default(PENDING)
-  pixCobId     String?
-  qrCodeBase64 String?
-  pixCopyPaste String?
-  retryCount   Int          @default(0)
-  lastRetryAt  DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id          String        @id @default(cuid())
+  memberId    String
+  amountCents Int
+  dueDate     DateTime
+  status      ChargeStatus  @default(PENDING)
+  method      PaymentMethod @default(PIX)
+  gatewayName String?
+  externalId  String?
+  gatewayMeta Json?
+  retryCount  Int           @default(0)
+  lastRetryAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   member  Member   @relation(fields: [memberId], references: [id])
   payment Payment?
@@ -188,19 +212,20 @@ model Charge {
   @@index([memberId])
   @@index([status])
   @@index([dueDate])
+  @@index([gatewayName])
   @@map("charges")
 }
 
 model Payment {
-  id           String    @id @default(cuid())
-  chargeId     String    @unique
+  id           String        @id @default(cuid())
+  chargeId     String        @unique
   paidAt       DateTime
-  method       String    @default("PIX")
+  method       PaymentMethod
   amountCents  Int
-  gatewayTxid  String    @unique
+  gatewayTxid  String        @unique
   cancelledAt  DateTime?
   cancelReason String?
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime      @default(now())
 
   charge Charge @relation(fields: [chargeId], references: [id])
 

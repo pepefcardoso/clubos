@@ -1,26 +1,244 @@
+// MULTI-TENANCY STRATEGY: schema-per-tenant
+//
+//   [PUBLIC SCHEMA] — models that live in the `public` PostgreSQL schema:
+//     Club, User
+//     These are the tenant registry and global auth tables.
+//
+//   [TENANT MODELS] — models that represent the structure of each tenant schema
+//     (clube_{id}): Member, Plan, MemberPlan, Charge, Payment, Message, AuditLog
+//
+//     At runtime, before any tenant query the API MUST execute:
+//       SET search_path TO "clube_{clubId}", public
+//     This is handled by the Prisma middleware in apps/api/src/lib/prisma.ts.
+//     Prisma uses these model definitions for full type-safety; the actual
+//     table rows live inside the tenant's own PostgreSQL schema.
+//
+//     Tenant schemas are created during onboarding (T-001) via raw SQL:
+//       CREATE SCHEMA IF NOT EXISTS "clube_{clubId}"
+//     followed by running the tenant migrations inside that schema.
+// =============================================================================
+
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-// Tenant registry (schema public)
+enum UserRole {
+  ADMIN
+  TREASURER
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  OVERDUE
+}
+
+enum PlanInterval {
+  monthly
+  quarterly
+  annual
+}
+
+enum ChargeStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+  PENDING_RETRY
+}
+
+enum MessageChannel {
+  WHATSAPP
+  EMAIL
+}
+
+enum MessageStatus {
+  SENT
+  FAILED
+  PENDING
+}
+
+enum AuditAction {
+  MEMBER_CREATED
+  MEMBER_UPDATED
+  MEMBER_DELETED
+  CHARGE_GENERATED
+  CHARGE_CANCELLED
+  PAYMENT_CONFIRMED
+  PLAN_CREATED
+  PLAN_UPDATED
+  PLAN_DELETED
+  MESSAGE_SENT
+}
+
+/// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
+/// The slug is used both in URLs and as part of the schema name.
 model Club {
   id        String   @id @default(cuid())
   slug      String   @unique
   name      String
+  logoUrl   String?
+  cnpj      String?  @unique
   planTier  String   @default("starter")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@map("clubs")
 }
 
+/// Global users table (public schema). A user always belongs to one club.
+/// Roles: ADMIN (full access) | TREASURER (read + charge, no delete/settings).
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      String   @default("TREASURER")
-  clubId    String
+  id       String   @id @default(cuid())
+  email    String   @unique
+  password String // bcrypt hash
+  role     UserRole @default(TREASURER)
+  clubId   String
+
+  club Club @relation(fields: [clubId], references: [id])
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clubId])
+  @@map("users")
+}
+
+// =============================================================================
+// TENANT SCHEMA MODELS — live inside clube_{id} PostgreSQL schemas
+//
+// These models are NOT directly backed by the public schema. They are used
+// exclusively for Prisma type generation and search_path-based queries.
+// See the multi-tenancy note at the top of this file.
+// =============================================================================
+
+model Member {
+  id        String       @id @default(cuid())
+  name      String
+  cpf       String       @unique
+  phone     String
+  email     String?
+  status    MemberStatus @default(ACTIVE)
+  joinedAt  DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  plans     MemberPlan[]
+  charges   Charge[]
+  messages  Message[]
+  auditLogs AuditLog[]
+
+  @@index([status])
+  @@map("members")
+}
+
+model Plan {
+  id         String       @id @default(cuid())
+  name       String
+  priceCents Int
+  interval   PlanInterval @default(monthly)
+  benefits   String[]
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  members MemberPlan[]
+
+  @@map("plans")
+}
+
+model MemberPlan {
+  id        String    @id @default(cuid())
+  memberId  String
+  planId    String
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  member Member @relation(fields: [memberId], references: [id])
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@unique([memberId, planId])
+  @@index([planId])
+  @@map("member_plans")
+}
+
+model Charge {
+  id           String       @id @default(cuid())
+  memberId     String
+  amountCents  Int
+  dueDate      DateTime
+  status       ChargeStatus @default(PENDING)
+  pixCobId     String?
+  qrCodeBase64 String?
+  pixCopyPaste String?
+  retryCount   Int          @default(0)
+  lastRetryAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  member  Member   @relation(fields: [memberId], references: [id])
+  payment Payment?
+
+  @@index([memberId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("charges")
+}
+
+model Payment {
+  id           String    @id @default(cuid())
+  chargeId     String    @unique
+  paidAt       DateTime
+  method       String    @default("PIX")
+  amountCents  Int
+  gatewayTxid  String    @unique
+  cancelledAt  DateTime?
+  cancelReason String?
+  createdAt    DateTime  @default(now())
+
+  charge Charge @relation(fields: [chargeId], references: [id])
+
+  @@index([gatewayTxid])
+  @@map("payments")
+}
+
+model Message {
+  id         String         @id @default(cuid())
+  memberId   String
+  channel    MessageChannel
+  template   String
+  status     MessageStatus  @default(PENDING)
+  sentAt     DateTime?
+  failReason String?
+  createdAt  DateTime       @default(now())
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([memberId])
+  @@index([status])
+  @@map("messages")
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  memberId   String?
+  actorId    String?
+  action     AuditAction
+  entityId   String?
+  entityType String?
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+
+  member Member? @relation(fields: [memberId], references: [id])
+
+  @@index([action])
+  @@index([memberId])
+  @@index([createdAt])
+  @@map("audit_log")
 }

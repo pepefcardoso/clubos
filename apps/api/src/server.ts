@@ -7,6 +7,7 @@ import { getPrismaClient } from "./lib/prisma.js";
 import { getRedisClient } from "./lib/redis.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { protectedRoutes } from "./modules/protected.routes.js";
+import fastifyMultipart from "@fastify/multipart";
 
 export async function buildApp() {
   const loggerOptions =
@@ -49,6 +50,10 @@ export async function buildApp() {
   });
 
   await fastify.register(sensiblePlugin);
+
+  await fastify.register(fastifyMultipart, {
+    limits: { fileSize: 5 * 1024 * 1024 },
+  });
 
   await fastify.register(authPlugin);
 

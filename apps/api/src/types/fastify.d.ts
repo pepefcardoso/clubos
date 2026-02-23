@@ -48,8 +48,10 @@ declare module "fastify" {
      *
      * Must be used AFTER verifyAccessToken in the preHandler chain:
      * ```ts
-     * preHandler: [fastify.verifyAccessToken, fastify.requireRole('ADMIN')]
+     * preHandler: [fastify.requireRole('ADMIN')]
      * ```
+     * When used inside `protectedRoutes`, verifyAccessToken is already applied
+     * by the plugin-level hook — do NOT repeat it in the route's preHandler.
      *
      * Responds 403 Forbidden if the authenticated user's role is insufficient.
      */
@@ -71,5 +73,13 @@ declare module "fastify" {
      * Populated after `verifyRefreshToken` runs successfully.
      */
     refreshPayload: RefreshTokenPayload;
+
+    /**
+     * Populated by the `protectedRoutes` plugin hook (after verifyAccessToken).
+     * Convenience shorthand for `request.user.sub` — use this in AuditLog entries.
+     *
+     * Only available inside routes registered within `protectedRoutes`.
+     */
+    actorId: string;
   }
 }

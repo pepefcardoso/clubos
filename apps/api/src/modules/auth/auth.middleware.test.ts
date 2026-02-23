@@ -76,6 +76,25 @@ async function buildTestApp(
     async () => ({ ok: true }),
   );
 
+  fastify.register(async (protectedScope) => {
+    protectedScope.addHook("preHandler", fastify.verifyAccessToken);
+    protectedScope.addHook("preHandler", async (request) => {
+      const { sub } =
+        request.user as import("../../types/fastify.js").AccessTokenPayload;
+      (request as typeof request & { actorId: string }).actorId = sub;
+    });
+
+    protectedScope.delete(
+      "/api/members/:id",
+      { preHandler: [fastify.requireRole("ADMIN")] },
+      async (request) => {
+        const actorId = (request as typeof request & { actorId: string })
+          .actorId;
+        return { deleted: (request.params as { id: string }).id, actorId };
+      },
+    );
+  });
+
   await fastify.ready();
   return fastify;
 }
@@ -178,6 +197,114 @@ describe("requireRole('TREASURER')", () => {
     });
 
     expect(res.statusCode).toBe(200);
+  });
+});
+
+describe("requireRole on a real-shaped route (DELETE /api/members/:id)", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    app = await buildTestApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  it("returns 403 when TREASURER tries to delete a member (ADMIN-only route)", async () => {
+    const token = issueAccessToken(app, {
+      sub: "treasurer-1",
+      clubId: "club-1",
+      role: "TREASURER",
+    });
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/members/member-abc",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({
+      statusCode: 403,
+      error: "Forbidden",
+      message: "Insufficient permissions.",
+    });
+  });
+
+  it("returns 200 and includes actorId when ADMIN deletes a member", async () => {
+    const token = issueAccessToken(app, {
+      sub: "admin-1",
+      clubId: "club-1",
+      role: "ADMIN",
+    });
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/members/member-abc",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      deleted: "member-abc",
+      actorId: "admin-1",
+    });
+  });
+
+  it("returns 401 when no token is provided on a protected destructive route", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/members/member-abc",
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+describe("requireRole with unknown/invalid role in token", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    app = await buildTestApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  it("returns 403 when token carries an unknown role value", async () => {
+    const token = issueAccessToken(app, {
+      sub: "user-x",
+      clubId: "club-1",
+      role: "SUPERADMIN" as "ADMIN",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/treasurer-or-above",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("returns 403 for empty-string role (fallback to level 0)", async () => {
+    const token = issueAccessToken(app, {
+      sub: "user-y",
+      clubId: "club-1",
+      role: "" as "ADMIN",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin-only",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
   });
 });
 

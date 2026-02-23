@@ -6,6 +6,7 @@ import sensiblePlugin from "./plugins/sensible.plugin.js";
 import { getPrismaClient } from "./lib/prisma.js";
 import { getRedisClient } from "./lib/redis.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { protectedRoutes } from "./modules/protected.routes.js";
 
 export async function buildApp() {
   const loggerOptions =
@@ -52,6 +53,8 @@ export async function buildApp() {
   await fastify.register(authPlugin);
 
   await fastify.register(authRoutes, { prefix: "/api/auth" });
+
+  await fastify.register(protectedRoutes, { prefix: "/api" });
 
   fastify.get(
     "/health",

@@ -8,7 +8,10 @@ import {
   UserNotFoundError,
   REFRESH_TOKEN_COOKIE,
 } from "./auth.service.js";
-import type { RefreshTokenPayload } from "../../types/fastify.js";
+import type {
+  AccessTokenPayload,
+  RefreshTokenPayload,
+} from "../../types/fastify.js";
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post(
@@ -101,4 +104,20 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.status(204).send();
   });
+
+  fastify.get(
+    "/me",
+    {
+      preHandler: [fastify.verifyAccessToken],
+    },
+    async (request, reply) => {
+      const user = request.user as AccessTokenPayload;
+
+      return reply.status(200).send({
+        id: user.sub,
+        clubId: user.clubId,
+        role: user.role,
+      });
+    },
+  );
 }

@@ -18,19 +18,44 @@ declare module "fastify" {
   interface FastifyInstance {
     prisma: PrismaClient;
     redis: Redis;
+
     /**
      * Verifies the Bearer access token from the Authorization header.
-     * Throws 401 if missing, expired, or invalid.
+     * Populates `request.user` on success.
+     * Responds 401 if missing, expired, or invalid.
      */
     verifyAccessToken: (
       request: import("fastify").FastifyRequest,
       reply: import("fastify").FastifyReply,
     ) => Promise<void>;
+
     /**
      * Verifies the refresh token from the httpOnly cookie.
-     * Throws 401 if missing, expired, invalid, or already rotated out.
+     * Consumes the token from Redis (single-use enforcement).
+     * Populates `request.refreshPayload` on success.
+     * Responds 401 if missing, expired, invalid, or already rotated out.
      */
     verifyRefreshToken: (
+      request: import("fastify").FastifyRequest,
+      reply: import("fastify").FastifyReply,
+    ) => Promise<void>;
+
+    /**
+     * Returns a preHandler that enforces a minimum role level.
+     *
+     * Role hierarchy: ADMIN > TREASURER
+     * An ADMIN satisfies any role requirement (including TREASURER).
+     *
+     * Must be used AFTER verifyAccessToken in the preHandler chain:
+     * ```ts
+     * preHandler: [fastify.verifyAccessToken, fastify.requireRole('ADMIN')]
+     * ```
+     *
+     * Responds 403 Forbidden if the authenticated user's role is insufficient.
+     */
+    requireRole: (
+      minimumRole: "ADMIN" | "TREASURER",
+    ) => (
       request: import("fastify").FastifyRequest,
       reply: import("fastify").FastifyReply,
     ) => Promise<void>;
@@ -38,11 +63,12 @@ declare module "fastify" {
 
   interface FastifyRequest {
     /**
-     * Populated after verifyAccessToken runs.
+     * Populated after `verifyAccessToken` runs successfully.
      */
     user: AccessTokenPayload;
+
     /**
-     * Populated after verifyRefreshToken runs.
+     * Populated after `verifyRefreshToken` runs successfully.
      */
     refreshPayload: RefreshTokenPayload;
   }

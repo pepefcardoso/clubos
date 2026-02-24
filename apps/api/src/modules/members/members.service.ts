@@ -45,7 +45,7 @@ export async function createMember(
           cpf: input.cpf,
           phone: input.phone,
           email: input.email ?? null,
-          joinedAt: input.joinedAt ? new Date(input.joinedAt) : undefined,
+          ...(input.joinedAt ? { joinedAt: new Date(input.joinedAt) } : {}),
         },
       });
     } catch (err) {

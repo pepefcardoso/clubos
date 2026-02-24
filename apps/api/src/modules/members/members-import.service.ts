@@ -203,17 +203,12 @@ async function processBatch(
             cpf: row.cpf,
             phone: row.phone,
             email: row.email ?? null,
-            // joinedAt is only set on creation; never overwritten on reimport
-            // so a member's original entry date is preserved across re-imports
-            joinedAt: row.joinedAt,
+            ...(row.joinedAt ? { joinedAt: row.joinedAt } : {}),
           },
           update: {
             name: row.name,
             phone: row.phone,
             email: row.email ?? null,
-            // Intentionally NOT updating joinedAt — original entry date is immutable
-            // Intentionally NOT updating status — a member marked OVERDUE or INACTIVE
-            // must not be silently reset to ACTIVE by a reimport
           },
         });
 

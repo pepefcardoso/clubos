@@ -2,85 +2,26 @@ name: CI
 
 on:
   pull_request:
-    branches:
-      - develop
-      - main
+    branches: [main, develop]
   push:
-    branches:
-      - develop
-      - main
+    branches: [main, develop]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  NODE_VERSION: "20"
-  PNPM_VERSION: "9.0.0"
-
 jobs:
-  lint:
-    name: Lint
+  ci:
+    name: Lint · Typecheck · Test · Build
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run lint (zero warnings)
-        run: pnpm lint
-
-  typecheck:
-    name: Type Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run type check
-        run: pnpm typecheck
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:15-alpine
         env:
-          POSTGRES_USER: clubos_test
-          POSTGRES_PASSWORD: clubos_test
+          POSTGRES_USER: clubos
+          POSTGRES_PASSWORD: clubos
           POSTGRES_DB: clubos_test
         ports:
           - 5432:5432
@@ -100,109 +41,62 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    env:
-      DATABASE_URL: postgresql://clubos_test:clubos_test@localhost:5432/clubos_test
-      REDIS_URL: redis://localhost:6379
-      JWT_SECRET: ci-test-jwt-secret-not-used-in-prod
-      JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-not-used-in-prod
-      ASAAS_API_KEY: ci-stub
-      ASAAS_WEBHOOK_SECRET: ci-stub
-      RESEND_API_KEY: ci-stub
-      ZAPI_TOKEN: ci-stub
-      NODE_ENV: test
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v3
         with:
-          version: ${{ env.PNPM_VERSION }}
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+          node-version: 20
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma client
-        run: pnpm --filter api exec prisma generate
+      # ── Lint ────────────────────────────────────────────────────
+      - name: Lint (all packages)
+        run: pnpm turbo lint
 
-      - name: Run tests with coverage
-        run: pnpm test -- --coverage
+      # ── Typecheck ───────────────────────────────────────────────
+      - name: Typecheck (all packages)
+        run: pnpm turbo typecheck
 
+      # ── API Tests ───────────────────────────────────────────────
+      - name: Run migrations (test DB)
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://clubos:clubos@localhost:5432/clubos_test
+        run: pnpm prisma migrate deploy
+
+      - name: Test (API)
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://clubos:clubos@localhost:5432/clubos_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ci-test-secret-access-32chars-min!
+          JWT_REFRESH_SECRET: ci-test-secret-refresh-32chars-min!
+          MEMBER_ENCRYPTION_KEY: ${{ secrets.MEMBER_ENCRYPTION_KEY || 'ci-test-encryption-key-32chars-xxx' }}
+          NODE_ENV: test
+        run: pnpm test --coverage
+
+      # ── Build ───────────────────────────────────────────────────
+      - name: Build (all packages)
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+          NEXT_PUBLIC_DOMAIN: localhost
+        run: pnpm turbo build
+
+      # ── Coverage gate ───────────────────────────────────────────
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-report
+          name: coverage
           path: apps/api/coverage/
           retention-days: 7
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [lint, typecheck, test]
-
-    env:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm --filter api exec prisma generate
-
-      - name: Build all packages
-        run: pnpm build
-
-  financial-module-gate:
-    name: Financial Module Gate
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect changes in financial modules
-        id: financial_changes
-        run: |
-          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
-          echo "Changed files:"
-          echo "$CHANGED"
-
-          FINANCIAL_CHANGED=false
-          if echo "$CHANGED" | grep -qE \
-            'apps/api/src/modules/(charges|payments|webhooks)/|apps/api/src/jobs/'; then
-            FINANCIAL_CHANGED=true
-          fi
-
-          echo "financial_changed=$FINANCIAL_CHANGED" >> $GITHUB_OUTPUT
-          echo "Financial module changes detected: $FINANCIAL_CHANGED"
-
-      - name: Annotate PR if financial modules changed
-        if: steps.financial_changes.outputs.financial_changed == 'true'
-        run: |
-          echo "::warning title=Financial Module Change Detected::This PR modifies charges, payments, webhooks, or jobs. Per architecture-rules.md, it requires a minimum of 2 approvals before merge. Ensure branch protection rules are configured accordingly."

@@ -3,6 +3,7 @@ import fastifyCors from "@fastify/cors";
 import fastifyRateLimit from "@fastify/rate-limit";
 import authPlugin from "./plugins/auth.plugin.js";
 import sensiblePlugin from "./plugins/sensible.plugin.js";
+import securityHeadersPlugin from "./plugins/security-headers.plugin.js";
 import { getPrismaClient } from "./lib/prisma.js";
 import { getRedisClient } from "./lib/redis.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
@@ -50,6 +51,8 @@ export async function buildApp() {
   });
 
   await fastify.register(sensiblePlugin);
+
+  await fastify.register(securityHeadersPlugin);
 
   await fastify.register(fastifyMultipart, {
     limits: { fileSize: 5 * 1024 * 1024 },

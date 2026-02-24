@@ -51,6 +51,8 @@ export default defineConfig({
         "**/*.spec.ts",
         "**/index.ts",
         "src/server.ts",
+        "src/types/**",
+        "**/*.d.ts",
       ],
 
       include: ["src/**/*.ts"],

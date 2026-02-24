@@ -144,3 +144,44 @@
 | T-046 | Criptografia de CPF e telefone em repouso (pgcrypto AES-256)                      | 1d      | S1     |
 | T-047 | Pipeline CI: GitHub Actions com lint + typecheck + test + build em todo PR        | 0.5d    | S1     |
 | T-048 | Testes E2E com Playwright: fluxo de login, cadastro de sócio, geração de cobrança | 2d      | S3     |
+
+
+| Ordem | ID | Task | Motivo da posição |
+|---|---|---|---|
+| 1 | T-047 | Pipeline CI (GitHub Actions) | Sem dependências; garante qualidade em tudo que vem depois |
+| 2 | T-045 | HTTPS / HSTS / CSP | Infra pura, sem dependências de app |
+| 3 | T-046 | Criptografia CPF/telefone (pgcrypto) | Deve ser aplicada antes de acumular mais dados em plaintext |
+| 4 | T-001 | Criar schema `clube_{id}` no onboarding | Base do multi-tenancy; desbloqueia tudo que usa `withTenantSchema` |
+| 5 | T-002 | `POST /api/clubs` | Depende de T-001 |
+| 6 | T-003 | Tela de onboarding multi-step | Depende de T-002 |
+| 7 | T-004 | Upload de logo com resize (sharp) | Depende de T-002/T-003 |
+| 8 | T-005 | E-mail de boas-vindas via Resend | Depende de T-002 |
+| 9 | T-016 | Template CSV de exemplo para download | Independente; complementa T-012 já feito |
+| 10 | T-017 | CRUD `/api/plans` | Depende de T-001; desbloqueia cobranças e formulário de sócio |
+| 11 | T-018 | Tela de gerenciamento de planos | Depende de T-017 |
+| 12 | T-019 | Validação: clube precisa de plano ativo | Depende de T-017 |
+| 13 | T-015 | Tela de cadastro/edição individual de sócio | Depende de T-017 (seleção de plano no form) |
+| 14 | T-020 | `ChargeService.generateMonthly()` | Depende de T-017 e T-019 |
+| 15 | T-021 | Integração Asaas `createCharge()` Pix + QR Code | Depende de T-020 |
+| 16 | T-022 | Salvar `externalId` e `gatewayMeta` na charge | Depende de T-021 |
+| 17 | T-023 | Job BullMQ cron dia 1 às 08h | Depende de T-020, T-021, T-022 |
+| 18 | T-024 | Retry 3x com backoff; status `PENDING_RETRY` | Depende de T-020, T-021 |
+| 19 | T-025 | `POST /api/charges/generate` (disparo manual) | Depende de T-020 |
+| 20 | T-026 | `POST /webhooks/:gateway` com validação HMAC | Depende de T-021 (charges existem) |
+| 21 | T-028 | Idempotência por `gateway_txid` | Depende de T-026 |
+| 22 | T-027 | Handler `PAYMENT_RECEIVED`: cria payment, atualiza charge e member | Depende de T-026, T-028 |
+| 23 | T-029 | Responder HTTP 200 imediato; processar em job BullMQ | Depende de T-026, T-027 |
+| 24 | T-030 | Testes de integração do webhook (payload válido/inválido) | Depende de T-026 a T-029 |
+| 25 | T-031 | `WhatsAppService` com abstração de provider | Depende de charges funcionando |
+| 26 | T-032 | Templates configuráveis (D-3, D-0, D+3) | Depende de T-031 |
+| 27 | T-037 | Log de mensagens na tabela `messages` | Depende de T-031 |
+| 28 | T-035 | Rate limiter 30 msgs/min por clube (Redis) | Depende de T-031 |
+| 29 | T-033 | Job D-3: lembrete de vencimento | Depende de T-031, T-032, T-035, T-037 |
+| 30 | T-034 | Job D+3: cobrança de inadimplentes | Depende de T-031, T-032, T-035, T-037 |
+| 31 | T-036 | Fallback e-mail via Resend se WhatsApp falhar | Depende de T-033, T-034 |
+| 32 | T-038 | `GET /api/dashboard/summary` (agregados por status) | Depende de T-027 (payments confirmados existem) |
+| 33 | T-039 | Cards de KPI no dashboard | Depende de T-038 |
+| 34 | T-040 | Gráfico de inadimplência 6 meses (Recharts) | Depende de T-038 |
+| 35 | T-041 | Tabela de inadimplentes + botão "Cobrar agora" | Depende de T-038 e T-031 |
+| 36 | T-042 | Atualização em tempo real via SSE | Depende de T-027 e T-039 |
+| 37 | T-043 | Setup Sentry (front + back) | Deixado por último — mais valor quando os fluxos reais já existem |

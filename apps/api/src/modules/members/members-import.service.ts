@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import type { PrismaClient } from "../../../generated/prisma/index.js";
 import { withTenantSchema } from "../../lib/prisma.js";
-import { isPrismaUniqueConstraintError } from "../../lib/prisma.js";
+import { encryptField, findMemberByCpf } from "../../lib/crypto.js";
 import type { ImportRowError } from "./members.schema.js";
 
 interface ParsedRow {
@@ -183,42 +183,42 @@ async function processBatch(
   batchStartIndex: number,
 ): Promise<void> {
   await withTenantSchema(prisma, clubId, async (tx) => {
-    // Pre-fetch existing CPFs in this batch to determine create vs update
-    const cpfs = batch.map((r) => r.cpf);
-    const existing = await tx.member.findMany({
-      where: { cpf: { in: cpfs } },
-      select: { cpf: true },
-    });
-    const existingCpfSet = new Set(existing.map((m: { cpf: string }) => m.cpf));
-
     for (let i = 0; i < batch.length; i++) {
       const row = batch[i]!;
-      const wasExisting = existingCpfSet.has(row.cpf);
 
       try {
-        const member = await tx.member.upsert({
-          where: { cpf: row.cpf },
-          create: {
-            name: row.name,
-            cpf: row.cpf,
-            phone: row.phone,
-            email: row.email ?? null,
-            ...(row.joinedAt ? { joinedAt: row.joinedAt } : {}),
-          },
-          update: {
-            name: row.name,
-            phone: row.phone,
-            email: row.email ?? null,
-          },
-        });
+        const existing = await findMemberByCpf(tx, row.cpf);
 
-        if (wasExisting) {
+        const [encryptedCpf, encryptedPhone] = await Promise.all([
+          encryptField(tx, row.cpf),
+          encryptField(tx, row.phone),
+        ]);
+
+        let member: { id: string };
+
+        if (existing) {
+          member = await tx.member.update({
+            where: { id: existing.id },
+            data: {
+              name: row.name,
+              phone: encryptedPhone,
+              email: row.email ?? null,
+            },
+          });
           counters.updated++;
         } else {
+          member = await tx.member.create({
+            data: {
+              name: row.name,
+              cpf: encryptedCpf,
+              phone: encryptedPhone,
+              email: row.email ?? null,
+              ...(row.joinedAt ? { joinedAt: row.joinedAt } : {}),
+            },
+          });
           counters.created++;
         }
 
-        // Link to plan if provided — plan must exist in this tenant's schema and be active
         if (row.planId) {
           const plan = await tx.plan.findUnique({
             where: { id: row.planId },
@@ -231,27 +231,12 @@ async function processBatch(
                 memberId_planId: { memberId: member.id, planId: row.planId },
               },
               create: { memberId: member.id, planId: row.planId },
-              // update: {} is intentional — nothing to update on a simple join record
               update: {},
             });
           }
-          // If plan not found or inactive, silently skip — member is still created/updated
         }
       } catch (err) {
-        if (isPrismaUniqueConstraintError(err)) {
-          // This can occur in a race condition where two concurrent imports
-          // try to create the same CPF simultaneously. Safe to record as error
-          // without aborting the entire batch.
-          rowErrors.push({
-            row: batchStartIndex + i + 2,
-            cpf: row.cpf,
-            field: "cpf",
-            message: "CPF já existe (conflito concorrente)",
-          });
-        } else {
-          // Unexpected DB error — re-throw to abort the transaction
-          throw err;
-        }
+        throw err;
       }
     }
   });
@@ -293,10 +278,8 @@ export async function importMembersFromCsv(
     };
   }
 
-  // Shared mutable counters updated across all batches
   const counters = { created: 0, updated: 0 };
 
-  // Process in batches to avoid transaction timeouts with large files (up to 5000 rows)
   for (
     let batchStart = 0;
     batchStart < validRows.length;
@@ -316,7 +299,6 @@ export async function importMembersFromCsv(
     );
   }
 
-  // Write a single audit log entry after all batches complete successfully
   await withTenantSchema(prisma, clubId, async (tx) => {
     await tx.auditLog.create({
       data: {

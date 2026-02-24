@@ -25,6 +25,19 @@
 //
 //   This allows adding new gateways (Pagarme, Stripe, etc.) without schema
 //   migrations. See apps/api/src/modules/payments/ for the gateway layer.
+//
+// ENCRYPTION
+//
+//   Member.cpf and Member.phone are encrypted at rest using PostgreSQL's
+//   pgcrypto extension (pgp_sym_encrypt / pgp_sym_decrypt, AES-256).
+//   The symmetric key is provided via the MEMBER_ENCRYPTION_KEY env var.
+//
+//   Consequences:
+//   - cpf and phone are stored as Bytes (bytea) — never as plaintext.
+//   - The @unique constraint on cpf is removed; uniqueness is enforced at
+//     the application layer via findMemberByCpf() in src/lib/crypto.ts.
+//   - All reads/writes of cpf and phone go through encryptField() /
+//     decryptField() in src/lib/crypto.ts — never via raw Prisma field access.
 // =============================================================================
 
 generator client {
@@ -135,10 +148,10 @@ model User {
 // =============================================================================
 
 model Member {
-  id        String       @id @default(cuid())
-  name      String
-  cpf       String       @unique
-  phone     String
+  id   String @id @default(cuid())
+  name String
+  cpf Bytes
+  phone Bytes
   email     String?
   status    MemberStatus @default(ACTIVE)
   joinedAt  DateTime     @default(now())

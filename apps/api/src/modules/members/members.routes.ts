@@ -1,7 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { CreateMemberSchema } from "./members.schema.js";
+import {
+  CreateMemberSchema,
+  ListMembersQuerySchema,
+} from "./members.schema.js";
 import {
   createMember,
+  listMembers,
   DuplicateCpfError,
   PlanNotFoundError,
 } from "./members.service.js";
@@ -9,6 +13,30 @@ import { importMembersFromCsv } from "./members-import.service.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 
 export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
+  /**
+   * GET /api/members
+   * Returns a paginated, filterable list of members for the authenticated club.
+   */
+  fastify.get("/", async (request, reply) => {
+    const parsed = ListMembersQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: "Bad Request",
+        message: parsed.error.issues[0]?.message ?? "Invalid query params",
+      });
+    }
+
+    const user = request.user as AccessTokenPayload;
+
+    const result = await listMembers(fastify.prisma, user.clubId, parsed.data);
+    return reply.status(200).send(result);
+  });
+
+  /**
+   * POST /api/members
+   * Creates a single member for the authenticated club.
+   */
   fastify.post("/", async (request, reply) => {
     const parsed = CreateMemberSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -48,6 +76,10 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
     }
   });
 
+  /**
+   * POST /api/members/import
+   * Bulk-imports members from a CSV file.
+   */
   fastify.post("/import", async (request, reply) => {
     const data = await request.file();
     if (!data) {

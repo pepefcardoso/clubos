@@ -1,6 +1,7 @@
 import Papa from "papaparse";
 import type { PrismaClient } from "../../../generated/prisma/index.js";
 import { withTenantSchema } from "../../lib/prisma.js";
+import { isPrismaUniqueConstraintError } from "../../lib/prisma.js";
 import type { ImportRowError } from "./members.schema.js";
 
 interface ParsedRow {
@@ -22,6 +23,7 @@ interface ValidatedRow {
 }
 
 const MAX_ROWS = 5000;
+const BATCH_SIZE = 500;
 
 function stripMask(value: string): string {
   return value.replace(/[\s.()\-]/g, "");
@@ -172,6 +174,94 @@ interface ImportServiceError {
 
 export type ImportServiceResult = ImportMembersResult | ImportServiceError;
 
+async function processBatch(
+  prisma: PrismaClient,
+  clubId: string,
+  batch: ValidatedRow[],
+  rowErrors: ImportRowError[],
+  counters: { created: number; updated: number },
+  batchStartIndex: number,
+): Promise<void> {
+  await withTenantSchema(prisma, clubId, async (tx) => {
+    // Pre-fetch existing CPFs in this batch to determine create vs update
+    const cpfs = batch.map((r) => r.cpf);
+    const existing = await tx.member.findMany({
+      where: { cpf: { in: cpfs } },
+      select: { cpf: true },
+    });
+    const existingCpfSet = new Set(existing.map((m: { cpf: string }) => m.cpf));
+
+    for (let i = 0; i < batch.length; i++) {
+      const row = batch[i]!;
+      const wasExisting = existingCpfSet.has(row.cpf);
+
+      try {
+        const member = await tx.member.upsert({
+          where: { cpf: row.cpf },
+          create: {
+            name: row.name,
+            cpf: row.cpf,
+            phone: row.phone,
+            email: row.email ?? null,
+            // joinedAt is only set on creation; never overwritten on reimport
+            // so a member's original entry date is preserved across re-imports
+            joinedAt: row.joinedAt,
+          },
+          update: {
+            name: row.name,
+            phone: row.phone,
+            email: row.email ?? null,
+            // Intentionally NOT updating joinedAt — original entry date is immutable
+            // Intentionally NOT updating status — a member marked OVERDUE or INACTIVE
+            // must not be silently reset to ACTIVE by a reimport
+          },
+        });
+
+        if (wasExisting) {
+          counters.updated++;
+        } else {
+          counters.created++;
+        }
+
+        // Link to plan if provided — plan must exist in this tenant's schema and be active
+        if (row.planId) {
+          const plan = await tx.plan.findUnique({
+            where: { id: row.planId },
+            select: { id: true, isActive: true },
+          });
+
+          if (plan && plan.isActive) {
+            await tx.memberPlan.upsert({
+              where: {
+                memberId_planId: { memberId: member.id, planId: row.planId },
+              },
+              create: { memberId: member.id, planId: row.planId },
+              // update: {} is intentional — nothing to update on a simple join record
+              update: {},
+            });
+          }
+          // If plan not found or inactive, silently skip — member is still created/updated
+        }
+      } catch (err) {
+        if (isPrismaUniqueConstraintError(err)) {
+          // This can occur in a race condition where two concurrent imports
+          // try to create the same CPF simultaneously. Safe to record as error
+          // without aborting the entire batch.
+          rowErrors.push({
+            row: batchStartIndex + i + 2,
+            cpf: row.cpf,
+            field: "cpf",
+            message: "CPF já existe (conflito concorrente)",
+          });
+        } else {
+          // Unexpected DB error — re-throw to abort the transaction
+          throw err;
+        }
+      }
+    }
+  });
+}
+
 export async function importMembersFromCsv(
   prisma: PrismaClient,
   clubId: string,
@@ -187,6 +277,7 @@ export async function importMembersFromCsv(
 
   const errors: ImportRowError[] = [];
   const validRows: ValidatedRow[] = [];
+  const validRowOriginalIndices: number[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const result = validateRow(rows[i]!, i);
@@ -194,6 +285,7 @@ export async function importMembersFromCsv(
       errors.push(...result.errors);
     } else {
       validRows.push(result.row);
+      validRowOriginalIndices.push(i);
     }
   }
 
@@ -206,60 +298,31 @@ export async function importMembersFromCsv(
     };
   }
 
-  let created = 0;
-  let updated = 0;
+  // Shared mutable counters updated across all batches
+  const counters = { created: 0, updated: 0 };
 
+  // Process in batches to avoid transaction timeouts with large files (up to 5000 rows)
+  for (
+    let batchStart = 0;
+    batchStart < validRows.length;
+    batchStart += BATCH_SIZE
+  ) {
+    const batch = validRows.slice(batchStart, batchStart + BATCH_SIZE);
+    const batchOriginalStart =
+      validRowOriginalIndices[batchStart] ?? batchStart;
+
+    await processBatch(
+      prisma,
+      clubId,
+      batch,
+      errors,
+      counters,
+      batchOriginalStart,
+    );
+  }
+
+  // Write a single audit log entry after all batches complete successfully
   await withTenantSchema(prisma, clubId, async (tx) => {
-    const cpfs = validRows.map((r) => r.cpf);
-    const existing = await tx.member.findMany({
-      where: { cpf: { in: cpfs } },
-      select: { cpf: true },
-    });
-    const existingCpfSet = new Set(existing.map((m: { cpf: string }) => m.cpf));
-
-    for (const row of validRows) {
-      const wasExisting = existingCpfSet.has(row.cpf);
-
-      const member = await tx.member.upsert({
-        where: { cpf: row.cpf },
-        create: {
-          name: row.name,
-          cpf: row.cpf,
-          phone: row.phone,
-          email: row.email ?? null,
-          joinedAt: row.joinedAt,
-        },
-        update: {
-          name: row.name,
-          phone: row.phone,
-          email: row.email ?? null,
-        },
-      });
-
-      if (wasExisting) {
-        updated++;
-      } else {
-        created++;
-      }
-
-      if (row.planId) {
-        const plan = await tx.plan.findUnique({
-          where: { id: row.planId },
-          select: { id: true, isActive: true },
-        });
-
-        if (plan && plan.isActive) {
-          await tx.memberPlan.upsert({
-            where: {
-              memberId_planId: { memberId: member.id, planId: row.planId },
-            },
-            create: { memberId: member.id, planId: row.planId },
-            update: {},
-          });
-        }
-      }
-    }
-
     await tx.auditLog.create({
       data: {
         actorId,
@@ -267,9 +330,10 @@ export async function importMembersFromCsv(
         entityType: "Member",
         metadata: {
           source: "csv_import",
-          created,
-          updated,
-          errors: errors.length,
+          totalRows: rows.length,
+          created: counters.created,
+          updated: counters.updated,
+          skipped: errors.length,
         },
       },
     });
@@ -277,8 +341,8 @@ export async function importMembersFromCsv(
 
   return {
     imported: rows.length,
-    created,
-    updated,
+    created: counters.created,
+    updated: counters.updated,
     errors,
   };
 }

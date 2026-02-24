@@ -28,3 +28,11 @@ export async function withTenantSchema<T>(
     return fn(tx as unknown as PrismaClient);
   });
 }
+
+/**
+ * Returns true if the given error is a Prisma unique constraint violation (P2002).
+ * Exported here so it can be shared across service modules without duplication.
+ */
+export function isPrismaUniqueConstraintError(err: unknown): boolean {
+  return (err as { code?: string })?.code === "P2002";
+}

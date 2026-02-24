@@ -6,6 +6,9 @@
     "lib": ["ES2022"],
     "outDir": "dist",
     "rootDir": "src",
+    "paths": {
+      "@clubos/shared-types": ["../../packages/shared-types/src/index.ts"]
+    },
     "types": ["node"],
     "sourceMap": true,
     "declaration": true,
@@ -20,5 +23,6 @@
     "esModuleInterop": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "generated"]
+  "exclude": ["node_modules", "dist", "generated"],
+  "references": [{ "path": "../../packages/shared-types" }]
 }

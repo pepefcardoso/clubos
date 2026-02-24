@@ -44,7 +44,7 @@ export function getEncryptionKey(): string {
 export async function encryptField(
   prisma: PrismaClient,
   plaintext: string,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const key = getEncryptionKey();
   const result = await prisma.$queryRaw<[{ encrypted: Buffer }]>`
     SELECT pgp_sym_encrypt(${plaintext}::text, ${key}::text) AS encrypted

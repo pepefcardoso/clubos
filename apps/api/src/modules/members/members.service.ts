@@ -29,9 +29,6 @@ export class PlanNotFoundError extends Error {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Internal row type returned by the bulk-decrypt raw query in listMembers.
-// ---------------------------------------------------------------------------
 interface DecryptedMemberRow {
   id: string;
   name: string;
@@ -42,10 +39,6 @@ interface DecryptedMemberRow {
   joinedAt: Date;
 }
 
-// ---------------------------------------------------------------------------
-// createMember
-// ---------------------------------------------------------------------------
-
 export async function createMember(
   prisma: PrismaClient,
   clubId: string,
@@ -53,8 +46,6 @@ export async function createMember(
   input: CreateMemberInput,
 ): Promise<MemberResponse> {
   return withTenantSchema(prisma, clubId, async (tx) => {
-    // Plan validation (must happen before the uniqueness check to keep error
-    // ordering consistent and avoid unnecessary decrypt scans)
     if (input.planId) {
       const plan = await tx.plan.findUnique({ where: { id: input.planId } });
       if (!plan || !plan.isActive) {
@@ -62,13 +53,11 @@ export async function createMember(
       }
     }
 
-    // Uniqueness check — replaces the removed @unique DB constraint on cpf.
     const existing = await findMemberByCpf(tx, input.cpf);
     if (existing) {
       throw new DuplicateCpfError();
     }
 
-    // Encrypt CPF and phone before persisting
     const [encryptedCpf, encryptedPhone] = await Promise.all([
       encryptField(tx, input.cpf),
       encryptField(tx, input.phone),
@@ -100,7 +89,6 @@ export async function createMember(
       },
     });
 
-    // Decrypt for the response — plaintext only in memory, never re-persisted
     const [cpf, phone] = await Promise.all([
       decryptField(tx, member.cpf),
       decryptField(tx, member.phone),
@@ -128,10 +116,6 @@ export async function createMember(
   });
 }
 
-// ---------------------------------------------------------------------------
-// listMembers
-// ---------------------------------------------------------------------------
-
 export async function listMembers(
   prisma: PrismaClient,
   clubId: string,
@@ -142,13 +126,6 @@ export async function listMembers(
   const key = getEncryptionKey();
 
   return withTenantSchema(prisma, clubId, async (tx) => {
-    // Build a single raw query that decrypts cpf and phone inline.
-    // This avoids N+1 per-row decryption calls and keeps all decryption
-    // inside the DB where the key is used transiently.
-    //
-    // The WHERE clause uses Prisma.sql tagged-template for safe parameterisation;
-    // the key is passed as a bound parameter, never interpolated as a string.
-
     const statusFilter = status
       ? Prisma.sql`AND m.status = ${status}::\"MemberStatus\"`
       : Prisma.sql``;
@@ -183,10 +160,6 @@ export async function listMembers(
       tx.member.count({
         where: {
           ...(status ? { status: status as MemberStatus } : {}),
-          // Note: CPF search with encryption requires the raw query above;
-          // the Prisma count() only filters by name for the total count when
-          // a search term is present. This is a known v1 limitation — the
-          // count may be slightly off when searching by CPF. Fix in T-xxx.
           ...(search && search.trim() !== ""
             ? {
                 name: { contains: search, mode: "insensitive" as const },
@@ -196,7 +169,6 @@ export async function listMembers(
       }),
     ]);
 
-    // Fetch plan associations for the returned page of members
     const memberIds = rows.map((r) => r.id);
     const memberPlans =
       memberIds.length > 0

@@ -117,9 +117,9 @@ export async function logoutUser(
     try {
       const refreshJwt = (
         fastify as FastifyInstance & {
-          refreshJwt: { verify: (token: string) => RefreshTokenPayload };
+          refresh: { verify: (token: string) => RefreshTokenPayload };
         }
-      ).refreshJwt;
+      ).refresh;
 
       const payload = refreshJwt.verify(rawToken);
       await revokeRefreshToken(redis, payload.jti);

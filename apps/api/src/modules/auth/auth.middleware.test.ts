@@ -42,6 +42,7 @@ function makeMockPrisma(userOverride?: Partial<typeof MOCK_USER> | null) {
 
 async function buildTestApp(
   prismaOverride?: ReturnType<typeof makeMockPrisma> | null,
+  options: { autoReady?: boolean } = { autoReady: true },
 ): Promise<FastifyInstance> {
   const fastify = Fastify({ logger: false });
 
@@ -95,7 +96,9 @@ async function buildTestApp(
     );
   });
 
-  await fastify.ready();
+  if (options.autoReady !== false) {
+    await fastify.ready();
+  }
   return fastify;
 }
 
@@ -391,8 +394,9 @@ describe("GET /health (public)", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
-    app = await buildTestApp();
+    app = await buildTestApp(undefined, { autoReady: false });
     app.get("/health", async () => ({ status: "ok" }));
+    await app.ready();
   });
 
   afterEach(async () => {

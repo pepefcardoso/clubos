@@ -62,6 +62,39 @@ async function buildTestApp(): Promise<FastifyInstance> {
   return fastify;
 }
 
+async function buildUnreadyTestApp(): Promise<FastifyInstance> {
+  const fastify = Fastify({ logger: false });
+
+  const mockRedis = { get: vi.fn(), set: vi.fn(), del: vi.fn() };
+  fastify.decorate("redis", mockRedis as unknown as Redis);
+
+  for (const [key, value] of Object.entries(TEST_ENV)) {
+    process.env[key] = value;
+  }
+
+  await fastify.register(authPlugin);
+
+  fastify.get(
+    "/protected",
+    { preHandler: [fastify.verifyAccessToken] },
+    async (request) => {
+      const user = request.user as unknown as AccessTokenPayload;
+      return { userId: user.sub, clubId: user.clubId, role: user.role };
+    },
+  );
+
+  fastify.post(
+    "/refresh-test",
+    { preHandler: [fastify.verifyRefreshToken] },
+    async (request) => {
+      const payload = request.refreshPayload as unknown as RefreshTokenPayload;
+      return { userId: payload.sub, jti: payload.jti };
+    },
+  );
+
+  return fastify;
+}
+
 describe("verifyAccessToken", () => {
   let app: FastifyInstance;
 
@@ -222,11 +255,12 @@ describe("setRefreshTokenCookie", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
-    app = await buildTestApp();
+    app = await buildUnreadyTestApp();
     app.get("/set-cookie-test", async (_req, reply) => {
       setRefreshTokenCookie(reply, "dummy-refresh-token");
       return { ok: true };
     });
+    await app.ready();
   });
 
   afterEach(async () => {

@@ -75,6 +75,7 @@ function makeMockPrisma(options?: {
       .fn()
       .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
         const tx = {
+          $executeRawUnsafe: vi.fn().mockResolvedValue(undefined),
           plan: {
             findUnique: vi
               .fn()

@@ -81,7 +81,21 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
    * Bulk-imports members from a CSV file.
    */
   fastify.post("/import", async (request, reply) => {
-    const data = await request.file();
+    let data;
+    try {
+      data = await request.file();
+    } catch (err) {
+      const error = err as { statusCode?: number };
+      if (error.statusCode === 413) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Arquivo excede o limite de 5 MB",
+        });
+      }
+      throw err;
+    }
+
     if (!data) {
       return reply.status(400).send({
         statusCode: 400,
@@ -90,7 +104,21 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const buffer = await data.toBuffer();
+    let buffer: Buffer;
+    try {
+      buffer = await data.toBuffer();
+    } catch (err) {
+      const error = err as { statusCode?: number };
+      if (error.statusCode === 413) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Arquivo excede o limite de 5 MB",
+        });
+      }
+      throw err;
+    }
+
     if (buffer.length > 5 * 1024 * 1024) {
       return reply.status(400).send({
         statusCode: 400,

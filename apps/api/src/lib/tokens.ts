@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import type { AccessTokenPayload, RefreshTokenPayload } from "../types/fastify";
+import { AccessTokenPayload, RefreshTokenPayload } from "../types/fastify.js";
 
 export const ACCESS_TOKEN_EXPIRY = "15m";
 export const REFRESH_TOKEN_EXPIRY = "7d";
@@ -23,9 +23,9 @@ export function issueRefreshToken(
   const jti = randomUUID();
   const token = (
     fastify as FastifyInstance & {
-      refreshJwt: { sign: (payload: object, options?: object) => string };
+      refresh: { sign: (payload: object, options?: object) => string };
     }
-  ).refreshJwt.sign(
+  ).refresh.sign(
     { sub: userId, jti, type: "refresh" } satisfies RefreshTokenPayload,
     { expiresIn: REFRESH_TOKEN_EXPIRY },
   );

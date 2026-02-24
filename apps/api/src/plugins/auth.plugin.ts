@@ -36,8 +36,6 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
     secret: jwtRefreshSecret,
     sign: { algorithm: "HS256" },
     namespace: "refresh",
-    jwtVerify: "refreshVerify",
-    jwtSign: "refreshSign",
   } as Parameters<typeof fastifyJwt>[1]);
 
   // ---------------------------------------------------------------------------

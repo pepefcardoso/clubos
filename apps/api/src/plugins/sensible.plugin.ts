@@ -4,9 +4,17 @@ import type { FastifyInstance, FastifyError } from "fastify";
 async function sensiblePlugin(fastify: FastifyInstance): Promise<void> {
   fastify.setErrorHandler((unknownError, _request, reply) => {
     const error = unknownError as FastifyError;
-    const statusCode = error.statusCode ?? 500;
+    let statusCode = error.statusCode ?? 500;
 
     fastify.log.error(error);
+
+    if (statusCode === 413) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: "Bad Request",
+        message: "Arquivo excede o limite de 5 MB",
+      });
+    }
 
     if (error.validation) {
       return reply.status(400).send({

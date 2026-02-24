@@ -155,6 +155,7 @@ function makeMockPrismaForImport(
       .fn()
       .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
         const tx = {
+          $executeRawUnsafe: vi.fn().mockResolvedValue(undefined),
           member: {
             findMany: vi
               .fn()

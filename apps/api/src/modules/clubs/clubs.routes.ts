@@ -2,9 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { CreateClubSchema } from "./clubs.schema.js";
 import {
   createClub,
+  uploadClubLogo,
   DuplicateSlugError,
   DuplicateCnpjError,
+  ClubNotFoundError,
+  InvalidImageError,
 } from "./clubs.service.js";
+import type { AccessTokenPayload } from "../../types/fastify.js";
 
 export async function clubRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -43,4 +47,100 @@ export async function clubRoutes(fastify: FastifyInstance): Promise<void> {
       throw err;
     }
   });
+
+  /**
+   * POST /api/clubs/:clubId/logo
+   *
+   * Uploads, resizes (200×200px WebP), and persists the club's logo.
+   * The authenticated user's clubId (from JWT) must match the :clubId param —
+   * this enforces the tenant boundary without a separate DB lookup.
+   *
+   * Authorization: Bearer token required (ADMIN role).
+   * Content-Type: multipart/form-data (field name: "file")
+   * Max file size: 5 MB
+   * Accepted formats: JPEG, PNG, WebP, GIF
+   *
+   * Responses:
+   *   200 { logoUrl }  — upload successful
+   *   400             — missing file or multipart parse error
+   *   401             — missing / expired access token
+   *   403             — authenticated user is not ADMIN
+   *   404             — clubId not found or belongs to another tenant
+   *   422             — unsupported format or corrupt image
+   */
+  fastify.post(
+    "/:clubId/logo",
+    {
+      preHandler: [fastify.verifyAccessToken, fastify.requireRole("ADMIN")],
+    },
+    async (request, reply) => {
+      const { clubId } = request.params as { clubId: string };
+      const user = request.user as AccessTokenPayload;
+
+      let data;
+      try {
+        data = await request.file();
+      } catch (err) {
+        const error = err as { statusCode?: number };
+        if (error.statusCode === 413) {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: "Bad Request",
+            message: "Arquivo excede o limite de 5 MB",
+          });
+        }
+        throw err;
+      }
+
+      if (!data) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: "Nenhuma imagem enviada",
+        });
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = await data.toBuffer();
+      } catch (err) {
+        const error = err as { statusCode?: number };
+        if (error.statusCode === 413) {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: "Bad Request",
+            message: "Arquivo excede o limite de 5 MB",
+          });
+        }
+        throw err;
+      }
+
+      try {
+        const result = await uploadClubLogo(
+          fastify.prisma,
+          clubId,
+          user.clubId,
+          data.mimetype,
+          buffer,
+        );
+        return reply.status(200).send(result);
+      } catch (err) {
+        if (err instanceof ClubNotFoundError) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "Clube não encontrado",
+          });
+        }
+        if (err instanceof InvalidImageError) {
+          return reply.status(422).send({
+            statusCode: 422,
+            error: "Unprocessable Entity",
+            message: err.message,
+          });
+        }
+        throw err;
+      }
+    },
+  );
 }

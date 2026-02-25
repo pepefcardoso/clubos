@@ -1,11 +1,13 @@
 import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyRateLimit from "@fastify/rate-limit";
+import fastifyStatic from "@fastify/static";
 import authPlugin from "./plugins/auth.plugin.js";
 import sensiblePlugin from "./plugins/sensible.plugin.js";
 import securityHeadersPlugin from "./plugins/security-headers.plugin.js";
 import { getPrismaClient } from "./lib/prisma.js";
 import { getRedisClient } from "./lib/redis.js";
+import { getUploadDir } from "./lib/storage.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { clubRoutes } from "./modules/clubs/clubs.routes.js";
 import { protectedRoutes } from "./modules/protected.routes.js";
@@ -57,6 +59,12 @@ export async function buildApp() {
 
   await fastify.register(fastifyMultipart, {
     limits: { fileSize: 5 * 1024 * 1024 },
+  });
+
+  await fastify.register(fastifyStatic, {
+    root: getUploadDir(),
+    prefix: "/uploads/",
+    decorateReply: false,
   });
 
   await fastify.register(authPlugin);

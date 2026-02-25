@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyRateLimit from "@fastify/rate-limit";
@@ -72,6 +75,24 @@ export async function buildApp() {
   await fastify.register(authRoutes, { prefix: "/api/auth" });
 
   await fastify.register(clubRoutes, { prefix: "/api/clubs" });
+
+  fastify.get(
+    "/api/members/import/template",
+    { config: { rateLimit: false } },
+    async (_request, reply) => {
+      const currentDir = fileURLToPath(new URL(".", import.meta.url));
+      const filePath = join(currentDir, "..", "assets", "template-socios.csv");
+      const content = await readFile(filePath);
+
+      return reply
+        .header("Content-Type", "text/csv; charset=utf-8")
+        .header(
+          "Content-Disposition",
+          'attachment; filename="template-socios.csv"',
+        )
+        .send(content);
+    },
+  );
 
   await fastify.register(protectedRoutes, { prefix: "/api" });
 

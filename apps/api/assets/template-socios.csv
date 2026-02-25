@@ -1,4 +1,4 @@
 nome,cpf,telefone,email,plano_id,data_entrada
-João Silva,12345678901,11999990000,joao@email.com,,
-Maria Souza,987.654.321-00,(21) 98888-1111,,cjld2cyuq0000t3rmniod1foy,2025-01-15
+João Silva,12345678901,11999990000,joao@email.com,SEU_PLANO_ID_AQUI,2025-01-15
+Maria Souza,987.654.321-00,(21) 98888-1111,maria@email.com,,15/01/2025
 Carlos Lima,111.222.333-44,31977772222,,,

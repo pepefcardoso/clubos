@@ -148,7 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 9 | T-016 | Template CSV de exemplo para download | Independente; complementa T-012 já feito |
 | 10 | T-017 | CRUD `/api/plans` | Depende de T-001; desbloqueia cobranças e formulário de sócio |
 | 11 | T-018 | Tela de gerenciamento de planos | Depende de T-017 |
 | 12 | T-019 | Validação: clube precisa de plano ativo | Depende de T-017 |

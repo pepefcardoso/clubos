@@ -148,14 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 1 | T-047 | Pipeline CI (GitHub Actions) | Sem dependências; garante qualidade em tudo que vem depois |
-| 2 | T-045 | HTTPS / HSTS / CSP | Infra pura, sem dependências de app |
-| 3 | T-046 | Criptografia CPF/telefone (pgcrypto) | Deve ser aplicada antes de acumular mais dados em plaintext |
-| 4 | T-001 | Criar schema `clube_{id}` no onboarding | Base do multi-tenancy; desbloqueia tudo que usa `withTenantSchema` |
-| 5 | T-002 | `POST /api/clubs` | Depende de T-001 |
-| 6 | T-003 | Tela de onboarding multi-step | Depende de T-002 |
-| 7 | T-004 | Upload de logo com resize (sharp) | Depende de T-002/T-003 |
-| 8 | T-005 | E-mail de boas-vindas via Resend | Depende de T-002 |
 | 9 | T-016 | Template CSV de exemplo para download | Independente; complementa T-012 já feito |
 | 10 | T-017 | CRUD `/api/plans` | Depende de T-001; desbloqueia cobranças e formulário de sócio |
 | 11 | T-018 | Tela de gerenciamento de planos | Depende de T-017 |

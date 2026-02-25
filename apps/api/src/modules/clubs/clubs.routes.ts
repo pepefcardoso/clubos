@@ -15,6 +15,9 @@ export async function clubRoutes(fastify: FastifyInstance): Promise<void> {
    * POST /api/clubs
    * Creates a new club and provisions its tenant PostgreSQL schema.
    * Public endpoint — no JWT required (called during onboarding).
+   *
+   * Optional `adminEmail` field: when provided, a welcome email is sent
+   * via Resend after provisioning succeeds (fire-and-forget).
    */
   fastify.post("/", async (request, reply) => {
     const parsed = CreateClubSchema.safeParse(request.body);
@@ -27,7 +30,11 @@ export async function clubRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     try {
-      const club = await createClub(fastify.prisma, parsed.data);
+      const club = await createClub(
+        fastify.prisma,
+        parsed.data,
+        parsed.data.adminEmail,
+      );
       return reply.status(201).send(club);
     } catch (err) {
       if (err instanceof DuplicateSlugError) {

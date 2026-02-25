@@ -17,6 +17,7 @@ export const CreateClubSchema = z.object({
     .string()
     .regex(cnpjRegex, "CNPJ must contain exactly 14 digits (no mask)")
     .optional(),
+  adminEmail: z.email("adminEmail must be a valid email address").optional(),
 });
 
 export type CreateClubInput = z.infer<typeof CreateClubSchema>;

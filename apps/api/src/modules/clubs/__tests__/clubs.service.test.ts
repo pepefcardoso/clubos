@@ -1,8 +1,8 @@
 /**
- * Unit tests for uploadClubLogo (T-004).
+ * Unit tests for uploadClubLogo (T-004) and welcome email wiring (T-005).
  *
- * All external I/O (sharp, prisma, saveFile) is mocked so tests run without
- * a real database, filesystem, or native binaries.
+ * All external I/O (sharp, prisma, saveFile, sendEmail) is mocked so tests
+ * run without a real database, filesystem, native binaries, or email provider.
  *
  * Existing createClub tests live in a sibling describe block so both service
  * functions are covered in one file.
@@ -12,6 +12,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createClub,
   uploadClubLogo,
+  sendWelcomeEmail,
   DuplicateSlugError,
   DuplicateCnpjError,
   ClubNotFoundError,
@@ -34,6 +35,10 @@ vi.mock("../../../lib/storage.js", () => ({
   }),
 }));
 
+vi.mock("../../../lib/email.js", () => ({
+  sendEmail: vi.fn().mockResolvedValue(undefined),
+}));
+
 const sharpInstance = {
   metadata: vi.fn().mockResolvedValue({ width: 500, height: 500 }),
   resize: vi.fn().mockReturnThis(),
@@ -47,6 +52,7 @@ vi.mock("sharp", () => ({
 
 import { provisionTenantSchema } from "../../../lib/tenant-schema.js";
 import { saveFile } from "../../../lib/storage.js";
+import { sendEmail } from "../../../lib/email.js";
 import sharp from "sharp";
 
 const CLUB_ID = "clxyz1234567890abcdef";
@@ -100,6 +106,7 @@ const validInput: CreateClubInput = {
 
 beforeEach(() => {
   vi.mocked(provisionTenantSchema).mockResolvedValue(undefined);
+  vi.mocked(sendEmail).mockResolvedValue(undefined);
   sharpInstance.metadata.mockResolvedValue({ width: 500, height: 500 });
   sharpInstance.toBuffer.mockResolvedValue(Buffer.from("processed-webp"));
   vi.mocked(sharp).mockReturnValue(sharpInstance as never);
@@ -213,6 +220,96 @@ describe("createClub", () => {
       "Connection timeout",
     );
     expect(provisionTenantSchema).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call sendEmail when adminEmail is undefined", async () => {
+    const prisma = makePrisma();
+    await createClub(prisma, validInput, undefined);
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("calls sendEmail when adminEmail is provided", async () => {
+    const prisma = makePrisma();
+    await createClub(prisma, validInput, "admin@clube.com");
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(sendEmail).toHaveBeenCalledOnce();
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "admin@clube.com",
+        subject: expect.stringContaining("Clube Atlético Exemplo"),
+      }),
+    );
+  });
+
+  it("resolves successfully even when sendEmail rejects (fire-and-forget)", async () => {
+    vi.mocked(sendEmail).mockRejectedValueOnce(new Error("SMTP error"));
+
+    const prisma = makePrisma();
+    const result = await createClub(prisma, validInput, "admin@clube.com");
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(result).toMatchObject({ slug: "atletico-exemplo" });
+  });
+
+  it("does NOT send welcome email when provisionTenantSchema fails", async () => {
+    vi.mocked(provisionTenantSchema).mockRejectedValueOnce(
+      new Error("DDL failed"),
+    );
+    const prisma = makePrisma();
+
+    await createClub(prisma, validInput, "admin@clube.com").catch(() => {});
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe("sendWelcomeEmail()", () => {
+  it("calls sendEmail with to, subject, html, and text", async () => {
+    await sendWelcomeEmail("admin@clube.com", "Clube Exemplo");
+
+    expect(sendEmail).toHaveBeenCalledOnce();
+    const call = vi.mocked(sendEmail).mock.calls[0]![0];
+    expect(call.to).toBe("admin@clube.com");
+    expect(call.subject).toContain("Clube Exemplo");
+    expect(call.html).toBeTruthy();
+    expect(call.text).toBeTruthy();
+  });
+
+  it("uses APP_URL env var as dashboardUrl when set", async () => {
+    process.env["APP_URL"] = "https://custom.app.com";
+
+    await sendWelcomeEmail("admin@clube.com", "My Club");
+
+    const call = vi.mocked(sendEmail).mock.calls[0]![0];
+    expect(call.html).toContain("https://custom.app.com");
+    expect(call.text).toContain("https://custom.app.com");
+
+    delete process.env["APP_URL"];
+  });
+
+  it("falls back to the default dashboard URL when APP_URL is not set", async () => {
+    delete process.env["APP_URL"];
+
+    await sendWelcomeEmail("admin@clube.com", "My Club");
+
+    const call = vi.mocked(sendEmail).mock.calls[0]![0];
+    expect(call.html).toContain("https://app.clubos.com.br");
+  });
+
+  it("propagates errors thrown by sendEmail", async () => {
+    vi.mocked(sendEmail).mockRejectedValueOnce(new Error("Resend down"));
+
+    await expect(
+      sendWelcomeEmail("admin@clube.com", "My Club"),
+    ).rejects.toThrow("Resend down");
   });
 });
 

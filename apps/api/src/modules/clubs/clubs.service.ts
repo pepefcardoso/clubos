@@ -3,6 +3,8 @@ import type { PrismaClient } from "../../../generated/prisma/index.js";
 import { provisionTenantSchema } from "../../lib/tenant-schema.js";
 import { isPrismaUniqueConstraintError } from "../../lib/prisma.js";
 import { saveFile } from "../../lib/storage.js";
+import { sendEmail } from "../../lib/email.js";
+import { buildWelcomeEmail } from "./email-templates/welcome.js";
 import type { CreateClubInput, ClubResponse } from "./clubs.schema.js";
 
 export class DuplicateSlugError extends Error {
@@ -36,6 +38,7 @@ export class InvalidImageError extends Error {
 export async function createClub(
   prisma: PrismaClient,
   input: CreateClubInput,
+  adminEmail?: string,
 ): Promise<ClubResponse> {
   let club: ClubResponse;
 
@@ -74,7 +77,35 @@ export async function createClub(
     throw err;
   }
 
+  if (adminEmail) {
+    sendWelcomeEmail(adminEmail, club.name).catch((err) => {
+      console.warn("[email] Failed to send welcome email:", err);
+    });
+  }
+
   return club;
+}
+
+/**
+ * Sends a transactional welcome email to the club's admin after onboarding.
+ *
+ * This is fire-and-forget from the perspective of the HTTP handler —
+ * a send failure logs a warning but does NOT roll back the club creation.
+ * The club exists and is fully provisioned regardless of email delivery.
+ */
+export async function sendWelcomeEmail(
+  adminEmail: string,
+  clubName: string,
+): Promise<void> {
+  const dashboardUrl = process.env["APP_URL"] ?? "https://app.clubos.com.br";
+
+  const { subject, html, text } = buildWelcomeEmail({
+    clubName,
+    adminEmail,
+    dashboardUrl,
+  });
+
+  await sendEmail({ to: adminEmail, subject, html, text });
 }
 
 export interface UploadLogoResult {

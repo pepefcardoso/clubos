@@ -7,6 +7,7 @@ import securityHeadersPlugin from "./plugins/security-headers.plugin.js";
 import { getPrismaClient } from "./lib/prisma.js";
 import { getRedisClient } from "./lib/redis.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { clubRoutes } from "./modules/clubs/clubs.routes.js";
 import { protectedRoutes } from "./modules/protected.routes.js";
 import fastifyMultipart from "@fastify/multipart";
 
@@ -61,6 +62,8 @@ export async function buildApp() {
   await fastify.register(authPlugin);
 
   await fastify.register(authRoutes, { prefix: "/api/auth" });
+
+  await fastify.register(clubRoutes, { prefix: "/api/clubs" });
 
   await fastify.register(protectedRoutes, { prefix: "/api" });
 

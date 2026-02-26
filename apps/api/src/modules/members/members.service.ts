@@ -9,6 +9,7 @@ import {
 } from "../../lib/crypto.js";
 import type {
   CreateMemberInput,
+  UpdateMemberInput,
   ListMembersQuery,
   MemberPlanSummary,
   MemberResponse,
@@ -29,6 +30,13 @@ export class PlanNotFoundError extends Error {
   }
 }
 
+export class MemberNotFoundError extends Error {
+  constructor() {
+    super("Sócio não encontrado");
+    this.name = "MemberNotFoundError";
+  }
+}
+
 interface DecryptedMemberRow {
   id: string;
   name: string;
@@ -37,6 +45,32 @@ interface DecryptedMemberRow {
   email: string | null;
   status: string;
   joinedAt: Date;
+}
+
+async function loadActivePlans(
+  tx: PrismaClient,
+  memberIds: string[],
+): Promise<Map<string, MemberPlanSummary[]>> {
+  if (memberIds.length === 0) return new Map();
+
+  const memberPlans = await tx.memberPlan.findMany({
+    where: { memberId: { in: memberIds }, endedAt: null },
+    include: {
+      plan: { select: { id: true, name: true, priceCents: true } },
+    },
+  });
+
+  const map = new Map<string, MemberPlanSummary[]>();
+  for (const mp of memberPlans) {
+    const existing = map.get(mp.memberId) ?? [];
+    existing.push({
+      id: mp.plan.id,
+      name: mp.plan.name,
+      priceCents: mp.plan.priceCents,
+    });
+    map.set(mp.memberId, existing);
+  }
+  return map;
 }
 
 export async function createMember(
@@ -98,7 +132,7 @@ export async function createMember(
     if (input.planId) {
       const plan = await tx.plan.findUnique({
         where: { id: input.planId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, priceCents: true },
       });
       if (plan) plans.push(plan);
     }
@@ -112,6 +146,110 @@ export async function createMember(
       status: member.status,
       joinedAt: member.joinedAt,
       plans,
+    };
+  });
+}
+
+export async function getMemberById(
+  prisma: PrismaClient,
+  clubId: string,
+  memberId: string,
+): Promise<MemberResponse> {
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const member = await tx.member.findUnique({
+      where: { id: memberId },
+    });
+    if (!member) throw new MemberNotFoundError();
+
+    const [cpf, phone] = await Promise.all([
+      decryptField(tx, member.cpf),
+      decryptField(tx, member.phone),
+    ]);
+
+    const plansMap = await loadActivePlans(tx, [memberId]);
+
+    return {
+      id: member.id,
+      name: member.name,
+      cpf,
+      phone,
+      email: member.email,
+      status: member.status,
+      joinedAt: member.joinedAt,
+      plans: plansMap.get(memberId) ?? [],
+    };
+  });
+}
+
+export async function updateMember(
+  prisma: PrismaClient,
+  clubId: string,
+  actorId: string,
+  memberId: string,
+  input: UpdateMemberInput,
+): Promise<MemberResponse> {
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const existing = await tx.member.findUnique({ where: { id: memberId } });
+    if (!existing) throw new MemberNotFoundError();
+
+    const data: Record<string, unknown> = {};
+    if (input.name !== undefined) data["name"] = input.name;
+    if (input.email !== undefined) data["email"] = input.email;
+    if (input.status !== undefined) data["status"] = input.status;
+    if (input.phone !== undefined) {
+      data["phone"] = await encryptField(tx, input.phone);
+    }
+
+    const updated = await tx.member.update({
+      where: { id: memberId },
+      data: data as Parameters<typeof tx.member.update>[0]["data"],
+    });
+
+    if ("planId" in input) {
+      await tx.memberPlan.updateMany({
+        where: { memberId, endedAt: null },
+        data: { endedAt: new Date() },
+      });
+      if (input.planId != null) {
+        await tx.memberPlan.create({
+          data: { memberId, planId: input.planId },
+        });
+      }
+    }
+
+    const auditMeta: Record<string, unknown> = {};
+    if (input.name !== undefined) auditMeta["name"] = input.name;
+    if (input.email !== undefined) auditMeta["email"] = input.email;
+    if (input.phone !== undefined) auditMeta["phone"] = "[REDACTED]";
+    if (input.status !== undefined) auditMeta["status"] = input.status;
+    if ("planId" in input) auditMeta["planId"] = input.planId ?? null;
+
+    await tx.auditLog.create({
+      data: {
+        actorId,
+        action: "MEMBER_UPDATED",
+        entityId: memberId,
+        entityType: "Member",
+        metadata: auditMeta as Prisma.InputJsonValue,
+      },
+    });
+
+    const [cpf, phone] = await Promise.all([
+      decryptField(tx, updated.cpf),
+      decryptField(tx, updated.phone),
+    ]);
+
+    const plansMap = await loadActivePlans(tx, [memberId]);
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      cpf,
+      phone,
+      email: updated.email,
+      status: updated.status,
+      joinedAt: updated.joinedAt,
+      plans: plansMap.get(memberId) ?? [],
     };
   });
 }
@@ -170,25 +308,7 @@ export async function listMembers(
     ]);
 
     const memberIds = rows.map((r) => r.id);
-    const memberPlans =
-      memberIds.length > 0
-        ? await tx.memberPlan.findMany({
-            where: {
-              memberId: { in: memberIds },
-              endedAt: null,
-            },
-            include: {
-              plan: { select: { id: true, name: true } },
-            },
-          })
-        : [];
-
-    const plansByMemberId = new Map<string, MemberPlanSummary[]>();
-    for (const mp of memberPlans) {
-      const existing = plansByMemberId.get(mp.memberId) ?? [];
-      existing.push({ id: mp.plan.id, name: mp.plan.name });
-      plansByMemberId.set(mp.memberId, existing);
-    }
+    const plansMap = await loadActivePlans(tx, memberIds);
 
     const data: MemberResponse[] = rows.map((m) => ({
       id: m.id,
@@ -198,7 +318,7 @@ export async function listMembers(
       email: m.email,
       status: m.status,
       joinedAt: m.joinedAt,
-      plans: plansByMemberId.get(m.id) ?? [],
+      plans: plansMap.get(m.id) ?? [],
     }));
 
     return { data, total, page, limit };

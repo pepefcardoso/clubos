@@ -1,6 +1,6 @@
 "use client";
 
-import { Users } from "lucide-react";
+import { Users, Pencil } from "lucide-react";
 import type { MemberStatus, PaginatedResponse } from "../../../../../packages/shared-types/src/index.js";
 import type { MemberResponse } from "../../../../api/src/modules/members/members.schema";
 import { MemberStatusBadge } from "./MemberStatusBadge";
@@ -21,12 +21,13 @@ function formatDate(date: Date | string): string {
     return new Intl.DateTimeFormat("pt-BR").format(new Date(date));
 }
 
-function SkeletonRows() {
+function SkeletonRows({ hasActions }: { hasActions: boolean }) {
+    const colCount = hasActions ? 7 : 6;
     return (
         <>
             {Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-neutral-100">
-                    {Array.from({ length: 6 }).map((_, j) => (
+                    {Array.from({ length: colCount }).map((_, j) => (
                         <td key={j} className="px-4 py-3">
                             <div
                                 className="h-4 rounded bg-neutral-200 animate-pulse"
@@ -43,7 +44,7 @@ function SkeletonRows() {
 function EmptyState({ hasSearch }: { hasSearch: boolean }) {
     return (
         <tr>
-            <td colSpan={6}>
+            <td colSpan={7}>
                 <div className="py-16 text-center">
                     <Users size={48} className="mx-auto text-neutral-300 mb-3" aria-hidden="true" />
                     <p className="text-neutral-600 font-medium text-[0.9375rem]">
@@ -109,6 +110,8 @@ interface MembersTableProps {
     search: string;
     page: number;
     onPageChange: (page: number) => void;
+    /** When provided, an edit action column is rendered for each row. Pass undefined to hide it (TREASURER). */
+    onEdit?: (member: MemberResponse) => void;
 }
 
 export function MembersTable({
@@ -117,14 +120,14 @@ export function MembersTable({
     search,
     page,
     onPageChange,
+    onEdit,
 }: MembersTableProps) {
+    const hasActions = !!onEdit;
+
     return (
         <div className="rounded-md border border-neutral-200 bg-white overflow-hidden">
             <div className="overflow-x-auto">
-                <table
-                    className="w-full text-sm"
-                    aria-label="Lista de sócios"
-                >
+                <table className="w-full text-sm" aria-label="Lista de sócios">
                     <thead>
                         <tr className="bg-neutral-50 border-b border-neutral-200">
                             <th
@@ -163,11 +166,19 @@ export function MembersTable({
                             >
                                 Desde
                             </th>
+                            {hasActions && (
+                                <th
+                                    scope="col"
+                                    className="px-4 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wide"
+                                >
+                                    Ações
+                                </th>
+                            )}
                         </tr>
                     </thead>
                     <tbody>
                         {isLoading ? (
-                            <SkeletonRows />
+                            <SkeletonRows hasActions={hasActions} />
                         ) : !data || data.data.length === 0 ? (
                             <EmptyState hasSearch={!!search} />
                         ) : (
@@ -196,6 +207,20 @@ export function MembersTable({
                                     <td className="px-4 py-3 text-neutral-600">
                                         {formatDate(member.joinedAt)}
                                     </td>
+                                    {hasActions && (
+                                        <td className="px-4 py-3">
+                                            <div className="flex justify-end items-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onEdit?.(member)}
+                                                    className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
+                                                    aria-label={`Editar sócio ${member.name}`}
+                                                >
+                                                    <Pencil size={15} aria-hidden="true" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             ))
                         )}

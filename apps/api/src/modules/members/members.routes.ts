@@ -1,13 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import {
   CreateMemberSchema,
+  UpdateMemberSchema,
   ListMembersQuerySchema,
 } from "./members.schema.js";
 import {
   createMember,
   listMembers,
+  getMemberById,
+  updateMember,
   DuplicateCpfError,
   PlanNotFoundError,
+  MemberNotFoundError,
 } from "./members.service.js";
 import { importMembersFromCsv } from "./members-import.service.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
@@ -36,6 +40,7 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * POST /api/members
    * Creates a single member for the authenticated club.
+   * Accessible by both ADMIN and TREASURER.
    */
   fastify.post("/", async (request, reply) => {
     const parsed = CreateMemberSchema.safeParse(request.body);
@@ -75,6 +80,80 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
       throw err;
     }
   });
+
+  /**
+   * GET /api/members/:memberId
+   * Returns a single member with their active plan.
+   * Accessible by both ADMIN and TREASURER.
+   */
+  fastify.get("/:memberId", async (request, reply) => {
+    const { memberId } = request.params as { memberId: string };
+    const user = request.user as AccessTokenPayload;
+
+    try {
+      const member = await getMemberById(fastify.prisma, user.clubId, memberId);
+      return reply.status(200).send(member);
+    } catch (err) {
+      if (err instanceof MemberNotFoundError) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: "Sócio não encontrado",
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * PUT /api/members/:memberId
+   * Partially updates a member. Supports: name, phone, email, planId, status.
+   * CPF is immutable — it is intentionally absent from the update schema.
+   * Restricted to ADMIN role.
+   *
+   * Plan assignment:
+   *   - planId present   → ends current active MemberPlan, creates new one
+   *   - planId: null     → ends current active MemberPlan (removes plan assignment)
+   *   - planId absent    → leaves plan unchanged
+   */
+  fastify.put(
+    "/:memberId",
+    { preHandler: [fastify.requireRole("ADMIN")] },
+    async (request, reply) => {
+      const { memberId } = request.params as { memberId: string };
+
+      const parsed = UpdateMemberSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: parsed.error.issues[0]?.message ?? "Invalid input",
+        });
+      }
+
+      const user = request.user as AccessTokenPayload;
+
+      try {
+        const member = await updateMember(
+          fastify.prisma,
+          user.clubId,
+          request.actorId,
+          memberId,
+          parsed.data,
+        );
+        return reply.status(200).send(member);
+      } catch (err) {
+        if (err instanceof MemberNotFoundError) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: "Sócio não encontrado",
+          });
+        }
+        throw err;
+      }
+    },
+  );
 
   /**
    * POST /api/members/import

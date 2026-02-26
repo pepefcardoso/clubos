@@ -16,6 +16,7 @@ import { clubRoutes } from "./modules/clubs/clubs.routes.js";
 import { protectedRoutes } from "./modules/protected.routes.js";
 import { registerGateways } from "./modules/payments/gateways/index.js";
 import fastifyMultipart from "@fastify/multipart";
+import { registerJobs, closeJobs } from "./jobs/index.js";
 
 export async function buildApp() {
   const loggerOptions =
@@ -39,6 +40,8 @@ export async function buildApp() {
   fastify.decorate("redis", redis);
 
   registerGateways();
+
+  await registerJobs();
 
   await fastify.register(fastifyCors, {
     origin:
@@ -111,6 +114,7 @@ export async function buildApp() {
   fastify.addHook("onClose", async () => {
     await prisma.$disconnect();
     redis.disconnect();
+    await closeJobs();
   });
 
   return fastify;

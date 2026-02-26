@@ -268,14 +268,14 @@ describe("dispatchChargeToGateway", () => {
     const tx = buildMockTx();
     setMockTx(tx);
 
-    const error = await dispatchChargeToGateway(
+    const result = await dispatchChargeToGateway(
       PRISMA_STUB,
       CLUB_ID,
       mockCharge,
       mockMember,
     );
 
-    expect(error).toBeUndefined();
+    expect("error" in result).toBe(false);
     expect(tx.charge.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "charge-001" },
@@ -300,14 +300,17 @@ describe("dispatchChargeToGateway", () => {
     const tx = buildMockTx();
     setMockTx(tx);
 
-    const error = await dispatchChargeToGateway(
+    const result = await dispatchChargeToGateway(
       PRISMA_STUB,
       CLUB_ID,
       mockCharge,
       mockMember,
     );
 
-    expect(error).toBe("Asaas network timeout");
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toBe("Asaas network timeout");
+    }
     expect(tx.charge.update).not.toHaveBeenCalled();
   });
 
@@ -317,14 +320,14 @@ describe("dispatchChargeToGateway", () => {
     const tx = buildMockTx();
     setMockTx(tx);
 
-    const error = await dispatchChargeToGateway(
+    const result = await dispatchChargeToGateway(
       PRISMA_STUB,
       CLUB_ID,
       { ...mockCharge, method: "CASH" },
       mockMember,
     );
 
-    expect(error).toBeUndefined();
+    expect("error" in result).toBe(false);
     expect(forMethodSpy).not.toHaveBeenCalled();
     expect(tx.charge.update).not.toHaveBeenCalled();
   });
@@ -335,14 +338,14 @@ describe("dispatchChargeToGateway", () => {
     const tx = buildMockTx();
     setMockTx(tx);
 
-    const error = await dispatchChargeToGateway(
+    const result = await dispatchChargeToGateway(
       PRISMA_STUB,
       CLUB_ID,
       { ...mockCharge, method: "BANK_TRANSFER" },
       mockMember,
     );
 
-    expect(error).toBeUndefined();
+    expect("error" in result).toBe(false);
     expect(forMethodSpy).not.toHaveBeenCalled();
   });
 
@@ -370,14 +373,17 @@ describe("dispatchChargeToGateway", () => {
     const tx = buildMockTx();
     setMockTx(tx);
 
-    const error = await dispatchChargeToGateway(
+    const result = await dispatchChargeToGateway(
       PRISMA_STUB,
       CLUB_ID,
       mockCharge,
       mockMember,
     );
 
-    expect(error).toContain("No gateway registered");
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toContain("No gateway registered");
+    }
     expect(tx.charge.update).not.toHaveBeenCalled();
   });
 
@@ -403,14 +409,167 @@ describe("dispatchChargeToGateway", () => {
     const tx = buildMockTx();
     setMockTx(tx);
 
-    const error = await dispatchChargeToGateway(
+    const result = await dispatchChargeToGateway(
       PRISMA_STUB,
       CLUB_ID,
       mockCharge,
       mockMember,
     );
 
-    expect(error).toBe("Unknown gateway error");
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toBe("Unknown gateway error");
+    }
+  });
+});
+
+describe("dispatchChargeToGateway — persistence (T-022)", () => {
+  const mockCharge = {
+    id: "charge-001",
+    amountCents: 14900,
+    dueDate: new Date("2025-03-31T23:59:59.999Z"),
+    method: "PIX",
+  };
+
+  const mockMember = buildMockMemberRow("member-001", "João Silva");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(cryptoLib.decryptField)
+      .mockResolvedValueOnce("12345678900")
+      .mockResolvedValueOnce("11999990000");
+  });
+
+  it("T-022-1: persists externalId, gatewayName and gatewayMeta atomically", async () => {
+    const gateway = buildMockGateway({
+      createChargeResult: {
+        externalId: "pay_pix_xyz",
+        status: "PENDING",
+        meta: { qrCodeBase64: "abc123==", pixCopyPaste: "00020126..." },
+      },
+    });
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(gateway as never);
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    const result = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      mockCharge,
+      mockMember,
+    );
+
+    expect("error" in result).toBe(false);
+    expect(tx.charge.update).toHaveBeenCalledWith({
+      where: { id: "charge-001" },
+      data: {
+        externalId: "pay_pix_xyz",
+        gatewayName: "asaas",
+        gatewayMeta: { qrCodeBase64: "abc123==", pixCopyPaste: "00020126..." },
+      },
+    });
+  });
+
+  it("T-022-2: returns structured result with externalId, gatewayName and meta on success", async () => {
+    const meta = { qrCodeBase64: "abc123==", pixCopyPaste: "00020126..." };
+    const gateway = buildMockGateway({
+      createChargeResult: {
+        externalId: "pay_pix_xyz",
+        status: "PENDING",
+        meta,
+      },
+    });
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(gateway as never);
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    const result = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      mockCharge,
+      mockMember,
+    );
+
+    expect(result).toMatchObject({
+      externalId: "pay_pix_xyz",
+      gatewayName: "asaas",
+      meta,
+    });
+  });
+
+  it("T-022-3: DB update failure after gateway success surfaces as error containing externalId", async () => {
+    const gateway = buildMockGateway({
+      createChargeResult: {
+        externalId: "pay_pix_xyz",
+        status: "PENDING",
+        meta: { qrCodeBase64: "abc", pixCopyPaste: "00020..." },
+      },
+    });
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(gateway as never);
+
+    const tx = buildMockTx();
+    tx.charge.update = vi.fn().mockRejectedValue(new Error("DB timeout"));
+    setMockTx(tx);
+
+    const result = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      mockCharge,
+      mockMember,
+    );
+
+    expect("error" in result).toBe(true);
+    if ("error" in result) {
+      expect(result.error).toContain("DB update failed after gateway success");
+      expect(result.error).toContain("pay_pix_xyz");
+    }
+  });
+
+  it("T-022-4: CASH method returns empty meta object without calling charge.update", async () => {
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    const result = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      { ...mockCharge, method: "CASH" },
+      mockMember,
+    );
+
+    expect("error" in result).toBe(false);
+    expect(tx.charge.update).not.toHaveBeenCalled();
+  });
+
+  it("T-022-5: generated charge summary contains gatewayMeta and externalId when dispatch succeeds", async () => {
+    const meta = { qrCodeBase64: "qrbase64==", pixCopyPaste: "00020126..." };
+    const gateway = buildMockGateway({
+      createChargeResult: { externalId: "pay_123", status: "PENDING", meta },
+    });
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(gateway as never);
+
+    const members = [makeMemberPlan("m1", "Alice", 14900)];
+    const tx = buildMockTx({
+      memberPlanFindMany: members,
+      chargeCreate: {
+        id: "charge-gen-1",
+        amountCents: 14900,
+        dueDate: new Date("2025-03-31T23:59:59.999Z"),
+        method: "PIX",
+      },
+    });
+    setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
+
+    const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
+
+    expect(result.charges[0]).toMatchObject({
+      chargeId: "charge-gen-1",
+      externalId: "pay_123",
+      gatewayName: "asaas",
+      gatewayMeta: meta,
+    });
   });
 });
 

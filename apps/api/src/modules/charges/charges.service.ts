@@ -7,6 +7,7 @@ import type { PaymentMethod } from "../payments/gateway.interface.js";
 import type {
   GenerateMonthlyChargesInput,
   ChargeGenerationResult,
+  GatewayMeta,
 } from "./charges.schema.js";
 
 export { NoActivePlanError } from "../plans/plans.service.js";
@@ -23,6 +24,19 @@ export class ChargePeriodConflictError extends Error {
  * Charges created with these methods are confirmed manually by the treasurer.
  */
 const OFFLINE_METHODS = new Set<string>(["CASH", "BANK_TRANSFER"]);
+
+/**
+ * Discriminated union returned by dispatchChargeToGateway.
+ *
+ *   - Error path:   { error: string }
+ *   - Success path: { externalId, gatewayName, meta }
+ *
+ * Keeping these distinct lets callers check `'error' in result` without
+ * relying on an `undefined` sentinel, which is harder to type-narrow.
+ */
+export type DispatchResult =
+  | { error: string }
+  | { externalId: string; gatewayName: string; meta: GatewayMeta };
 
 /**
  * Returns the billing period (year + month) from an optional ISO date string.
@@ -93,12 +107,17 @@ export async function hasExistingCharge(
  *   prevents double-billing.
  * - Offline methods (CASH, BANK_TRANSFER) short-circuit immediately — no
  *   gateway required; the treasurer confirms them manually.
+ * - DB update failure after a successful gateway call is caught separately
+ *   and returned as an error with full context (externalId included) so
+ *   operators can reconcile the orphaned gateway charge via T-024 retry.
  *
  * @param prisma   - Singleton Prisma client (not a transaction).
  * @param clubId   - Tenant identifier used by withTenantSchema.
  * @param charge   - The persisted PENDING Charge row (subset of fields needed).
  * @param member   - Raw Member row with cpf/phone still encrypted as Bytes.
- * @returns        An error string if the gateway call failed, undefined on success.
+ * @returns        A DispatchResult discriminated union:
+ *                   { error } on any failure,
+ *                   { externalId, gatewayName, meta } on success.
  */
 export async function dispatchChargeToGateway(
   prisma: PrismaClient,
@@ -116,9 +135,9 @@ export async function dispatchChargeToGateway(
     phone: Uint8Array;
     email: string | null;
   },
-): Promise<string | undefined> {
+): Promise<DispatchResult> {
   if (OFFLINE_METHODS.has(charge.method)) {
-    return undefined;
+    return { externalId: "", gatewayName: "", meta: {} as GatewayMeta };
   }
 
   const [cpf, phone] = await withTenantSchema(prisma, clubId, async (tx) => {
@@ -137,12 +156,12 @@ export async function dispatchChargeToGateway(
     console.warn(
       `[charges] No gateway for method "${charge.method}" on charge ${charge.id}: ${reason}`,
     );
-    return reason;
+    return { error: reason };
   }
 
-  let result: Awaited<ReturnType<typeof gateway.createCharge>>;
+  let gatewayResult: Awaited<ReturnType<typeof gateway.createCharge>>;
   try {
-    result = await gateway.createCharge({
+    gatewayResult = await gateway.createCharge({
       amountCents: charge.amountCents,
       dueDate: charge.dueDate,
       method: charge.method as PaymentMethod,
@@ -160,21 +179,36 @@ export async function dispatchChargeToGateway(
     console.warn(
       `[charges] Gateway dispatch failed for charge ${charge.id}: ${reason}`,
     );
-    return reason;
+    return { error: reason };
   }
 
-  await withTenantSchema(prisma, clubId, async (tx) => {
-    await tx.charge.update({
-      where: { id: charge.id },
-      data: {
-        externalId: result.externalId,
-        gatewayName: gateway.name,
-        gatewayMeta: result.meta as Prisma.InputJsonValue,
-      },
-    });
-  });
+  const meta = gatewayResult.meta as GatewayMeta;
 
-  return undefined;
+  try {
+    await withTenantSchema(prisma, clubId, async (tx) => {
+      await tx.charge.update({
+        where: { id: charge.id },
+        data: {
+          externalId: gatewayResult.externalId,
+          gatewayName: gateway.name,
+          gatewayMeta: meta as Prisma.InputJsonValue,
+        },
+      });
+    });
+  } catch (dbErr) {
+    const reason =
+      dbErr instanceof Error
+        ? `DB update failed after gateway success (externalId=${gatewayResult.externalId}): ${dbErr.message}`
+        : `DB update failed after gateway success (externalId=${gatewayResult.externalId}): Unknown error`;
+    console.error(`[charges] Critical: ${reason}`);
+    return { error: reason };
+  }
+
+  return {
+    externalId: gatewayResult.externalId,
+    gatewayName: gateway.name,
+    meta,
+  };
 }
 
 /**
@@ -310,19 +344,28 @@ export async function generateMonthlyCharges(
       });
 
       if (memberRow !== null) {
-        const gatewayError = await dispatchChargeToGateway(
+        const dispatchResult = await dispatchChargeToGateway(
           prisma,
           clubId,
           createdCharge,
           memberRow,
         );
 
-        if (gatewayError !== undefined) {
+        if ("error" in dispatchResult) {
           result.gatewayErrors.push({
             chargeId: createdCharge.id,
             memberId: mp.memberId,
-            reason: gatewayError,
+            reason: dispatchResult.error,
           });
+        } else if (dispatchResult.externalId) {
+          const summary = result.charges.find(
+            (c) => c.chargeId === createdCharge!.id,
+          );
+          if (summary) {
+            summary.gatewayMeta = dispatchResult.meta;
+            summary.externalId = dispatchResult.externalId;
+            summary.gatewayName = dispatchResult.gatewayName;
+          }
         }
       }
     }

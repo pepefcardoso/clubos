@@ -148,7 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 19 | T-025 | `POST /api/charges/generate` (disparo manual) | Depende de T-020 |
 | 20 | T-026 | `POST /webhooks/:gateway` com validação HMAC | Depende de T-021 (charges existem) |
 | 21 | T-028 | Idempotência por `gateway_txid` | Depende de T-026 |
 | 22 | T-027 | Handler `PAYMENT_RECEIVED`: cria payment, atualiza charge e member | Depende de T-026, T-028 |

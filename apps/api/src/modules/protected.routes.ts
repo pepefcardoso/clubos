@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { AccessTokenPayload } from "../types/fastify.js";
 import { memberRoutes } from "./members/members.routes.js";
 import { planRoutes } from "./plans/plans.routes.js";
+import { chargeRoutes } from "./charges/charges.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -43,4 +44,5 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
 
   await fastify.register(memberRoutes, { prefix: "/members" });
   await fastify.register(planRoutes, { prefix: "/plans" });
+  await fastify.register(chargeRoutes, { prefix: "/charges" });
 }

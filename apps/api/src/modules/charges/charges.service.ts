@@ -1,6 +1,9 @@
-import type { PrismaClient } from "../../../generated/prisma/index.js";
+import type { PrismaClient, Prisma } from "../../../generated/prisma/index.js";
 import { withTenantSchema } from "../../lib/prisma.js";
+import { decryptField } from "../../lib/crypto.js";
 import { assertClubHasActivePlan } from "../plans/plans.service.js";
+import { GatewayRegistry } from "../payments/gateway.registry.js";
+import type { PaymentMethod } from "../payments/gateway.interface.js";
 import type {
   GenerateMonthlyChargesInput,
   ChargeGenerationResult,
@@ -14,6 +17,12 @@ export class ChargePeriodConflictError extends Error {
     this.name = "ChargePeriodConflictError";
   }
 }
+
+/**
+ * Payment methods that skip the external gateway.
+ * Charges created with these methods are confirmed manually by the treasurer.
+ */
+const OFFLINE_METHODS = new Set<string>(["CASH", "BANK_TRANSFER"]);
 
 /**
  * Returns the billing period (year + month) from an optional ISO date string.
@@ -69,16 +78,117 @@ export async function hasExistingCharge(
 }
 
 /**
+ * Dispatches an already-persisted PENDING charge to the appropriate payment
+ * gateway and updates the charge row with externalId, gatewayName, and
+ * gatewayMeta on success.
+ *
+ * Design decisions:
+ * - Called OUTSIDE the DB transaction that creates the charge row so a long
+ *   HTTP call to the gateway never holds a DB connection open.
+ * - Gateway failures are logged and swallowed — the charge stays PENDING and
+ *   T-024 retry logic handles recovery. Only non-retriable errors (e.g.
+ *   decryption failure, programmer error) are re-thrown.
+ * - `idempotencyKey: charge.id` is stable across retries. Asaas will return
+ *   the existing charge if the same externalReference is re-submitted, which
+ *   prevents double-billing.
+ * - Offline methods (CASH, BANK_TRANSFER) short-circuit immediately — no
+ *   gateway required; the treasurer confirms them manually.
+ *
+ * @param prisma   - Singleton Prisma client (not a transaction).
+ * @param clubId   - Tenant identifier used by withTenantSchema.
+ * @param charge   - The persisted PENDING Charge row (subset of fields needed).
+ * @param member   - Raw Member row with cpf/phone still encrypted as Bytes.
+ * @returns        An error string if the gateway call failed, undefined on success.
+ */
+export async function dispatchChargeToGateway(
+  prisma: PrismaClient,
+  clubId: string,
+  charge: {
+    id: string;
+    amountCents: number;
+    dueDate: Date;
+    method: string;
+  },
+  member: {
+    id: string;
+    name: string;
+    cpf: Uint8Array;
+    phone: Uint8Array;
+    email: string | null;
+  },
+): Promise<string | undefined> {
+  if (OFFLINE_METHODS.has(charge.method)) {
+    return undefined;
+  }
+
+  const [cpf, phone] = await withTenantSchema(prisma, clubId, async (tx) => {
+    return Promise.all([
+      decryptField(tx, member.cpf),
+      decryptField(tx, member.phone),
+    ]);
+  });
+
+  let gateway: ReturnType<typeof GatewayRegistry.forMethod>;
+  try {
+    gateway = GatewayRegistry.forMethod(charge.method as PaymentMethod);
+  } catch (err) {
+    const reason =
+      err instanceof Error ? err.message : "Unknown registry error";
+    console.warn(
+      `[charges] No gateway for method "${charge.method}" on charge ${charge.id}: ${reason}`,
+    );
+    return reason;
+  }
+
+  let result: Awaited<ReturnType<typeof gateway.createCharge>>;
+  try {
+    result = await gateway.createCharge({
+      amountCents: charge.amountCents,
+      dueDate: charge.dueDate,
+      method: charge.method as PaymentMethod,
+      customer: {
+        name: member.name,
+        cpf,
+        phone,
+        email: member.email ?? undefined,
+      },
+      description: `Mensalidade ClubOS — ${charge.dueDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`,
+      idempotencyKey: charge.id,
+    });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : "Unknown gateway error";
+    console.warn(
+      `[charges] Gateway dispatch failed for charge ${charge.id}: ${reason}`,
+    );
+    return reason;
+  }
+
+  await withTenantSchema(prisma, clubId, async (tx) => {
+    await tx.charge.update({
+      where: { id: charge.id },
+      data: {
+        externalId: result.externalId,
+        gatewayName: gateway.name,
+        gatewayMeta: result.meta as Prisma.InputJsonValue,
+      },
+    });
+  });
+
+  return undefined;
+}
+
+/**
  * Generates monthly charges for all eligible members of a club.
  *
  * Eligible members: status = ACTIVE AND have an active MemberPlan (endedAt IS NULL).
  *
- * Each charge is created in its own independent transaction so a single failure
- * does not roll back charges already committed for other members.
+ * Each charge is created in its own independent DB transaction so a single
+ * failure does not roll back charges already committed for other members.
  *
- * Gateway calls (Asaas, etc.) are intentionally out of scope here — those happen
- * in T-021. This function creates PENDING Charge rows with gatewayName = null
- * and externalId = null; T-021 picks them up and updates those fields.
+ * After committing each charge row, dispatchChargeToGateway() is called to
+ * obtain the Pix QR Code and update the charge with externalId / gatewayMeta.
+ * Gateway failures are isolated into result.gatewayErrors — they do NOT appear
+ * in result.errors and do NOT prevent other charges from being processed.
  *
  * @param prisma   - Singleton Prisma client (not a transaction).
  * @param clubId   - The authenticated club's ID.
@@ -102,6 +212,7 @@ export async function generateMonthlyCharges(
     generated: 0,
     skipped: 0,
     errors: [],
+    gatewayErrors: [],
     charges: [],
   };
 
@@ -124,8 +235,15 @@ export async function generateMonthlyCharges(
   }
 
   for (const mp of eligibleMembers) {
+    let createdCharge: {
+      id: string;
+      amountCents: number;
+      dueDate: Date;
+      method: string;
+    } | null;
+
     try {
-      await withTenantSchema(prisma, clubId, async (tx) => {
+      createdCharge = await withTenantSchema(prisma, clubId, async (tx) => {
         const alreadyCharged = await hasExistingCharge(
           tx,
           mp.memberId,
@@ -134,7 +252,7 @@ export async function generateMonthlyCharges(
         );
         if (alreadyCharged) {
           result.skipped++;
-          return;
+          return null;
         }
 
         const charge = await tx.charge.create({
@@ -170,12 +288,43 @@ export async function generateMonthlyCharges(
           amountCents: charge.amountCents,
           dueDate: charge.dueDate,
         });
+
+        return {
+          id: charge.id,
+          amountCents: charge.amountCents,
+          dueDate: charge.dueDate,
+          method: charge.method,
+        };
       });
     } catch (err) {
       result.errors.push({
         memberId: mp.memberId,
         reason: err instanceof Error ? err.message : "Unknown error",
       });
+      continue;
+    }
+
+    if (createdCharge !== null) {
+      const memberRow = await withTenantSchema(prisma, clubId, async (tx) => {
+        return tx.member.findUnique({ where: { id: mp.memberId } });
+      });
+
+      if (memberRow !== null) {
+        const gatewayError = await dispatchChargeToGateway(
+          prisma,
+          clubId,
+          createdCharge,
+          memberRow,
+        );
+
+        if (gatewayError !== undefined) {
+          result.gatewayErrors.push({
+            chargeId: createdCharge.id,
+            memberId: mp.memberId,
+            reason: gatewayError,
+          });
+        }
+      }
     }
   }
 

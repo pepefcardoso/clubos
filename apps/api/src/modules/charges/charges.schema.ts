@@ -23,6 +23,12 @@ export interface ChargeGenerationResult {
   generated: number;
   skipped: number;
   errors: Array<{ memberId: string; reason: string }>;
+  /**
+   * Gateway-level errors collected during charge dispatch.
+   * A non-empty list here means some charges were persisted as PENDING
+   * but the gateway call failed. T-024 retry logic will pick them up.
+   */
+  gatewayErrors: Array<{ chargeId: string; memberId: string; reason: string }>;
   charges: GeneratedChargeSummary[];
 }
 

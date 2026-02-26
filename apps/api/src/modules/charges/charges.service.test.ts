@@ -4,6 +4,7 @@ import {
   getBillingPeriod,
   getDefaultDueDate,
   hasExistingCharge,
+  dispatchChargeToGateway,
 } from "./charges.service.js";
 import { NoActivePlanError } from "../plans/plans.service.js";
 import { assertClubHasActivePlan } from "../plans/plans.service.js";
@@ -20,6 +21,19 @@ vi.mock("../plans/plans.service.js", () => ({
   },
 }));
 
+vi.mock("../payments/gateway.registry.js", () => ({
+  GatewayRegistry: {
+    forMethod: vi.fn(),
+  },
+}));
+
+vi.mock("../../lib/crypto.js", () => ({
+  decryptField: vi.fn(),
+  getEncryptionKey: vi
+    .fn()
+    .mockReturnValue("test-key-32-chars-minimum-length!"),
+}));
+
 let _currentMockTx: ReturnType<typeof buildMockTx>;
 
 vi.mock("../../lib/prisma.js", () => ({
@@ -32,6 +46,9 @@ vi.mock("../../lib/prisma.js", () => ({
   ),
 }));
 
+import { GatewayRegistry } from "../payments/gateway.registry.js";
+import * as cryptoLib from "../../lib/crypto.js";
+
 interface MockMemberPlan {
   memberId: string;
   member: { id: string; name: string };
@@ -43,7 +60,14 @@ function buildMockTx(
   overrides: {
     memberPlanFindMany?: MockMemberPlan[];
     chargeFindFirst?: { id: string } | null;
-    chargeCreate?: { id: string; amountCents: number; dueDate: Date };
+    chargeCreate?: {
+      id: string;
+      amountCents: number;
+      dueDate: Date;
+      method: string;
+    };
+    chargeUpdate?: object;
+    memberFindUnique?: object | null;
     auditLogCreate?: object;
     chargeCreateError?: Error;
     auditLogCreateError?: Error;
@@ -53,6 +77,7 @@ function buildMockTx(
     id: "charge-abc",
     amountCents: 9900,
     dueDate: new Date("2025-03-31T23:59:59.999Z"),
+    method: "PIX",
   };
 
   return {
@@ -70,12 +95,35 @@ function buildMockTx(
       create: overrides.chargeCreateError
         ? vi.fn().mockRejectedValue(overrides.chargeCreateError)
         : vi.fn().mockResolvedValue(overrides.chargeCreate ?? defaultCharge),
+      update: vi.fn().mockResolvedValue(overrides.chargeUpdate ?? {}),
+    },
+    member: {
+      findUnique: vi
+        .fn()
+        .mockResolvedValue(
+          overrides.memberFindUnique !== undefined
+            ? overrides.memberFindUnique
+            : buildMockMemberRow("m1", "Alice"),
+        ),
     },
     auditLog: {
       create: overrides.auditLogCreateError
         ? vi.fn().mockRejectedValue(overrides.auditLogCreateError)
         : vi.fn().mockResolvedValue({}),
     },
+  };
+}
+
+function buildMockMemberRow(id: string, name: string) {
+  return {
+    id,
+    name,
+    cpf: new Uint8Array([1, 2, 3]),
+    phone: new Uint8Array([4, 5, 6]),
+    email: `${name.toLowerCase()}@example.com`,
+    status: "ACTIVE",
+    joinedAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
@@ -90,6 +138,29 @@ function makeMemberPlan(
     member: { id: memberId, name: memberName },
     plan: { id: `plan-${memberId}`, priceCents },
     endedAt,
+  };
+}
+
+function buildMockGateway(
+  overrides: { createChargeResult?: object; createChargeError?: Error } = {},
+) {
+  return {
+    name: "asaas",
+    supportedMethods: ["PIX", "CREDIT_CARD", "DEBIT_CARD", "BOLETO"],
+    createCharge: overrides.createChargeError
+      ? vi.fn().mockRejectedValue(overrides.createChargeError)
+      : vi.fn().mockResolvedValue(
+          overrides.createChargeResult ?? {
+            externalId: "pay_abc123",
+            status: "PENDING",
+            meta: {
+              qrCodeBase64: "base64encodedstring",
+              pixCopyPaste: "00020126580014br.gov.bcb.pix...",
+            },
+          },
+        ),
+    cancelCharge: vi.fn(),
+    parseWebhook: vi.fn(),
   };
 }
 
@@ -173,10 +244,186 @@ describe("hasExistingCharge", () => {
   });
 });
 
+describe("dispatchChargeToGateway", () => {
+  const mockCharge = {
+    id: "charge-001",
+    amountCents: 14900,
+    dueDate: new Date("2025-03-31T23:59:59.999Z"),
+    method: "PIX",
+  };
+
+  const mockMember = buildMockMemberRow("member-001", "João Silva");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(cryptoLib.decryptField)
+      .mockResolvedValueOnce("12345678900")
+      .mockResolvedValueOnce("11999990000");
+  });
+
+  it("updates charge with externalId, gatewayName, and gatewayMeta on success", async () => {
+    const gateway = buildMockGateway();
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(gateway as never);
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    const error = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      mockCharge,
+      mockMember,
+    );
+
+    expect(error).toBeUndefined();
+    expect(tx.charge.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "charge-001" },
+        data: expect.objectContaining({
+          externalId: "pay_abc123",
+          gatewayName: "asaas",
+          gatewayMeta: expect.objectContaining({
+            qrCodeBase64: "base64encodedstring",
+            pixCopyPaste: "00020126580014br.gov.bcb.pix...",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("returns error string and does not throw when gateway.createCharge fails", async () => {
+    const gateway = buildMockGateway({
+      createChargeError: new Error("Asaas network timeout"),
+    });
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(gateway as never);
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    const error = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      mockCharge,
+      mockMember,
+    );
+
+    expect(error).toBe("Asaas network timeout");
+    expect(tx.charge.update).not.toHaveBeenCalled();
+  });
+
+  it("returns undefined immediately for CASH method without calling gateway", async () => {
+    const forMethodSpy = vi.mocked(GatewayRegistry.forMethod);
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    const error = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      { ...mockCharge, method: "CASH" },
+      mockMember,
+    );
+
+    expect(error).toBeUndefined();
+    expect(forMethodSpy).not.toHaveBeenCalled();
+    expect(tx.charge.update).not.toHaveBeenCalled();
+  });
+
+  it("returns undefined immediately for BANK_TRANSFER method without calling gateway", async () => {
+    const forMethodSpy = vi.mocked(GatewayRegistry.forMethod);
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    const error = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      { ...mockCharge, method: "BANK_TRANSFER" },
+      mockMember,
+    );
+
+    expect(error).toBeUndefined();
+    expect(forMethodSpy).not.toHaveBeenCalled();
+  });
+
+  it("re-throws when decryptField fails (system misconfiguration)", async () => {
+    vi.mocked(cryptoLib.decryptField).mockReset();
+    vi.mocked(cryptoLib.decryptField).mockRejectedValue(
+      new Error("pgp_sym_decrypt returned no result"),
+    );
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    await expect(
+      dispatchChargeToGateway(PRISMA_STUB, CLUB_ID, mockCharge, mockMember),
+    ).rejects.toThrow("pgp_sym_decrypt returned no result");
+  });
+
+  it("returns error string when no gateway supports the method", async () => {
+    vi.mocked(GatewayRegistry.forMethod).mockImplementation(() => {
+      throw new Error(
+        'No gateway registered that supports payment method "PIX"',
+      );
+    });
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    const error = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      mockCharge,
+      mockMember,
+    );
+
+    expect(error).toContain("No gateway registered");
+    expect(tx.charge.update).not.toHaveBeenCalled();
+  });
+
+  it("passes charge.id as the idempotencyKey to the gateway", async () => {
+    const gateway = buildMockGateway();
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(gateway as never);
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    await dispatchChargeToGateway(PRISMA_STUB, CLUB_ID, mockCharge, mockMember);
+
+    expect(gateway.createCharge).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: "charge-001" }),
+    );
+  });
+
+  it("returns 'Unknown gateway error' for non-Error throws from gateway", async () => {
+    const gateway = buildMockGateway();
+    gateway.createCharge = vi.fn().mockRejectedValue("string error");
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(gateway as never);
+
+    const tx = buildMockTx();
+    setMockTx(tx);
+
+    const error = await dispatchChargeToGateway(
+      PRISMA_STUB,
+      CLUB_ID,
+      mockCharge,
+      mockMember,
+    );
+
+    expect(error).toBe("Unknown gateway error");
+  });
+});
+
 describe("generateMonthlyCharges", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(assertClubHasActivePlan).mockResolvedValue(undefined);
+    vi.mocked(cryptoLib.decryptField)
+      .mockResolvedValueOnce("12345678900")
+      .mockResolvedValueOnce("11999990000");
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(
+      buildMockGateway() as never,
+    );
   });
 
   it("TC-1: generates charges for 3 active members with active plans", async () => {
@@ -193,9 +440,11 @@ describe("generateMonthlyCharges", () => {
         id: `charge-${++callCount}`,
         amountCents: 9900,
         dueDate: new Date("2025-03-31T23:59:59.999Z"),
+        method: "PIX",
       }),
     );
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     const result = await generateMonthlyCharges(
       PRISMA_STUB,
@@ -226,6 +475,7 @@ describe("generateMonthlyCharges", () => {
       return Promise.resolve(null);
     });
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
 
@@ -248,6 +498,7 @@ describe("generateMonthlyCharges", () => {
       return Promise.resolve(null);
     });
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
 
@@ -261,6 +512,7 @@ describe("generateMonthlyCharges", () => {
     const tx = buildMockTx({ memberPlanFindMany: members });
     tx.charge.findFirst = vi.fn().mockResolvedValue(null);
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
 
@@ -310,9 +562,11 @@ describe("generateMonthlyCharges", () => {
         id: `charge-${createCall}`,
         amountCents: 9900,
         dueDate: new Date("2025-03-31T23:59:59.999Z"),
+        method: "PIX",
       });
     });
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
 
@@ -328,6 +582,7 @@ describe("generateMonthlyCharges", () => {
     const members = [makeMemberPlan("m1", "Alice")];
     const tx = buildMockTx({ memberPlanFindMany: members });
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID, {
       billingPeriod: "2025-02-01T00:00:00.000Z",
@@ -345,6 +600,7 @@ describe("generateMonthlyCharges", () => {
     const customDue = "2025-03-15T00:00:00.000Z";
     const tx = buildMockTx({ memberPlanFindMany: members });
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID, {
       billingPeriod: "2025-03-01T00:00:00.000Z",
@@ -361,6 +617,7 @@ describe("generateMonthlyCharges", () => {
     const members = [makeMemberPlan("m1", "Alice", 9900, null)];
     const tx = buildMockTx({ memberPlanFindMany: members });
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
 
@@ -394,6 +651,7 @@ describe("generateMonthlyCharges", () => {
     const members = [makeMemberPlan("m1", "Alice", 14900)];
     const tx = buildMockTx({ memberPlanFindMany: members });
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
 
@@ -414,9 +672,15 @@ describe("generateMonthlyCharges", () => {
     const dueDate = new Date("2025-03-31T23:59:59.999Z");
     const tx = buildMockTx({
       memberPlanFindMany: members,
-      chargeCreate: { id: "charge-xyz", amountCents: 9900, dueDate },
+      chargeCreate: {
+        id: "charge-xyz",
+        amountCents: 9900,
+        dueDate,
+        method: "PIX",
+      },
     });
     setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
 
     const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
 
@@ -441,5 +705,92 @@ describe("generateMonthlyCharges", () => {
       memberId: "m1",
       reason: "Unknown error",
     });
+  });
+
+  it("TC-15 (T-021): gateway succeeds — result.gatewayErrors is empty", async () => {
+    const members = [
+      makeMemberPlan("m1", "Alice", 9900),
+      makeMemberPlan("m2", "Bob", 14900),
+    ];
+    const tx = buildMockTx({ memberPlanFindMany: members });
+    setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
+    vi.mocked(GatewayRegistry.forMethod).mockReturnValue(
+      buildMockGateway() as never,
+    );
+
+    const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
+
+    expect(result.generated).toBe(2);
+    expect(result.gatewayErrors).toHaveLength(0);
+  });
+
+  it("TC-16 (T-021): gateway failure populates gatewayErrors[], charge still counted as generated", async () => {
+    const members = [
+      makeMemberPlan("m1", "Alice"),
+      makeMemberPlan("m2", "Bob"),
+    ];
+
+    let forMethodCall = 0;
+    vi.mocked(GatewayRegistry.forMethod).mockImplementation(() => {
+      forMethodCall++;
+      if (forMethodCall === 1) {
+        return buildMockGateway({
+          createChargeError: new Error("Gateway 503"),
+        }) as never;
+      }
+      return buildMockGateway() as never;
+    });
+
+    let createCall = 0;
+    const tx = buildMockTx({ memberPlanFindMany: members });
+    tx.charge.create = vi.fn().mockImplementation(() => {
+      createCall++;
+      return Promise.resolve({
+        id: `charge-${createCall}`,
+        amountCents: 9900,
+        dueDate: new Date("2025-03-31T23:59:59.999Z"),
+        method: "PIX",
+      });
+    });
+    setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
+
+    const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
+
+    expect(result.generated).toBe(2);
+    expect(result.errors).toHaveLength(0);
+    expect(result.gatewayErrors).toHaveLength(1);
+    expect(result.gatewayErrors[0]).toMatchObject({
+      memberId: "m1",
+      reason: "Gateway 503",
+    });
+  });
+
+  it("TC-17 (T-021): null member row after charge creation gracefully skips dispatch", async () => {
+    const members = [makeMemberPlan("m1", "Alice")];
+    const tx = buildMockTx({
+      memberPlanFindMany: members,
+      memberFindUnique: null,
+    });
+    setMockTx(tx);
+    vi.mocked(cryptoLib.decryptField).mockResolvedValue("12345678900");
+
+    const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
+
+    expect(result.generated).toBe(1);
+    expect(result.errors).toHaveLength(0);
+    expect(result.gatewayErrors).toHaveLength(0);
+    expect(tx.charge.update).not.toHaveBeenCalled();
+  });
+
+  it("TC-18 (T-021): result always has gatewayErrors array even when empty", async () => {
+    const tx = buildMockTx({ memberPlanFindMany: [] });
+    setMockTx(tx);
+
+    const result = await generateMonthlyCharges(PRISMA_STUB, CLUB_ID, ACTOR_ID);
+
+    expect(Array.isArray(result.gatewayErrors)).toBe(true);
+    expect(result.gatewayErrors).toHaveLength(0);
   });
 });

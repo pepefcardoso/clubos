@@ -148,8 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 14 | T-020 | `ChargeService.generateMonthly()` | Depende de T-017 e T-019 |
-| 15 | T-021 | Integração Asaas `createCharge()` Pix + QR Code | Depende de T-020 |
 | 16 | T-022 | Salvar `externalId` e `gatewayMeta` na charge | Depende de T-021 |
 | 17 | T-023 | Job BullMQ cron dia 1 às 08h | Depende de T-020, T-021, T-022 |
 | 18 | T-024 | Retry 3x com backoff; status `PENDING_RETRY` | Depende de T-020, T-021 |

@@ -14,6 +14,7 @@ import { getUploadDir } from "./lib/storage.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { clubRoutes } from "./modules/clubs/clubs.routes.js";
 import { protectedRoutes } from "./modules/protected.routes.js";
+import { registerGateways } from "./modules/payments/gateways/index.js";
 import fastifyMultipart from "@fastify/multipart";
 
 export async function buildApp() {
@@ -36,6 +37,8 @@ export async function buildApp() {
 
   fastify.decorate("prisma", prisma);
   fastify.decorate("redis", redis);
+
+  registerGateways();
 
   await fastify.register(fastifyCors, {
     origin:

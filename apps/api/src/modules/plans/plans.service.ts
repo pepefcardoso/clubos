@@ -29,6 +29,15 @@ export class PlanHasActiveMembersError extends Error {
   }
 }
 
+export class NoActivePlanError extends Error {
+  constructor() {
+    super(
+      "O clube não possui nenhum plano ativo. Crie ao menos um plano antes de gerar cobranças.",
+    );
+    this.name = "NoActivePlanError";
+  }
+}
+
 export async function listPlans(
   prisma: PrismaClient,
   clubId: string,
@@ -152,5 +161,27 @@ export async function deletePlan(
         metadata: { name: plan.name },
       },
     });
+  });
+}
+
+/**
+ * Asserts that the given club has at least one active plan.
+ *
+ * Called by ChargeService before generating monthly charges to prevent
+ * creating charges against a club with no valid plan configuration.
+ *
+ * @throws {NoActivePlanError} when the club has zero active plans.
+ */
+export async function assertClubHasActivePlan(
+  prisma: PrismaClient,
+  clubId: string,
+): Promise<void> {
+  await withTenantSchema(prisma, clubId, async (tx) => {
+    const count = await tx.plan.count({
+      where: { isActive: true },
+    });
+    if (count === 0) {
+      throw new NoActivePlanError();
+    }
   });
 }

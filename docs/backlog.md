@@ -148,7 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 12 | T-019 | Validação: clube precisa de plano ativo | Depende de T-017 |
 | 13 | T-015 | Tela de cadastro/edição individual de sócio | Depende de T-017 (seleção de plano no form) |
 | 14 | T-020 | `ChargeService.generateMonthly()` | Depende de T-017 e T-019 |
 | 15 | T-021 | Integração Asaas `createCharge()` Pix + QR Code | Depende de T-020 |

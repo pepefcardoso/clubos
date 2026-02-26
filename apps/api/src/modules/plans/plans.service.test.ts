@@ -4,9 +4,11 @@ import {
   createPlan,
   updatePlan,
   deletePlan,
+  assertClubHasActivePlan,
   PlanNotFoundError,
   DuplicatePlanNameError,
   PlanHasActiveMembersError,
+  NoActivePlanError,
 } from "./plans.service.js";
 
 const mockTx = {
@@ -16,6 +18,7 @@ const mockTx = {
     findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    count: vi.fn(),
   },
   memberPlan: {
     count: vi.fn(),
@@ -309,5 +312,45 @@ describe("deletePlan", () => {
     ).rejects.toThrow(PlanHasActiveMembersError);
 
     expect(mockTx.plan.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("assertClubHasActivePlan", () => {
+  it("resolves without throwing when at least one active plan exists", async () => {
+    mockTx.plan.count.mockResolvedValue(2);
+    await expect(
+      assertClubHasActivePlan(mockPrisma, CLUB_ID),
+    ).resolves.toBeUndefined();
+  });
+
+  it("resolves when exactly 1 active plan exists", async () => {
+    mockTx.plan.count.mockResolvedValue(1);
+    await expect(
+      assertClubHasActivePlan(mockPrisma, CLUB_ID),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws NoActivePlanError when count is 0", async () => {
+    mockTx.plan.count.mockResolvedValue(0);
+    await expect(
+      assertClubHasActivePlan(mockPrisma, CLUB_ID),
+    ).rejects.toBeInstanceOf(NoActivePlanError);
+  });
+
+  it("queries only active plans (isActive: true)", async () => {
+    mockTx.plan.count.mockResolvedValue(1);
+    await assertClubHasActivePlan(mockPrisma, CLUB_ID);
+    expect(mockTx.plan.count).toHaveBeenCalledWith({
+      where: { isActive: true },
+    });
+  });
+
+  it("error message mentions plan creation", async () => {
+    mockTx.plan.count.mockResolvedValue(0);
+    const err = await assertClubHasActivePlan(mockPrisma, CLUB_ID).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(NoActivePlanError);
+    expect((err as NoActivePlanError).message).toMatch(/plano/i);
   });
 });

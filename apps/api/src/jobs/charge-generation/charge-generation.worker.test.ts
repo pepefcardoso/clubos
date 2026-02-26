@@ -20,6 +20,9 @@ vi.mock("../queues.js", () => ({
 }));
 
 let capturedProcessor: ((job: MockJob) => Promise<unknown>) | null = null;
+let capturedFailedHandler:
+  | ((job: MockJob | undefined, err: Error) => void | Promise<void>)
+  | null = null;
 
 vi.mock("bullmq", () => ({
   Worker: vi
@@ -28,7 +31,11 @@ vi.mock("bullmq", () => ({
       (_queueName: string, processor: (job: MockJob) => Promise<unknown>) => {
         capturedProcessor = processor;
         return {
-          on: vi.fn(),
+          on: vi.fn((event: string, handler: unknown) => {
+            if (event === "failed") {
+              capturedFailedHandler = handler as typeof capturedFailedHandler;
+            }
+          }),
           close: vi.fn(),
         };
       },
@@ -36,6 +43,7 @@ vi.mock("bullmq", () => ({
 }));
 
 const mockGenerateMonthlyCharges = vi.fn();
+const mockMarkChargesPendingRetry = vi.fn().mockResolvedValue({ updated: 0 });
 const MockNoActivePlanError = class NoActivePlanError extends Error {
   constructor() {
     super("O clube não possui nenhum plano ativo.");
@@ -45,6 +53,7 @@ const MockNoActivePlanError = class NoActivePlanError extends Error {
 
 vi.mock("../../modules/charges/charges.service.js", () => ({
   generateMonthlyCharges: mockGenerateMonthlyCharges,
+  markChargesPendingRetry: mockMarkChargesPendingRetry,
   NoActivePlanError: MockNoActivePlanError,
 }));
 
@@ -60,6 +69,7 @@ interface MockJob {
     billingPeriod?: string;
   };
   attemptsMade: number;
+  opts: { attempts?: number };
   log: ReturnType<typeof vi.fn>;
 }
 
@@ -69,6 +79,7 @@ function makeJob(overrides: Partial<MockJob> = {}): MockJob {
     name: JOB_NAMES.GENERATE_CLUB_CHARGES,
     data: { clubId: "club-abc", actorId: "system:cron" },
     attemptsMade: 1,
+    opts: { attempts: 3 },
     log: vi.fn(),
     ...overrides,
   };
@@ -89,6 +100,7 @@ describe("startChargeGenerationWorker — processor function", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     capturedProcessor = null;
+    capturedFailedHandler = null;
     startChargeGenerationWorker();
   });
 
@@ -217,5 +229,123 @@ describe("startChargeGenerationWorker — processor function", () => {
     expect(
       logCalls.some((msg) => msg?.includes("no active plan") ?? false),
     ).toBe(true);
+  });
+});
+
+describe("startChargeGenerationWorker — failed event handler", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    capturedProcessor = null;
+    capturedFailedHandler = null;
+    startChargeGenerationWorker();
+  });
+
+  it("calls markChargesPendingRetry when job is exhausted (attemptsMade >= attempts)", async () => {
+    const job = makeJob({ attemptsMade: 3, opts: { attempts: 3 } });
+
+    await capturedFailedHandler!(job, new Error("DB failure"));
+
+    expect(mockMarkChargesPendingRetry).toHaveBeenCalledWith(
+      {},
+      "club-abc",
+      undefined,
+    );
+  });
+
+  it("does NOT call markChargesPendingRetry on non-final failure", async () => {
+    const job = makeJob({ attemptsMade: 1, opts: { attempts: 3 } });
+
+    await capturedFailedHandler!(job, new Error("transient error"));
+
+    expect(mockMarkChargesPendingRetry).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call markChargesPendingRetry on second failure (still retryable)", async () => {
+    const job = makeJob({ attemptsMade: 2, opts: { attempts: 3 } });
+
+    await capturedFailedHandler!(job, new Error("second failure"));
+
+    expect(mockMarkChargesPendingRetry).not.toHaveBeenCalled();
+  });
+
+  it("passes billingPeriod from job.data to markChargesPendingRetry", async () => {
+    const job = makeJob({
+      attemptsMade: 3,
+      opts: { attempts: 3 },
+      data: {
+        clubId: "club-abc",
+        actorId: "system:cron",
+        billingPeriod: "2025-03-01T00:00:00.000Z",
+      },
+    });
+
+    await capturedFailedHandler!(job, new Error("fail"));
+
+    expect(mockMarkChargesPendingRetry).toHaveBeenCalledWith(
+      {},
+      "club-abc",
+      "2025-03-01T00:00:00.000Z",
+    );
+  });
+
+  it("does not throw when job is undefined (safe guard)", async () => {
+    await expect(
+      capturedFailedHandler!(undefined, new Error("orphan")),
+    ).resolves.not.toThrow();
+
+    expect(mockMarkChargesPendingRetry).not.toHaveBeenCalled();
+  });
+
+  it("does not propagate error when markChargesPendingRetry throws", async () => {
+    mockMarkChargesPendingRetry.mockRejectedValueOnce(new Error("DB down"));
+    const job = makeJob({ attemptsMade: 3, opts: { attempts: 3 } });
+
+    await expect(
+      capturedFailedHandler!(job, new Error("job fail")),
+    ).resolves.not.toThrow();
+  });
+
+  it("uses default attempts (3) when job.opts.attempts is undefined", async () => {
+    const job = makeJob({ attemptsMade: 3, opts: {} });
+
+    await capturedFailedHandler!(job, new Error("no attempts opt"));
+
+    expect(mockMarkChargesPendingRetry).toHaveBeenCalled();
+  });
+});
+
+describe("charge generation backoff delays (T-024)", () => {
+  const DELAYS_MS = [
+    1 * 60 * 60 * 1000,
+    6 * 60 * 60 * 1000,
+    24 * 60 * 60 * 1000,
+  ] as const;
+
+  const backoffStrategy = (attemptsMade: number): number =>
+    DELAYS_MS[attemptsMade - 1] ?? 24 * 60 * 60 * 1000;
+
+  it("returns 1h after first failure (attemptsMade=1)", () => {
+    expect(backoffStrategy(1)).toBe(1 * 60 * 60 * 1000);
+  });
+
+  it("returns 6h after second failure (attemptsMade=2)", () => {
+    expect(backoffStrategy(2)).toBe(6 * 60 * 60 * 1000);
+  });
+
+  it("returns 24h after third failure (attemptsMade=3)", () => {
+    expect(backoffStrategy(3)).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("falls back to 24h for unexpected attempt counts", () => {
+    expect(backoffStrategy(99)).toBe(24 * 60 * 60 * 1000);
+    expect(backoffStrategy(0)).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("1h delay is less than 6h delay", () => {
+    expect(backoffStrategy(1)).toBeLessThan(backoffStrategy(2));
+  });
+
+  it("6h delay is less than 24h delay", () => {
+    expect(backoffStrategy(2)).toBeLessThan(backoffStrategy(3));
   });
 });

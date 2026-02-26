@@ -92,6 +92,45 @@ export async function hasExistingCharge(
 }
 
 /**
+ * Transitions all PENDING charges in the given billing period for a club
+ * to PENDING_RETRY status.
+ *
+ * Called by the charge-generation worker when a job exhausts all retry
+ * attempts. Charges in PAID, CANCELLED, OVERDUE or PENDING_RETRY status
+ * are left untouched (WHERE clause is scoped to PENDING only).
+ *
+ * Idempotent: safe to call multiple times for the same period.
+ *
+ * @param prisma        - Singleton Prisma client (not a transaction).
+ * @param clubId        - Tenant identifier.
+ * @param billingPeriod - Optional ISO date string; defaults to current UTC month.
+ */
+export async function markChargesPendingRetry(
+  prisma: PrismaClient,
+  clubId: string,
+  billingPeriod?: string,
+): Promise<{ updated: number }> {
+  const { year, month } = getBillingPeriod(billingPeriod);
+  const periodStart = new Date(Date.UTC(year, month - 1, 1));
+  const periodEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+  const result = await withTenantSchema(prisma, clubId, async (tx) => {
+    return tx.charge.updateMany({
+      where: {
+        status: "PENDING",
+        dueDate: { gte: periodStart, lte: periodEnd },
+      },
+      data: {
+        status: "PENDING_RETRY",
+        updatedAt: new Date(),
+      },
+    });
+  });
+
+  return { updated: result.count };
+}
+
+/**
  * Dispatches an already-persisted PENDING charge to the appropriate payment
  * gateway and updates the charge row with externalId, gatewayName, and
  * gatewayMeta on success.

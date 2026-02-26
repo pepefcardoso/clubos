@@ -5,6 +5,7 @@ import {
   getDefaultDueDate,
   hasExistingCharge,
   dispatchChargeToGateway,
+  markChargesPendingRetry,
 } from "./charges.service.js";
 import { NoActivePlanError } from "../plans/plans.service.js";
 import { assertClubHasActivePlan } from "../plans/plans.service.js";
@@ -67,6 +68,7 @@ function buildMockTx(
       method: string;
     };
     chargeUpdate?: object;
+    chargeUpdateMany?: { count: number };
     memberFindUnique?: object | null;
     auditLogCreate?: object;
     chargeCreateError?: Error;
@@ -96,6 +98,9 @@ function buildMockTx(
         ? vi.fn().mockRejectedValue(overrides.chargeCreateError)
         : vi.fn().mockResolvedValue(overrides.chargeCreate ?? defaultCharge),
       update: vi.fn().mockResolvedValue(overrides.chargeUpdate ?? {}),
+      updateMany: vi
+        .fn()
+        .mockResolvedValue(overrides.chargeUpdateMany ?? { count: 0 }),
     },
     member: {
       findUnique: vi
@@ -241,6 +246,83 @@ describe("hasExistingCharge", () => {
         }),
       }),
     );
+  });
+});
+
+describe("markChargesPendingRetry", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls updateMany with status PENDING and correct date range", async () => {
+    const tx = buildMockTx({ chargeUpdateMany: { count: 3 } });
+    setMockTx(tx);
+
+    const result = await markChargesPendingRetry(
+      PRISMA_STUB,
+      CLUB_ID,
+      "2025-03-01T00:00:00.000Z",
+    );
+
+    expect(result.updated).toBe(3);
+    expect(tx.charge.updateMany).toHaveBeenCalledWith({
+      where: {
+        status: "PENDING",
+        dueDate: {
+          gte: new Date("2025-03-01T00:00:00.000Z"),
+          lte: new Date("2025-03-31T23:59:59.999Z"),
+        },
+      },
+      data: expect.objectContaining({ status: "PENDING_RETRY" }),
+    });
+  });
+
+  it("defaults to current UTC month when billingPeriod is omitted", async () => {
+    const tx = buildMockTx({ chargeUpdateMany: { count: 0 } });
+    setMockTx(tx);
+
+    await markChargesPendingRetry(PRISMA_STUB, CLUB_ID);
+
+    const now = new Date();
+    const expectedStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    expect(tx.charge.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          dueDate: expect.objectContaining({ gte: expectedStart }),
+        }),
+      }),
+    );
+  });
+
+  it("returns { updated: 0 } when no PENDING charges exist", async () => {
+    const tx = buildMockTx({ chargeUpdateMany: { count: 0 } });
+    setMockTx(tx);
+
+    const result = await markChargesPendingRetry(
+      PRISMA_STUB,
+      CLUB_ID,
+      "2025-03-01T00:00:00.000Z",
+    );
+
+    expect(result.updated).toBe(0);
+  });
+
+  it("scopes the where clause to PENDING status only", async () => {
+    const tx = buildMockTx({ chargeUpdateMany: { count: 1 } });
+    setMockTx(tx);
+
+    await markChargesPendingRetry(
+      PRISMA_STUB,
+      CLUB_ID,
+      "2025-03-01T00:00:00.000Z",
+    );
+
+    const call = tx.charge.updateMany.mock.calls[0]?.[0] as {
+      where: { status: string };
+    };
+    expect(call.where.status).toBe("PENDING");
   });
 });
 

@@ -148,8 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 17 | T-023 | Job BullMQ cron dia 1 às 08h | Depende de T-020, T-021, T-022 |
-| 18 | T-024 | Retry 3x com backoff; status `PENDING_RETRY` | Depende de T-020, T-021 |
 | 19 | T-025 | `POST /api/charges/generate` (disparo manual) | Depende de T-020 |
 | 20 | T-026 | `POST /webhooks/:gateway` com validação HMAC | Depende de T-021 (charges existem) |
 | 21 | T-028 | Idempotência por `gateway_txid` | Depende de T-026 |

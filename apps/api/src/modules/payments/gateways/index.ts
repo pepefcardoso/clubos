@@ -1,14 +1,14 @@
-import { GatewayRegistry } from "../gateway.registry";
-import { AsaasGateway } from "./asaas.gateway";
+import { GatewayRegistry } from "../gateway.registry.js";
+import { AsaasGateway } from "./asaas.gateway.js";
 
 /**
  * GATEWAY BOOTSTRAP
+ *
  * To add a new gateway:
  *   1. Create `<provider>.gateway.ts` implementing PaymentGateway
  *   2. Import it here and call GatewayRegistry.register(new ProviderGateway(...))
  *   3. Add the required env vars to .env.example
- *
- * No other file needs to change.
+ *   4. No other file needs to change.
  */
 export function registerGateways(): void {
   const asaasApiKey = process.env["ASAAS_API_KEY"];
@@ -30,5 +30,5 @@ export function registerGateways(): void {
   );
 }
 
-export { GatewayRegistry } from "../gateway.registry";
-export type { PaymentGateway, PaymentMethod } from "../gateway.interface.ts";
+export { GatewayRegistry } from "../gateway.registry.js";
+export type { PaymentGateway, PaymentMethod } from "../gateway.interface.js";

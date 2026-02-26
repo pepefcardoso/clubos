@@ -1,40 +1,44 @@
-import type { PaymentGateway, PaymentMethod } from "./gateway.interface.ts";
+import type { PaymentGateway, PaymentMethod } from "./gateway.interface.js";
 
 /**
- * Usage:
- *   // resolve by provider name (webhook routes)
- *   const gateway = GatewayRegistry.get('asaas');
+ * Central registry for all payment gateway implementations.
  *
- *   // resolve by payment method (charge creation)
+ * Usage:
+ *   // Resolve by payment method (charge creation — T-021)
  *   const gateway = GatewayRegistry.forMethod('PIX');
+ *
+ *   // Resolve by provider name (webhook routes — T-026)
+ *   const gateway = GatewayRegistry.get('asaas');
  */
 export class GatewayRegistry {
-  private static readonly store = new Map<string, PaymentGateway>();
+  /** Keyed by gateway.name (e.g. "asaas") */
+  private static readonly _byName = new Map<string, PaymentGateway>();
 
   /**
    * Registers a gateway. Throws if a gateway with the same name is already registered.
-   * Call this once at application startup.
+   * Call this once at application startup via `registerGateways()`.
    */
   static register(gateway: PaymentGateway): void {
-    if (GatewayRegistry.store.has(gateway.name)) {
+    if (GatewayRegistry._byName.has(gateway.name)) {
       throw new Error(
-        `Gateway "${gateway.name}" is already registered. ` +
-          `Each gateway name must be unique.`,
+        `Gateway "${gateway.name}" is already registered. Each gateway name must be unique.`,
       );
     }
-    GatewayRegistry.store.set(gateway.name, gateway);
+    GatewayRegistry._byName.set(gateway.name, gateway);
   }
 
   /**
-   * Resolves a gateway by its name (e.g. "asaas", "pagarme").
-   * Throws if the gateway is not registered.
+   * Resolves a gateway by its canonical name (e.g. "asaas", "pagarme").
+   * Used by the webhook route: POST /webhooks/:gateway
+   *
+   * Throws if the gateway is unknown — the route should translate this to HTTP 404.
    */
   static get(name: string): PaymentGateway {
-    const gateway = GatewayRegistry.store.get(name);
+    const gateway = GatewayRegistry._byName.get(name.toLowerCase());
     if (!gateway) {
       throw new Error(
         `Gateway "${name}" is not registered. ` +
-          `Available gateways: [${[...GatewayRegistry.store.keys()].join(", ")}]`,
+          `Available gateways: [${[...GatewayRegistry._byName.keys()].join(", ")}]`,
       );
     }
     return gateway;
@@ -44,11 +48,11 @@ export class GatewayRegistry {
    * Returns the first registered gateway that supports the given payment method.
    * Throws if no gateway supports the method.
    *
-   * For multi-gateway setups, consider extending this with priority rules
-   * or a configuration-driven method→gateway mapping.
+   * Used by ChargeService during charge creation.
+   * For multi-gateway setups, extend with priority rules or a config-driven mapping.
    */
   static forMethod(method: PaymentMethod): PaymentGateway {
-    for (const gateway of GatewayRegistry.store.values()) {
+    for (const gateway of GatewayRegistry._byName.values()) {
       if (
         (gateway.supportedMethods as ReadonlyArray<PaymentMethod>).includes(
           method,
@@ -59,7 +63,7 @@ export class GatewayRegistry {
     }
     throw new Error(
       `No gateway registered that supports payment method "${method}". ` +
-        `Available gateways: [${[...GatewayRegistry.store.keys()].join(", ")}]`,
+        `Available gateways: [${[...GatewayRegistry._byName.keys()].join(", ")}]`,
     );
   }
 
@@ -68,14 +72,14 @@ export class GatewayRegistry {
    * Useful for health checks and admin endpoints.
    */
   static list(): string[] {
-    return [...GatewayRegistry.store.keys()];
+    return [...GatewayRegistry._byName.keys()];
   }
 
   /**
    * Removes all registered gateways.
-   * Only used in tests — do not call in production code.
+   * ONLY for use in tests — do not call in production code.
    */
   static _reset(): void {
-    GatewayRegistry.store.clear();
+    GatewayRegistry._byName.clear();
   }
 }

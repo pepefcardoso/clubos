@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
+import { Queue } from "bullmq";
 import authPlugin from "./plugins/auth.plugin.js";
 import sensiblePlugin from "./plugins/sensible.plugin.js";
 import securityHeadersPlugin from "./plugins/security-headers.plugin.js";
@@ -15,6 +16,8 @@ import { authRoutes } from "./modules/auth/auth.routes.js";
 import { clubRoutes } from "./modules/clubs/clubs.routes.js";
 import { protectedRoutes } from "./modules/protected.routes.js";
 import { registerGateways } from "./modules/payments/gateways/index.js";
+import { webhookRoutes } from "./modules/webhooks/webhooks.routes.js";
+import type { WebhookJobData } from "./modules/webhooks/webhooks.service.js";
 import fastifyMultipart from "@fastify/multipart";
 import { registerJobs, closeJobs } from "./jobs/index.js";
 
@@ -41,6 +44,11 @@ export async function buildApp() {
 
   registerGateways();
 
+  const webhookQueue = new Queue<WebhookJobData>("webhook-events", {
+    connection: redis,
+  });
+  fastify.decorate("webhookQueue", webhookQueue);
+
   await registerJobs();
 
   await fastify.register(fastifyCors, {
@@ -63,7 +71,6 @@ export async function buildApp() {
   });
 
   await fastify.register(sensiblePlugin);
-
   await fastify.register(securityHeadersPlugin);
 
   await fastify.register(fastifyMultipart, {
@@ -79,8 +86,9 @@ export async function buildApp() {
   await fastify.register(authPlugin);
 
   await fastify.register(authRoutes, { prefix: "/api/auth" });
-
   await fastify.register(clubRoutes, { prefix: "/api/clubs" });
+
+  await fastify.register(webhookRoutes, { prefix: "/webhooks" });
 
   fastify.get(
     "/api/members/import/template",
@@ -114,6 +122,7 @@ export async function buildApp() {
   fastify.addHook("onClose", async () => {
     await prisma.$disconnect();
     redis.disconnect();
+    await webhookQueue.close();
     await closeJobs();
   });
 

@@ -1,5 +1,7 @@
 import type { PrismaClient } from "../../generated/prisma/index.js";
 import type { Redis } from "ioredis";
+import type { Queue } from "bullmq";
+import type { WebhookJobData } from "../modules/webhooks/webhooks.service.js";
 
 export interface AccessTokenPayload {
   sub: string;
@@ -18,7 +20,8 @@ declare module "fastify" {
   interface FastifyInstance {
     prisma: PrismaClient;
     redis: Redis;
-
+    /** BullMQ queue for incoming webhook events. Populated in buildApp(). */
+    webhookQueue: Queue<WebhookJobData>;
     /**
      * Verifies the Bearer access token from the Authorization header.
      * Populates `request.user` on success.
@@ -28,7 +31,6 @@ declare module "fastify" {
       request: import("fastify").FastifyRequest,
       reply: import("fastify").FastifyReply,
     ) => Promise<void>;
-
     /**
      * Verifies the refresh token from the httpOnly cookie.
      * Consumes the token from Redis (single-use enforcement).
@@ -39,7 +41,6 @@ declare module "fastify" {
       request: import("fastify").FastifyRequest,
       reply: import("fastify").FastifyReply,
     ) => Promise<void>;
-
     /**
      * Returns a preHandler that enforces a minimum role level.
      *
@@ -68,12 +69,10 @@ declare module "fastify" {
      * Populated after `verifyAccessToken` runs successfully.
      */
     user: AccessTokenPayload;
-
     /**
      * Populated after `verifyRefreshToken` runs successfully.
      */
     refreshPayload: RefreshTokenPayload;
-
     /**
      * Populated by the `protectedRoutes` plugin hook (after verifyAccessToken).
      * Convenience shorthand for `request.user.sub` — use this in AuditLog entries.

@@ -1,11 +1,12 @@
-import crypto from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import type {
   PaymentGateway,
   PaymentMethod,
   CreateChargeInput,
   ChargeResult,
   WebhookEvent,
-} from "../gateway.interface.ts";
+} from "../gateway.interface.js";
+import { WebhookSignatureError } from "../gateway.interface.js";
 
 interface AsaasChargePayload {
   customer?: string;
@@ -31,13 +32,13 @@ interface AsaasChargeResponse {
 
 interface AsaasWebhookPayload {
   event: string;
-  payment: {
+  payment?: {
     id: string;
     nossoNumero?: string;
-    value: number;
+    externalReference?: string;
+    value?: number;
     paymentDate?: string;
-    status: string;
-    description?: string;
+    status?: string;
   };
 }
 
@@ -50,13 +51,17 @@ const METHOD_TO_ASAAS_BILLING: Record<PaymentMethod, string | null> = {
   BANK_TRANSFER: null,
 };
 
-const ASAAS_EVENT_MAP: Record<string, WebhookEvent["type"]> = {
+/**
+ * Maps Asaas event strings to the normalised WebhookEvent['type'] union.
+ * Asaas emits both PAYMENT_RECEIVED and PAYMENT_CONFIRMED for successful
+ * payments — both map to PAYMENT_RECEIVED in our domain.
+ */
+const ASAAS_EVENT_TYPE_MAP: Record<string, WebhookEvent["type"]> = {
   PAYMENT_RECEIVED: "PAYMENT_RECEIVED",
   PAYMENT_CONFIRMED: "PAYMENT_RECEIVED",
-  PAYMENT_OVERDUE: "PAYMENT_OVERDUE",
-  PAYMENT_DELETED: "PAYMENT_CANCELLED",
   PAYMENT_REFUNDED: "PAYMENT_REFUNDED",
-  PAYMENT_CHARGEBACK_REQUESTED: "PAYMENT_CANCELLED",
+  PAYMENT_CHARGEBACK_REQUESTED: "PAYMENT_REFUNDED",
+  PAYMENT_OVERDUE: "PAYMENT_OVERDUE",
 };
 
 export class AsaasGateway implements PaymentGateway {
@@ -99,7 +104,7 @@ export class AsaasGateway implements PaymentGateway {
       externalReference: input.idempotencyKey,
     };
 
-    const response = await this.request<AsaasChargeResponse>(
+    const response = await this._request<AsaasChargeResponse>(
       "POST",
       "/payments",
       payload,
@@ -107,78 +112,76 @@ export class AsaasGateway implements PaymentGateway {
 
     return {
       externalId: response.id,
-      status: this.normalizeStatus(response.status),
-      meta: this.buildMeta(input.method, response),
+      status: this._normaliseChargeStatus(response.status),
+      meta: this._buildMeta(input.method, response),
     };
-  }
-
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-  ): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        access_token: this.apiKey,
-      },
-      body: body ? JSON.stringify(body) : null,
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`AsaasGateway request failed [${res.status}]: ${text}`);
-    }
-
-    return res.json() as Promise<T>;
   }
 
   async cancelCharge(externalId: string): Promise<void> {
-    await this.request("DELETE", `/payments/${externalId}`);
+    await this._request("DELETE", `/payments/${externalId}`);
   }
 
-  async parseWebhook(
-    payload: unknown,
-    signature: string,
-  ): Promise<WebhookEvent> {
-    this.validateSignature(payload, signature);
+  /**
+   * Validates the Asaas webhook signature and returns a normalised event.
+   *
+   * Asaas uses a shared-secret model: the configured ASAAS_WEBHOOK_SECRET is
+   * sent verbatim in the "asaas-access-token" header with every request.
+   * We compare with timingSafeEqual to prevent timing-based attacks.
+   *
+   * THROWS WebhookSignatureError  → route returns 401
+   * THROWS generic Error          → route returns 500 (unexpected parse failure)
+   */
+  parseWebhook(
+    rawBody: Buffer,
+    headers: Record<string, string | string[] | undefined>,
+  ): WebhookEvent {
+    const receivedToken = this._extractHeader(headers, "asaas-access-token");
 
-    const body = payload as AsaasWebhookPayload;
-    const eventType = ASAAS_EVENT_MAP[body.event];
+    const expectedBuf = Buffer.from(this.webhookSecret, "utf-8");
+    const receivedBuf = Buffer.from(receivedToken, "utf-8");
 
-    if (!eventType) {
-      throw new Error(`AsaasGateway: unrecognised event type "${body.event}"`);
+    const valid =
+      expectedBuf.length === receivedBuf.length &&
+      timingSafeEqual(expectedBuf, receivedBuf);
+
+    if (!valid) {
+      throw new WebhookSignatureError(this.name);
+    }
+
+    const text = rawBody.toString("utf-8");
+    let payload: AsaasWebhookPayload;
+    try {
+      payload = JSON.parse(text) as AsaasWebhookPayload;
+    } catch {
+      throw new Error(`AsaasGateway: failed to parse webhook body as JSON`);
     }
 
     return {
-      type: eventType,
-      externalId: body.payment.id,
-      gatewayTxid: body.payment.nossoNumero ?? body.payment.id,
-      amountCents: Math.round(body.payment.value * 100),
-      paidAt: body.payment.paymentDate
-        ? new Date(body.payment.paymentDate)
-        : undefined,
+      type: this._normaliseEventType(payload.event),
+      gatewayTxId: payload.payment?.nossoNumero ?? payload.payment?.id ?? "",
+      externalReference: payload.payment?.externalReference ?? undefined,
+      amountCents:
+        payload.payment?.value != null
+          ? Math.round(payload.payment.value * 100)
+          : undefined,
+      rawPayload: payload,
     };
   }
 
-  private validateSignature(payload: unknown, signature: string): void {
-    const expected = crypto
-      .createHmac("sha256", this.webhookSecret)
-      .update(JSON.stringify(payload))
-      .digest("hex");
-
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expected),
-    );
-
-    if (!isValid) {
-      throw new Error("AsaasGateway: invalid webhook signature");
-    }
+  private _extractHeader(
+    headers: Record<string, string | string[] | undefined>,
+    name: string,
+  ): string {
+    const value = headers[name];
+    if (Array.isArray(value)) return value[0] ?? "";
+    return value ?? "";
   }
 
-  private normalizeStatus(asaasStatus: string): ChargeResult["status"] {
+  private _normaliseEventType(event: string): WebhookEvent["type"] {
+    return ASAAS_EVENT_TYPE_MAP[event] ?? "UNKNOWN";
+  }
+
+  private _normaliseChargeStatus(asaasStatus: string): ChargeResult["status"] {
     switch (asaasStatus) {
       case "RECEIVED":
       case "CONFIRMED":
@@ -198,7 +201,7 @@ export class AsaasGateway implements PaymentGateway {
    * Each method produces a different shape — consumers must check
    * charges.method before reading method-specific fields.
    */
-  private buildMeta(
+  private _buildMeta(
     method: PaymentMethod,
     response: AsaasChargeResponse,
   ): Record<string, unknown> {
@@ -217,11 +220,31 @@ export class AsaasGateway implements PaymentGateway {
     }
 
     if (method === "CREDIT_CARD" || method === "DEBIT_CARD") {
-      return {
-        invoiceUrl: response.invoiceUrl,
-      };
+      return { invoiceUrl: response.invoiceUrl };
     }
 
     return {};
+  }
+
+  private async _request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        access_token: this.apiKey,
+      },
+      body: body ? JSON.stringify(body) : null,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`AsaasGateway request failed [${res.status}]: ${text}`);
+    }
+
+    return res.json() as Promise<T>;
   }
 }

@@ -15,11 +15,43 @@ export type PaymentMethod =
 
 export type ChargeExternalStatus = "PENDING" | "PAID" | "CANCELLED" | "OVERDUE";
 
-export type WebhookEventType =
-  | "PAYMENT_RECEIVED"
-  | "PAYMENT_CANCELLED"
-  | "PAYMENT_OVERDUE"
-  | "PAYMENT_REFUNDED";
+/**
+ * Thrown by PaymentGateway.parseWebhook() when the request signature
+ * does not match the expected HMAC / shared secret.
+ *
+ * Caught by the webhook route handler → HTTP 401.
+ */
+export class WebhookSignatureError extends Error {
+  constructor(gatewayName: string) {
+    super(`Invalid webhook signature from gateway "${gatewayName}"`);
+    this.name = "WebhookSignatureError";
+  }
+}
+
+/**
+ * Provider-agnostic normalised event returned by parseWebhook().
+ *
+ * Business-layer handlers (T-027 onwards) only need to deal with
+ * this shape — never with provider-specific payloads.
+ */
+export interface WebhookEvent {
+  /** Normalised event type understood by the business layer. */
+  type: "PAYMENT_RECEIVED" | "PAYMENT_REFUNDED" | "PAYMENT_OVERDUE" | "UNKNOWN";
+  /**
+   * The gateway's own transaction / charge identifier.
+   * Stored as `gatewayTxid` in the Payment row for idempotency checks (T-028).
+   */
+  gatewayTxId: string;
+  /**
+   * The internal ClubOS charge ID echoed back by the gateway
+   * (set as `externalReference` / `idempotencyKey` when creating the charge).
+   */
+  externalReference?: string | undefined;
+  /** Amount paid in cents (may be absent for non-payment events). */
+  amountCents?: number | undefined;
+  /** Original raw payload, preserved for audit / debugging. */
+  rawPayload: unknown;
+}
 
 export interface GatewayCustomer {
   name: string;
@@ -43,26 +75,33 @@ export interface ChargeResult {
   /**
    * Provider-specific metadata stored as JSONB in charges.gatewayMeta.
    * Examples:
-   *   PIX  → { qrCodeBase64, pixCopyPaste, expiresAt }
-   *   Card → { checkoutUrl }
+   *   PIX    → { qrCodeBase64, pixCopyPaste, expiresAt }
+   *   Card   → { checkoutUrl }
    *   Boleto → { barCode, pdfUrl, expiresAt }
    */
   meta: Record<string, unknown>;
 }
 
-export interface WebhookEvent {
-  type: WebhookEventType;
-  externalId: string;
-  gatewayTxid: string;
-  amountCents: number;
-  paidAt?: Date | undefined;
-  cancelReason?: string | undefined;
-}
-
 export interface PaymentGateway {
   readonly name: string;
   readonly supportedMethods: ReadonlyArray<PaymentMethod>;
+
   createCharge(input: CreateChargeInput): Promise<ChargeResult>;
+
   cancelCharge(externalId: string): Promise<void>;
-  parseWebhook(payload: unknown, signature: string): Promise<WebhookEvent>;
+
+  /**
+   * Validates the webhook signature and returns a normalised WebhookEvent.
+   *
+   * THROWS WebhookSignatureError if the signature is invalid or missing.
+   * THROWS a generic Error for unexpected parse failures (→ 500).
+   *
+   * @param rawBody  Raw request body as Buffer (before any JSON.parse).
+   *                 The webhook route captures it via addContentTypeParser.
+   * @param headers  Full request headers map from the Fastify request.
+   */
+  parseWebhook(
+    rawBody: Buffer,
+    headers: Record<string, string | string[] | undefined>,
+  ): WebhookEvent;
 }

@@ -148,7 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 23 | T-029 | Responder HTTP 200 imediato; processar em job BullMQ | Depende de T-026, T-027 |
 | 24 | T-030 | Testes de integração do webhook (payload válido/inválido) | Depende de T-026 a T-029 |
 | 25 | T-031 | `WhatsAppService` com abstração de provider | Depende de charges funcionando |
 | 26 | T-032 | Templates configuráveis (D-3, D-0, D+3) | Depende de T-031 |

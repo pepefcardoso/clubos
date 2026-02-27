@@ -403,15 +403,62 @@ describe("Webhook worker processor — idempotency (T-028 core)", () => {
     });
   });
 
-  it("returns { processed: false, reason: 'handler_pending_t027' } for non-duplicate PAYMENT_RECEIVED", async () => {
-    setupWithClubId(false);
+  it("returns { processed: true, paymentId, chargeId, ... } for non-duplicate PAYMENT_RECEIVED", async () => {
+    const { getPrismaClient } = require("../../lib/prisma.js");
+    vi.mocked(getPrismaClient).mockReturnValue({
+      club: {
+        findMany: vi.fn().mockResolvedValue([{ id: RESOLVED_CLUB_ID }]),
+      },
+    } as never);
+
+    vi.mocked(withTenantSchema).mockImplementation(
+      async (_prisma, _clubId, fn) => {
+        return fn({
+          charge: {
+            findUnique: vi.fn().mockResolvedValue({
+              id: "charge-abc",
+              memberId: "member-001",
+              amountCents: 14990,
+              method: "PIX",
+              status: "PENDING",
+            }),
+            update: vi.fn().mockResolvedValue({}),
+          },
+          member: {
+            findUnique: vi
+              .fn()
+              .mockResolvedValue({ id: "member-001", status: "ACTIVE" }),
+            update: vi.fn().mockResolvedValue({}),
+          },
+          payment: {
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({
+              id: "pay-new-001",
+              chargeId: "charge-abc",
+              paidAt: new Date(),
+              method: "PIX",
+              amountCents: 14990,
+              gatewayTxid: "txid-001",
+            }),
+          },
+          auditLog: {
+            create: vi.fn().mockResolvedValue({}),
+          },
+        } as never);
+      },
+    );
+
     startWebhookWorker();
     const processor = _capturedProcessor!;
     const job = buildJob({ clubId: RESOLVED_CLUB_ID });
     const result = await processor(job);
-    expect(result).toEqual({
-      processed: false,
-      reason: "handler_pending_t027",
+
+    expect(result).toMatchObject({
+      processed: true,
+      paymentId: "pay-new-001",
+      chargeId: "charge-abc",
+      memberId: "member-001",
+      amountCents: 14990,
     });
   });
 });

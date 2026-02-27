@@ -299,4 +299,69 @@ describe("POST /webhooks/:gateway — T-026", () => {
 
     expect(GatewayRegistry.get).toHaveBeenCalledWith("asaas");
   });
+
+  it("T-029: responds HTTP 200 before the job is processed (enqueue-then-respond contract)", async () => {
+    let resolveEnqueue!: () => void;
+    const enqueuePromise = new Promise<void>((res) => {
+      resolveEnqueue = res;
+    });
+    vi.mocked(enqueueWebhookEvent).mockReturnValueOnce(enqueuePromise);
+
+    const gateway = buildMockGateway();
+    vi.mocked(GatewayRegistry.get).mockReturnValue(gateway as never);
+
+    const responsePromise = app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": VALID_SECRET,
+      },
+      payload: VALID_ASAAS_PAYLOAD,
+    });
+
+    resolveEnqueue();
+
+    const res = await responsePromise;
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ received: true });
+  });
+
+  it("T-029: enqueues the event to the correct queue (webhook-events contract)", async () => {
+    const gateway = buildMockGateway();
+    vi.mocked(GatewayRegistry.get).mockReturnValue(gateway as never);
+
+    await app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": VALID_SECRET,
+      },
+      payload: VALID_ASAAS_PAYLOAD,
+    });
+
+    expect(enqueueWebhookEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      "asaas",
+      expect.objectContaining({ type: "PAYMENT_RECEIVED" }),
+    );
+  });
+
+  it("T-029: route returns { received: true } body shape on success", async () => {
+    const gateway = buildMockGateway();
+    vi.mocked(GatewayRegistry.get).mockReturnValue(gateway as never);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": VALID_SECRET,
+      },
+      payload: VALID_ASAAS_PAYLOAD,
+    });
+
+    expect(res.json()).toStrictEqual({ received: true });
+  });
 });

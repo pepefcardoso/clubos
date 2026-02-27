@@ -148,7 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 22 | T-027 | Handler `PAYMENT_RECEIVED`: cria payment, atualiza charge e member | Depende de T-026, T-028 |
 | 23 | T-029 | Responder HTTP 200 imediato; processar em job BullMQ | Depende de T-026, T-027 |
 | 24 | T-030 | Testes de integração do webhook (payload válido/inválido) | Depende de T-026 a T-029 |
 | 25 | T-031 | `WhatsAppService` com abstração de provider | Depende de charges funcionando |

@@ -16,6 +16,30 @@ export interface WebhookJobData {
 }
 
 /**
+ * Returned by handlePaymentReceived on success.
+ */
+export interface PaymentReceivedResult {
+  paymentId: string;
+  chargeId: string;
+  memberId: string;
+  amountCents: number;
+  memberStatusUpdated: boolean;
+}
+
+/**
+ * Thrown when the Charge referenced by the webhook cannot be found in the
+ * tenant schema. This should NOT happen in normal operations — it likely
+ * means the chargeId was corrupted or the tenant schema was migrated.
+ * Re-throw to let BullMQ retry (transient) or exhaust (permanent).
+ */
+export class ChargeNotFoundError extends Error {
+  constructor(chargeId: string) {
+    super(`Charge "${chargeId}" not found in tenant schema`);
+    this.name = "ChargeNotFoundError";
+  }
+}
+
+/**
  * Enqueues a normalised webhook event for async processing by the
  * BullMQ worker (T-027 and beyond).
  *
@@ -125,4 +149,110 @@ export async function resolveClubIdFromChargeId(
   }
 
   return null;
+}
+
+/**
+ * Handles a PAYMENT_RECEIVED webhook event.
+ *
+ * Executes atomically within a single DB transaction:
+ *   1. Loads the Charge row (throws ChargeNotFoundError if absent → retry).
+ *   2. Guard: returns early if charge is already PAID (idempotency safety net).
+ *   3. Creates the Payment row.
+ *   4. Updates Charge.status → PAID.
+ *   5. Updates Member.status → ACTIVE if it was OVERDUE.
+ *   6. Creates an AuditLog entry with action PAYMENT_CONFIRMED.
+ *
+ * Pre-conditions (enforced by the worker before this call):
+ *   - event.type === 'PAYMENT_RECEIVED'
+ *   - event.externalReference is non-null (it is the internal chargeId)
+ *   - hasExistingPayment() returned false (no duplicate Payment row)
+ *
+ * @param prisma   Singleton Prisma client.
+ * @param clubId   Tenant identifier.
+ * @param event    Normalised WebhookEvent (gatewayTxId, externalReference, amountCents).
+ * @param actorId  Actor for AuditLog. Defaults to 'system:webhook'.
+ */
+export async function handlePaymentReceived(
+  prisma: PrismaClient,
+  clubId: string,
+  event: WebhookEvent,
+  actorId = "system:webhook",
+): Promise<PaymentReceivedResult | { skipped: true; reason: string }> {
+  const chargeId = event.externalReference!;
+
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const charge = await tx.charge.findUnique({
+      where: { id: chargeId },
+      select: {
+        id: true,
+        memberId: true,
+        amountCents: true,
+        method: true,
+        status: true,
+      },
+    });
+
+    if (!charge) {
+      throw new ChargeNotFoundError(chargeId);
+    }
+
+    if (charge.status === "PAID") {
+      return { skipped: true as const, reason: "charge_already_paid" };
+    }
+
+    const payment = await tx.payment.create({
+      data: {
+        chargeId: charge.id,
+        paidAt: new Date(),
+        method: charge.method,
+        amountCents: event.amountCents ?? charge.amountCents,
+        gatewayTxid: event.gatewayTxId,
+      },
+    });
+
+    await tx.charge.update({
+      where: { id: charge.id },
+      data: { status: "PAID", updatedAt: new Date() },
+    });
+
+    const member = await tx.member.findUnique({
+      where: { id: charge.memberId },
+      select: { id: true, status: true },
+    });
+
+    let memberStatusUpdated = false;
+    if (member?.status === "OVERDUE") {
+      await tx.member.update({
+        where: { id: charge.memberId },
+        data: { status: "ACTIVE", updatedAt: new Date() },
+      });
+      memberStatusUpdated = true;
+    }
+
+    await tx.auditLog.create({
+      data: {
+        memberId: charge.memberId,
+        actorId,
+        action: "PAYMENT_CONFIRMED",
+        entityId: payment.id,
+        entityType: "Payment",
+        metadata: {
+          chargeId: charge.id,
+          paymentId: payment.id,
+          amountCents: payment.amountCents,
+          gatewayTxid: event.gatewayTxId,
+          memberStatusUpdated,
+          paidAt: payment.paidAt.toISOString(),
+        },
+      },
+    });
+
+    return {
+      paymentId: payment.id,
+      chargeId: charge.id,
+      memberId: charge.memberId,
+      amountCents: payment.amountCents,
+      memberStatusUpdated,
+    };
+  });
 }

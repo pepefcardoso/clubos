@@ -4,6 +4,7 @@ import { getPrismaClient } from "../../lib/prisma.js";
 import {
   hasExistingPayment,
   resolveClubIdFromChargeId,
+  handlePaymentReceived,
   type WebhookJobData,
 } from "./webhooks.service.js";
 
@@ -16,7 +17,7 @@ import {
  *   - Check idempotency via hasExistingPayment() before any write.
  *   - Log a clear message and return early if duplicate detected.
  *
- * T-027 will extend the processor with the full PAYMENT_RECEIVED handler
+ * T-027 extends the processor with the full PAYMENT_RECEIVED handler
  * (create Payment, update Charge, update Member status).
  *
  * Two-layer idempotency:
@@ -85,14 +86,26 @@ export function startWebhookWorker(): Worker<WebhookJobData> {
 
       if (event.type === "PAYMENT_RECEIVED") {
         job.log(
-          `[webhook-worker] PAYMENT_RECEIVED — idempotency passed for ` +
-            `gatewayTxId "${event.gatewayTxId}" (club: ${clubId}). ` +
-            `Full handler to be implemented in T-027.`,
+          `[webhook-worker] PAYMENT_RECEIVED — processing payment for ` +
+            `chargeId "${chargeId}" (club: ${clubId}, gatewayTxId: ${event.gatewayTxId})`,
         );
 
-        // TODO T-027: return handlePaymentReceived(prisma, clubId, event);
+        const result = await handlePaymentReceived(prisma, clubId, event);
 
-        return { processed: false, reason: "handler_pending_t027" };
+        if ("skipped" in result) {
+          job.log(
+            `[webhook-worker] PAYMENT_RECEIVED skipped — reason: ${result.reason} ` +
+              `(chargeId: ${chargeId})`,
+          );
+          return result;
+        }
+
+        job.log(
+          `[webhook-worker] PAYMENT_RECEIVED processed — ` +
+            `paymentId: ${result.paymentId}, amountCents: ${result.amountCents}, ` +
+            `memberStatusUpdated: ${result.memberStatusUpdated}`,
+        );
+        return { processed: true, ...result };
       }
 
       if (event.type === "PAYMENT_OVERDUE") {

@@ -20,6 +20,7 @@ import { webhookRoutes } from "./modules/webhooks/webhooks.routes.js";
 import type { WebhookJobData } from "./modules/webhooks/webhooks.service.js";
 import fastifyMultipart from "@fastify/multipart";
 import { registerJobs, closeJobs } from "./jobs/index.js";
+import { registerWhatsAppProvider } from "./modules/whatsapp/providers/index.js";
 
 export async function buildApp() {
   const loggerOptions =
@@ -43,6 +44,7 @@ export async function buildApp() {
   fastify.decorate("redis", redis);
 
   registerGateways();
+  registerWhatsAppProvider();
 
   const webhookQueue = new Queue<WebhookJobData>("webhook-events", {
     connection: redis,

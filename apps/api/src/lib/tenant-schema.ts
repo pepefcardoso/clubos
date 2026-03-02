@@ -179,6 +179,22 @@ const TENANT_TABLES_DDL = `
     CONSTRAINT "messages_pkey" PRIMARY KEY ("id")
   );
 
+  -- message_templates
+  -- Stores club-level overrides for the three billing reminder template keys.
+  -- When no row exists for a (key, channel) pair, the application falls back
+  -- to the hard-coded DEFAULT_TEMPLATES constants in templates.constants.ts.
+  CREATE TABLE IF NOT EXISTS "message_templates" (
+    "id"        TEXT             NOT NULL,
+    "key"       TEXT             NOT NULL,
+    "channel"   "MessageChannel" NOT NULL DEFAULT 'WHATSAPP',
+    "body"      TEXT             NOT NULL,
+    "isActive"  BOOLEAN          NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3)     NOT NULL,
+
+    CONSTRAINT "message_templates_pkey" PRIMARY KEY ("id")
+  );
+
   -- audit_log (FK → members, nullable)
   CREATE TABLE IF NOT EXISTS "audit_log" (
     "id"         TEXT          NOT NULL,
@@ -231,6 +247,10 @@ const TENANT_INDEXES_DDL = `
     ON "messages" ("memberId");
   CREATE INDEX IF NOT EXISTS "messages_status_idx"
     ON "messages" ("status");
+
+  -- message_templates
+  CREATE UNIQUE INDEX IF NOT EXISTS "message_templates_key_channel_key"
+    ON "message_templates" ("key", "channel");
 
   -- audit_log
   CREATE INDEX IF NOT EXISTS "audit_log_action_idx"

@@ -148,10 +148,10 @@ model User {
 // =============================================================================
 
 model Member {
-  id   String @id @default(cuid())
-  name String
-  cpf Bytes
-  phone Bytes
+  id        String       @id @default(cuid())
+  name      String
+  cpf       Bytes
+  phone     Bytes
   email     String?
   status    MemberStatus @default(ACTIVE)
   joinedAt  DateTime     @default(now())
@@ -262,6 +262,20 @@ model Message {
   @@index([memberId])
   @@index([status])
   @@map("messages")
+}
+
+model MessageTemplate {
+  id        String         @id @default(cuid())
+  key       String
+  channel   MessageChannel @default(WHATSAPP)
+  body      String
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([key, channel])
+  @@index([key])
+  @@map("message_templates")
 }
 
 model AuditLog {

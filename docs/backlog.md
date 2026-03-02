@@ -148,8 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 25 | T-031 | `WhatsAppService` com abstração de provider | Depende de charges funcionando |
-| 26 | T-032 | Templates configuráveis (D-3, D-0, D+3) | Depende de T-031 |
 | 27 | T-037 | Log de mensagens na tabela `messages` | Depende de T-031 |
 | 28 | T-035 | Rate limiter 30 msgs/min por clube (Redis) | Depende de T-031 |
 | 29 | T-033 | Job D-3: lembrete de vencimento | Depende de T-031, T-032, T-035, T-037 |

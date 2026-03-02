@@ -148,8 +148,6 @@
 
 | Ordem | ID | Task | Motivo da posição |
 |---|---|---|---|
-| 27 | T-037 | Log de mensagens na tabela `messages` | Depende de T-031 |
-| 28 | T-035 | Rate limiter 30 msgs/min por clube (Redis) | Depende de T-031 |
 | 29 | T-033 | Job D-3: lembrete de vencimento | Depende de T-031, T-032, T-035, T-037 |
 | 30 | T-034 | Job D+3: cobrança de inadimplentes | Depende de T-031, T-032, T-035, T-037 |
 | 31 | T-036 | Fallback e-mail via Resend se WhatsApp falhar | Depende de T-033, T-034 |

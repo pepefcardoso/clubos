@@ -58,3 +58,31 @@ export const billingReminderQueue = new Queue("billing-reminders", {
     },
   },
 });
+
+/**
+ * Queue for D+3 overdue notice jobs (daily dispatch + per-club WhatsApp sends).
+ *
+ * Separate from `billingReminderQueue` for:
+ * - Independent monitoring — overdue notice failures are distinct from D-3
+ *   reminder failures and must not pollute each other's metrics.
+ * - Independent retry policies and concurrency tuning.
+ * - Avoiding resource contention: the D-3 reminder cron (09:00 UTC) and the
+ *   overdue notice cron (10:00 UTC) are intentionally staggered so both queues
+ *   do not compete for per-club WhatsApp rate-limit slots simultaneously.
+ *
+ * Retry strategy (T-034):
+ *   attempt 1 fails → wait 5s → attempt 2 (exponential backoff).
+ *   Max 2 attempts — same reasoning as billing reminders (duplicate send risk).
+ */
+export const overdueNoticeQueue = new Queue("overdue-notices", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 200 },
+    removeOnFail: { count: 500 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 5_000,
+    },
+  },
+});

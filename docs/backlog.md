@@ -146,8 +146,7 @@
 | T-048 | Testes E2E com Playwright: fluxo de login, cadastro de sócio, geração de cobrança | 2d      | S3     |
 
 | Ordem | ID    | Task                                                | Motivo da posição                                                 |
-| ----- | ----- | --------------------------------------------------- | ----------------------------------------------------------------- |
-| 29    | T-033 | Job D-3: lembrete de vencimento                     | Depende de T-031, T-032, T-035, T-037                             |
+| ----- | ----- | --------------------------------------------------- | ----------------------------------------------------------------- |          |
 | 30    | T-034 | Job D+3: cobrança de inadimplentes                  | Depende de T-031, T-032, T-035, T-037                             |
 | 31    | T-036 | Fallback e-mail via Resend se WhatsApp falhar       | Depende de T-033, T-034                                           |
 | 32    | T-038 | `GET /api/dashboard/summary` (agregados por status) | Depende de T-027 (payments confirmados existem)                   |

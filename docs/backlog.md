@@ -146,8 +146,7 @@
 | T-048 | Testes E2E com Playwright: fluxo de login, cadastro de sócio, geração de cobrança | 2d      | S3     |
 
 | Ordem | ID    | Task                                                | Motivo da posição                                                 |
-| ----- | ----- | --------------------------------------------------- | ----------------------------------------------------------------- |          |                          |                                        |
-| 32    | T-038 | `GET /api/dashboard/summary` (agregados por status) | Depende de T-027 (payments confirmados existem)                   |
+| ----- | ----- | --------------------------------------------------- | ----------------------------------------------------------------- |
 | 33    | T-039 | Cards de KPI no dashboard                           | Depende de T-038                                                  |
 | 34    | T-040 | Gráfico de inadimplência 6 meses (Recharts)         | Depende de T-038                                                  |
 | 35    | T-041 | Tabela de inadimplentes + botão "Cobrar agora"      | Depende de T-038 e T-031                                          |

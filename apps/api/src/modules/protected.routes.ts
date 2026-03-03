@@ -5,6 +5,7 @@ import { planRoutes } from "./plans/plans.routes.js";
 import { chargeRoutes } from "./charges/charges.routes.js";
 import { templateRoutes } from "./templates/templates.routes.js";
 import { messageRoutes } from "./messages/messages.routes.js";
+import { dashboardRoutes } from "./dashboard/dashboard.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -49,4 +50,5 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(chargeRoutes, { prefix: "/charges" });
   await fastify.register(templateRoutes, { prefix: "/templates" });
   await fastify.register(messageRoutes, { prefix: "/messages" });
+  await fastify.register(dashboardRoutes, { prefix: "/dashboard" });
 }

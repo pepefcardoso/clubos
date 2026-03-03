@@ -19,6 +19,7 @@ import {
  *   - Idempotency via `hasRecentMessage()` (20h window)
  *   - Per-club WhatsApp rate limiting (30 msgs/min Redis sliding window)
  *   - Per-member error isolation (template render, provider failures)
+ *   - Email fallback via Resend when WhatsApp fails a 2nd time (T-036)
  *
  * Concurrency = 5 per architecture-rules.md:
  *   "Jobs de cobrança rodam com concorrência máxima de 5"
@@ -62,6 +63,7 @@ export function startBillingReminderWorker(): Worker {
           `sent: ${result.sent}, ` +
           `skipped: ${result.skipped}, ` +
           `rateLimited: ${result.rateLimited}, ` +
+          `emailFallbacks: ${result.emailFallbacks}, ` +
           `errors: ${result.errors.length}`,
       );
 
@@ -91,7 +93,7 @@ export function startBillingReminderWorker(): Worker {
     if (r) {
       console.info(
         `[d3-reminder] Job ${job.id} (club: ${job.data.clubId}) completed — ` +
-          `sent: ${r.sent}, skipped: ${r.skipped}`,
+          `sent: ${r.sent}, skipped: ${r.skipped}, emailFallbacks: ${r.emailFallbacks}`,
       );
     }
   });

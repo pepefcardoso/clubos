@@ -1,6 +1,9 @@
 import type { PrismaClient } from "../../../generated/prisma/index.js";
 import { withTenantSchema } from "../../lib/prisma.js";
-import { hasRecentMessage } from "../../modules/messages/messages.service.js";
+import {
+  hasRecentMessage,
+  countRecentFailedWhatsAppMessages,
+} from "../../modules/messages/messages.service.js";
 import { buildRenderedMessage } from "../../modules//templates/templates.service.js";
 import { sendWhatsAppMessage } from "../../modules//whatsapp/whatsapp.service.js";
 import { checkAndConsumeWhatsAppRateLimit } from "../../lib/whatsapp-rate-limit.js";
@@ -8,6 +11,7 @@ import { TEMPLATE_KEYS } from "../../modules//templates/templates.constants.js";
 import { getRedisClient } from "../../lib/redis.js";
 import type { GatewayMeta } from "../../modules//charges/charges.schema.js";
 import { getTargetDayRange } from "../job-utils.js";
+import { sendEmailFallbackMessage } from "../../modules/email/email-fallback.service.js";
 
 export { getTargetDayRange };
 
@@ -16,6 +20,7 @@ export interface ReminderResult {
   sent: number;
   skipped: number;
   rateLimited: number;
+  emailFallbacks: number;
   errors: Array<{ chargeId: string; memberId: string; reason: string }>;
 }
 
@@ -30,9 +35,16 @@ export interface ReminderResult {
  *      (idempotency guard — prevents duplicate sends on job retry).
  *   4. Per-club WhatsApp rate limit (30 msgs/min) must have an available slot.
  *
+ * Email fallback (T-036):
+ *   When a WhatsApp send fails AND the member has an email address AND there is
+ *   already at least 1 prior FAILED WhatsApp message within 48h for the same
+ *   template, an email is sent via Resend as a fallback — provided no email has
+ *   been dispatched in the last 20h.
+ *
  * Error isolation:
  *   - Template render errors are caught per-charge; others continue.
- *   - `sendWhatsAppMessage` FAILED results are recorded in `errors[]`.
+ *   - `sendWhatsAppMessage` FAILED results are recorded in `errors[]` (or escalated
+ *     to email fallback when eligible).
  *   - `decryptField` failures inside `sendWhatsAppMessage` are re-thrown so
  *     the BullMQ worker marks the job as failed (system misconfiguration).
  *   - Rate-limited charges are recorded in `errors[]` and `rateLimited` counter.
@@ -55,6 +67,7 @@ export async function sendDailyRemindersForClub(
     sent: 0,
     skipped: 0,
     rateLimited: 0,
+    emailFallbacks: 0,
     errors: [],
   };
 
@@ -66,7 +79,13 @@ export async function sendDailyRemindersForClub(
       },
       include: {
         member: {
-          select: { id: true, name: true, phone: true, status: true },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            status: true,
+          },
         },
       },
     });
@@ -142,11 +161,79 @@ export async function sendDailyRemindersForClub(
       if (sendResult.status === "SENT") {
         result.sent++;
       } else {
-        result.errors.push({
-          chargeId: charge.id,
-          memberId: member.id,
-          reason: sendResult.failReason ?? "Unknown send failure",
-        });
+        const memberEmail = member.email;
+
+        if (memberEmail) {
+          const [priorFailures, emailAlreadySent] = await Promise.all([
+            countRecentFailedWhatsAppMessages(
+              prisma,
+              clubId,
+              member.id,
+              TEMPLATE_KEYS.CHARGE_REMINDER_D3,
+              48,
+            ),
+            hasRecentMessage(
+              prisma,
+              clubId,
+              member.id,
+              TEMPLATE_KEYS.CHARGE_REMINDER_D3,
+              20,
+              "EMAIL",
+            ),
+          ]);
+
+          if (priorFailures >= 1 && !emailAlreadySent) {
+            try {
+              const fallbackResult = await sendEmailFallbackMessage(
+                prisma,
+                {
+                  clubId,
+                  memberId: member.id,
+                  memberName: member.name,
+                  memberEmail,
+                  template: TEMPLATE_KEYS.CHARGE_REMINDER_D3,
+                  charge: {
+                    amountCents: charge.amountCents,
+                    dueDate: charge.dueDate,
+                    gatewayMeta: charge.gatewayMeta as
+                      | GatewayMeta
+                      | null
+                      | undefined,
+                  },
+                },
+                "system:job:d3-reminder",
+              );
+
+              if (fallbackResult.status === "SENT") {
+                result.emailFallbacks++;
+              } else {
+                result.errors.push({
+                  chargeId: charge.id,
+                  memberId: member.id,
+                  reason: `WhatsApp FAILED; email fallback also FAILED: ${fallbackResult.failReason ?? "unknown"}`,
+                });
+              }
+            } catch (err) {
+              result.errors.push({
+                chargeId: charge.id,
+                memberId: member.id,
+                reason: `WhatsApp FAILED; email fallback threw: ${err instanceof Error ? err.message : "unknown"}`,
+              });
+            }
+          } else {
+            result.errors.push({
+              chargeId: charge.id,
+              memberId: member.id,
+              reason: sendResult.failReason ?? "Unknown send failure",
+            });
+          }
+        } else {
+          result.errors.push({
+            chargeId: charge.id,
+            memberId: member.id,
+            reason: sendResult.failReason ?? "Unknown send failure",
+          });
+        }
       }
     } catch (err) {
       throw err;

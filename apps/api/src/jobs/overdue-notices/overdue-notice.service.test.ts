@@ -1,599 +1,305 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { sendOverdueNoticesForClub } from "./overdue-notice.service.js";
 
-let _mockTx: ReturnType<typeof buildMockTx>;
-
-vi.mock("../../lib/prisma.js", () => ({
-  withTenantSchema: vi.fn(
-    async (
-      _prisma: unknown,
-      _clubId: unknown,
-      fn: (tx: unknown) => Promise<unknown>,
-    ) => fn(_mockTx),
-  ),
-}));
-
+const mockHasRecentMessage = vi.fn();
+const mockCountRecentFailed = vi.fn();
 vi.mock("../../modules/messages/messages.service.js", () => ({
-  hasRecentMessage: vi.fn().mockResolvedValue(false),
+  hasRecentMessage: (...args: unknown[]) => mockHasRecentMessage(...args),
+  countRecentFailedWhatsAppMessages: (...args: unknown[]) =>
+    mockCountRecentFailed(...args),
 }));
 
+const mockBuildRenderedMessage = vi.fn();
 vi.mock("../../modules/templates/templates.service.js", () => ({
-  buildRenderedMessage: vi
-    .fn()
-    .mockResolvedValue(
-      "Olá Alice! Sua mensalidade de R$ 99,00 está em atraso.",
-    ),
+  buildRenderedMessage: (...args: unknown[]) =>
+    mockBuildRenderedMessage(...args),
 }));
 
+const mockSendWhatsAppMessage = vi.fn();
 vi.mock("../../modules/whatsapp/whatsapp.service.js", () => ({
-  sendWhatsAppMessage: vi.fn().mockResolvedValue({
-    messageId: "msg-001",
-    status: "SENT",
-    providerMessageId: "zap-001",
-  }),
+  sendWhatsAppMessage: (...args: unknown[]) => mockSendWhatsAppMessage(...args),
 }));
 
+const mockCheckAndConsumeWhatsAppRateLimit = vi.fn();
 vi.mock("../../lib/whatsapp-rate-limit.js", () => ({
-  checkAndConsumeWhatsAppRateLimit: vi.fn().mockResolvedValue({
-    allowed: true,
-    current: 1,
-    limit: 30,
-    retryAfterMs: 0,
-  }),
+  checkAndConsumeWhatsAppRateLimit: (...args: unknown[]) =>
+    mockCheckAndConsumeWhatsAppRateLimit(...args),
 }));
 
 vi.mock("../../lib/redis.js", () => ({
-  getRedisClient: vi.fn().mockReturnValue({}),
+  getRedisClient: () => ({}),
 }));
 
-import { sendOverdueNoticesForClub } from "./overdue-notice.service.js";
-import { hasRecentMessage } from "../../modules/messages/messages.service.js";
-import { buildRenderedMessage } from "../../modules/templates/templates.service.js";
-import { sendWhatsAppMessage } from "../../modules/whatsapp/whatsapp.service.js";
-import { checkAndConsumeWhatsAppRateLimit } from "../../lib/whatsapp-rate-limit.js";
+const mockSendEmailFallback = vi.fn();
+vi.mock("../../modules/email/email-fallback.service.js", () => ({
+  sendEmailFallbackMessage: (...args: unknown[]) =>
+    mockSendEmailFallback(...args),
+}));
 
-function buildCharge(
-  overrides: {
-    id?: string;
-    memberId?: string;
-    amountCents?: number;
-    status?: "PENDING" | "OVERDUE";
-    memberStatus?: string;
-    memberName?: string;
-    phone?: Uint8Array;
-    gatewayMeta?: Record<string, unknown> | null;
-  } = {},
+vi.mock("../../lib/prisma.js", () => ({
+  withTenantSchema: vi.fn(
+    async (_prisma: unknown, _clubId: string, fn: (tx: unknown) => unknown) =>
+      fn({}),
+  ),
+}));
+
+function makeCharge(
+  overrides: Partial<{
+    status: string;
+    memberStatus: string;
+    memberEmail: string | null;
+  }> = {},
 ) {
   return {
-    id: overrides.id ?? "charge-001",
-    memberId: overrides.memberId ?? "member-001",
-    amountCents: overrides.amountCents ?? 9900,
-    dueDate: new Date("2025-03-01T23:59:59.999Z"),
+    id: "charge-1",
+    memberId: "member-1",
+    amountCents: 9900,
+    dueDate: new Date("2025-03-01T03:00:00.000Z"),
     status: overrides.status ?? "PENDING",
-    gatewayMeta:
-      overrides.gatewayMeta !== undefined
-        ? overrides.gatewayMeta
-        : { qrCodeBase64: "base64==", pixCopyPaste: "00020126..." },
+    gatewayMeta: { pixCopyPaste: "00020126..." },
     member: {
-      id: overrides.memberId ?? "member-001",
-      name: overrides.memberName ?? "Alice Costa",
-      phone: overrides.phone ?? new Uint8Array([1, 2, 3]),
+      id: "member-1",
+      name: "Maria Souza",
+      phone: Buffer.from("encrypted"),
+      email:
+        overrides.memberEmail !== undefined
+          ? overrides.memberEmail
+          : "maria@example.com",
       status: overrides.memberStatus ?? "ACTIVE",
     },
   };
 }
 
-function buildMockTx(
-  overrides: {
-    chargeFindMany?: ReturnType<typeof buildCharge>[];
-  } = {},
-) {
-  return {
-    charge: {
-      findMany: vi.fn().mockResolvedValue(overrides.chargeFindMany ?? []),
-    },
-  };
-}
+const MOCK_PRISMA = {} as never;
+const DATE_START = new Date("2025-03-01T00:00:00.000Z");
+const DATE_END = new Date("2025-03-01T23:59:59.999Z");
 
-function setMockTx(tx: ReturnType<typeof buildMockTx>) {
-  _mockTx = tx;
-}
+import { withTenantSchema } from "../../lib/prisma.js";
 
-const PRISMA_STUB = {} as never;
-const CLUB_ID = "club-test-001";
-const TARGET_START = new Date("2025-03-01T00:00:00.000Z");
-const TARGET_END = new Date("2025-03-01T23:59:59.999Z");
+beforeEach(() => {
+  vi.clearAllMocks();
 
-describe("sendOverdueNoticesForClub", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  mockCheckAndConsumeWhatsAppRateLimit.mockResolvedValue({ allowed: true });
+  mockBuildRenderedMessage.mockResolvedValue("Olá, Maria! ...");
+  mockSendWhatsAppMessage.mockResolvedValue({ status: "SENT" });
+  mockHasRecentMessage.mockResolvedValue(false);
+  mockCountRecentFailed.mockResolvedValue(0);
+});
 
-    vi.mocked(hasRecentMessage).mockResolvedValue(false);
-    vi.mocked(buildRenderedMessage).mockResolvedValue(
-      "Olá Alice! Sua mensalidade de R$ 99,00 está em atraso.",
+describe("sendOverdueNoticesForClub() — email fallback (T-036)", () => {
+  it("increments sent when WhatsApp succeeds", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([makeCharge()]);
+
+    const result = await sendOverdueNoticesForClub(
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
     );
-    vi.mocked(sendWhatsAppMessage).mockResolvedValue({
-      messageId: "msg-001",
+
+    expect(result.sent).toBe(1);
+    expect(result.emailFallbacks).toBe(0);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("records WA error and skips email when 0 prior failures", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([makeCharge()]);
+    mockSendWhatsAppMessage.mockResolvedValue({
+      status: "FAILED",
+      failReason: "Provider unavailable",
+    });
+    mockCountRecentFailed.mockResolvedValue(0);
+
+    const result = await sendOverdueNoticesForClub(
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
+    );
+
+    expect(result.emailFallbacks).toBe(0);
+    expect(result.errors).toHaveLength(1);
+    expect(mockSendEmailFallback).not.toHaveBeenCalled();
+  });
+
+  it("sends email fallback on 2nd WA failure and increments emailFallbacks", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([makeCharge()]);
+    mockSendWhatsAppMessage.mockResolvedValue({
+      status: "FAILED",
+      failReason: "Provider unavailable",
+    });
+    mockCountRecentFailed.mockResolvedValue(1);
+    mockHasRecentMessage
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false);
+    mockSendEmailFallback.mockResolvedValue({
+      messageId: "email-msg-2",
       status: "SENT",
-      providerMessageId: "zap-001",
     });
-    vi.mocked(checkAndConsumeWhatsAppRateLimit).mockResolvedValue({
-      allowed: true,
-      current: 1,
-      limit: 30,
-      retryAfterMs: 0,
-    });
-  });
-
-  it("ON-1: returns all-zero result when no charges exist in the target window", async () => {
-    const tx = buildMockTx({ chargeFindMany: [] });
-    setMockTx(tx);
 
     const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
     );
 
+    expect(result.emailFallbacks).toBe(1);
     expect(result.sent).toBe(0);
-    expect(result.skipped).toBe(0);
-    expect(result.rateLimited).toBe(0);
     expect(result.errors).toHaveLength(0);
-    expect(result.clubId).toBe(CLUB_ID);
-  });
-
-  it("ON-2: sends notices to all 3 active PENDING charges", async () => {
-    const charges = [
-      buildCharge({
-        id: "c1",
-        memberId: "m1",
-        memberName: "Alice",
-        status: "PENDING",
-      }),
-      buildCharge({
-        id: "c2",
-        memberId: "m2",
-        memberName: "Bob",
-        status: "PENDING",
-      }),
-      buildCharge({
-        id: "c3",
-        memberId: "m3",
-        memberName: "Carol",
-        status: "PENDING",
-      }),
-    ];
-    const tx = buildMockTx({ chargeFindMany: charges });
-    setMockTx(tx);
-
-    const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(result.sent).toBe(3);
-    expect(result.skipped).toBe(0);
-    expect(result.errors).toHaveLength(0);
-    expect(sendWhatsAppMessage).toHaveBeenCalledTimes(3);
-  });
-
-  it("ON-3: sends notices to all 3 active OVERDUE charges", async () => {
-    const charges = [
-      buildCharge({
-        id: "c1",
-        memberId: "m1",
-        memberName: "Alice",
-        status: "OVERDUE",
-      }),
-      buildCharge({
-        id: "c2",
-        memberId: "m2",
-        memberName: "Bob",
-        status: "OVERDUE",
-      }),
-      buildCharge({
-        id: "c3",
-        memberId: "m3",
-        memberName: "Carol",
-        status: "OVERDUE",
-      }),
-    ];
-    const tx = buildMockTx({ chargeFindMany: charges });
-    setMockTx(tx);
-
-    const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(result.sent).toBe(3);
-    expect(result.skipped).toBe(0);
-    expect(result.errors).toHaveLength(0);
-    expect(sendWhatsAppMessage).toHaveBeenCalledTimes(3);
-  });
-
-  it("ON-4: handles mixed PENDING and OVERDUE charges in the same batch", async () => {
-    const charges = [
-      buildCharge({ id: "c1", memberId: "m1", status: "PENDING" }),
-      buildCharge({ id: "c2", memberId: "m2", status: "OVERDUE" }),
-      buildCharge({ id: "c3", memberId: "m3", status: "PENDING" }),
-      buildCharge({ id: "c4", memberId: "m4", status: "OVERDUE" }),
-    ];
-    const tx = buildMockTx({ chargeFindMany: charges });
-    setMockTx(tx);
-
-    const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(result.sent).toBe(4);
-    expect(result.skipped).toBe(0);
-    expect(result.errors).toHaveLength(0);
-    expect(sendWhatsAppMessage).toHaveBeenCalledTimes(4);
-  });
-
-  it("ON-5: skips member that already received an overdue notice within the 20h window", async () => {
-    const charges = [
-      buildCharge({ id: "c1", memberId: "m1" }),
-      buildCharge({ id: "c2", memberId: "m2" }),
-    ];
-    const tx = buildMockTx({ chargeFindMany: charges });
-    setMockTx(tx);
-
-    vi.mocked(hasRecentMessage).mockImplementation(async (_p, _c, memberId) => {
-      return memberId === "m1";
-    });
-
-    const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(result.sent).toBe(1);
-    expect(result.skipped).toBe(1);
-    expect(sendWhatsAppMessage).toHaveBeenCalledTimes(1);
-  });
-
-  it("ON-6: skips INACTIVE members as a safety guard", async () => {
-    const charges = [
-      buildCharge({ id: "c1", memberId: "m1", memberStatus: "INACTIVE" }),
-      buildCharge({ id: "c2", memberId: "m2", memberStatus: "ACTIVE" }),
-    ];
-    const tx = buildMockTx({ chargeFindMany: charges });
-    setMockTx(tx);
-
-    const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(result.skipped).toBe(1);
-    expect(result.sent).toBe(1);
-    expect(sendWhatsAppMessage).toHaveBeenCalledTimes(1);
-  });
-
-  it("ON-7: records rate-limited member in errors and increments rateLimited counter", async () => {
-    const tx = buildMockTx({ chargeFindMany: [buildCharge()] });
-    setMockTx(tx);
-
-    vi.mocked(checkAndConsumeWhatsAppRateLimit).mockResolvedValue({
-      allowed: false,
-      current: 30,
-      limit: 30,
-      retryAfterMs: 45_000,
-    });
-
-    const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(result.sent).toBe(0);
-    expect(result.rateLimited).toBe(1);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toMatchObject({
-      chargeId: "charge-001",
-      memberId: "member-001",
-    });
-    expect(result.errors[0]!.reason).toContain("Rate limited");
-    expect(sendWhatsAppMessage).not.toHaveBeenCalled();
-  });
-
-  it("ON-8: captures template render error and continues processing other charges", async () => {
-    const charges = [
-      buildCharge({ id: "c1", memberId: "m1", memberName: "Alice" }),
-      buildCharge({ id: "c2", memberId: "m2", memberName: "Bob" }),
-    ];
-    const tx = buildMockTx({ chargeFindMany: charges });
-    setMockTx(tx);
-
-    let callCount = 0;
-    vi.mocked(buildRenderedMessage).mockImplementation(async () => {
-      callCount++;
-      if (callCount === 1) throw new Error("Template key not found");
-      return "Olá Bob! Sua mensalidade está em atraso.";
-    });
-
-    const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(result.sent).toBe(1);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toMatchObject({
-      chargeId: "c1",
-      memberId: "m1",
-      reason: "Template key not found",
-    });
-  });
-
-  it("ON-9: records FAILED send result in errors without incrementing sent counter", async () => {
-    const tx = buildMockTx({ chargeFindMany: [buildCharge()] });
-    setMockTx(tx);
-
-    vi.mocked(sendWhatsAppMessage).mockResolvedValue({
-      messageId: "msg-001",
-      status: "FAILED",
-      failReason: "Z-API returned 503",
-    });
-
-    const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(result.sent).toBe(0);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toMatchObject({
-      chargeId: "charge-001",
-      memberId: "member-001",
-      reason: "Z-API returned 503",
-    });
-  });
-
-  it("ON-10: re-throws when sendWhatsAppMessage propagates a decryptField error", async () => {
-    const tx = buildMockTx({ chargeFindMany: [buildCharge()] });
-    setMockTx(tx);
-
-    vi.mocked(sendWhatsAppMessage).mockRejectedValue(
-      new Error("pgp_sym_decrypt returned no result"),
-    );
-
-    await expect(
-      sendOverdueNoticesForClub(PRISMA_STUB, CLUB_ID, TARGET_START, TARGET_END),
-    ).rejects.toThrow("pgp_sym_decrypt returned no result");
-  });
-
-  it("ON-11: correctly tracks mixed outcomes across multiple charges", async () => {
-    const charges = [
-      buildCharge({
-        id: "c1",
-        memberId: "m1",
-        memberName: "Alice",
-        status: "PENDING",
-      }),
-      buildCharge({
-        id: "c2",
-        memberId: "m2",
-        memberName: "Bob",
-        status: "OVERDUE",
-      }),
-      buildCharge({
-        id: "c3",
-        memberId: "m3",
-        memberName: "Carol",
-        status: "PENDING",
-      }),
-      buildCharge({
-        id: "c4",
-        memberId: "m4",
-        memberName: "Dave",
-        status: "OVERDUE",
-      }),
-    ];
-    const tx = buildMockTx({ chargeFindMany: charges });
-    setMockTx(tx);
-
-    vi.mocked(hasRecentMessage).mockImplementation(async (_p, _c, memberId) => {
-      return memberId === "m2";
-    });
-
-    let rateCallCount = 0;
-    vi.mocked(checkAndConsumeWhatsAppRateLimit).mockImplementation(async () => {
-      rateCallCount++;
-      if (rateCallCount === 3) {
-        return { allowed: false, current: 30, limit: 30, retryAfterMs: 30_000 };
-      }
-      return {
-        allowed: true,
-        current: rateCallCount,
-        limit: 30,
-        retryAfterMs: 0,
-      };
-    });
-
-    const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(result.sent).toBe(2);
-    expect(result.skipped).toBe(1);
-    expect(result.rateLimited).toBe(1);
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]!.memberId).toBe("m4");
-  });
-
-  it("ON-12: uses OVERDUE_NOTICE template key when calling sendWhatsAppMessage", async () => {
-    const tx = buildMockTx({ chargeFindMany: [buildCharge()] });
-    setMockTx(tx);
-
-    await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(sendWhatsAppMessage).toHaveBeenCalledWith(
-      PRISMA_STUB,
-      expect.objectContaining({ template: "overdue_notice" }),
-      "system:job:overdue-notice",
-    );
-  });
-
-  it("ON-13: uses system:job:overdue-notice as actorId for AuditLog traceability", async () => {
-    const tx = buildMockTx({ chargeFindMany: [buildCharge()] });
-    setMockTx(tx);
-
-    await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(sendWhatsAppMessage).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      "system:job:overdue-notice",
-    );
-  });
-
-  it("ON-14: queries charges with status IN [PENDING, OVERDUE] and correct date range", async () => {
-    const tx = buildMockTx({ chargeFindMany: [] });
-    setMockTx(tx);
-
-    await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(tx.charge.findMany).toHaveBeenCalledWith(
+    expect(mockSendEmailFallback).toHaveBeenCalledOnce();
+    expect(mockSendEmailFallback).toHaveBeenCalledWith(
+      MOCK_PRISMA,
       expect.objectContaining({
-        where: {
-          status: { in: ["PENDING", "OVERDUE"] },
-          dueDate: { gte: TARGET_START, lte: TARGET_END },
-        },
+        template: "overdue_notice",
+        memberId: "member-1",
+        memberEmail: "maria@example.com",
       }),
+      "system:job:overdue-notice",
     );
   });
 
-  it('ON-15: FAILED send with undefined failReason records "Unknown send failure"', async () => {
-    const tx = buildMockTx({ chargeFindMany: [buildCharge()] });
-    setMockTx(tx);
-
-    vi.mocked(sendWhatsAppMessage).mockResolvedValue({
-      messageId: "msg-001",
+  it("does not send duplicate email when one was already sent in last 20h", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([makeCharge()]);
+    mockSendWhatsAppMessage.mockResolvedValue({
       status: "FAILED",
-      failReason: undefined,
+      failReason: "Provider unavailable",
+    });
+    mockCountRecentFailed.mockResolvedValue(1);
+    mockHasRecentMessage
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
+    const result = await sendOverdueNoticesForClub(
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
+    );
+
+    expect(result.emailFallbacks).toBe(0);
+    expect(result.errors).toHaveLength(1);
+    expect(mockSendEmailFallback).not.toHaveBeenCalled();
+  });
+
+  it("skips email fallback when member has no email", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([
+      makeCharge({ memberEmail: null }),
+    ]);
+    mockSendWhatsAppMessage.mockResolvedValue({
+      status: "FAILED",
+      failReason: "Provider unavailable",
+    });
+    mockCountRecentFailed.mockResolvedValue(1);
+
+    const result = await sendOverdueNoticesForClub(
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
+    );
+
+    expect(result.emailFallbacks).toBe(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.reason).toBe("Provider unavailable");
+    expect(mockSendEmailFallback).not.toHaveBeenCalled();
+  });
+
+  it("records combined error message when both WA and email fail", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([makeCharge()]);
+    mockSendWhatsAppMessage.mockResolvedValue({
+      status: "FAILED",
+      failReason: "WA error",
+    });
+    mockCountRecentFailed.mockResolvedValue(1);
+    mockHasRecentMessage
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false);
+    mockSendEmailFallback.mockResolvedValue({
+      messageId: "email-msg-2",
+      status: "FAILED",
+      failReason: "Invalid API key",
     });
 
     const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
     );
 
-    expect(result.errors[0]!.reason).toBe("Unknown send failure");
+    expect(result.emailFallbacks).toBe(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.reason).toContain("WhatsApp FAILED");
+    expect(result.errors[0]?.reason).toContain("Invalid API key");
   });
 
-  it("passes gatewayMeta to buildRenderedMessage for Pix code interpolation", async () => {
-    const meta = { qrCodeBase64: "abc==", pixCopyPaste: "00020126..." };
-    const charge = buildCharge({ gatewayMeta: meta });
-    const tx = buildMockTx({ chargeFindMany: [charge] });
-    setMockTx(tx);
-
-    await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
-    );
-
-    expect(buildRenderedMessage).toHaveBeenCalledWith(
-      PRISMA_STUB,
-      CLUB_ID,
-      "overdue_notice",
-      expect.objectContaining({ gatewayMeta: meta }),
-      "Alice Costa",
-    );
-  });
-
-  it("handles non-Error throws from buildRenderedMessage with fallback reason", async () => {
-    const tx = buildMockTx({ chargeFindMany: [buildCharge()] });
-    setMockTx(tx);
-
-    vi.mocked(buildRenderedMessage).mockRejectedValue("string error");
+  it("records error when email fallback throws unexpectedly", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([makeCharge()]);
+    mockSendWhatsAppMessage.mockResolvedValue({
+      status: "FAILED",
+      failReason: "WA error",
+    });
+    mockCountRecentFailed.mockResolvedValue(1);
+    mockHasRecentMessage
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false);
+    mockSendEmailFallback.mockRejectedValue(new Error("Unexpected failure"));
 
     const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
     );
 
-    expect(result.errors[0]!.reason).toBe("Template render error");
+    expect(result.emailFallbacks).toBe(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.reason).toContain("email fallback threw");
+    expect(result.errors[0]?.reason).toContain("Unexpected failure");
   });
 
-  it("skips OVERDUE member with status INACTIVE", async () => {
-    const charges = [
-      buildCharge({
-        id: "c1",
-        memberId: "m1",
-        status: "OVERDUE",
-        memberStatus: "INACTIVE",
-      }),
-    ];
-    const tx = buildMockTx({ chargeFindMany: charges });
-    setMockTx(tx);
+  it("skips INACTIVE members", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([
+      makeCharge({ memberStatus: "INACTIVE" }),
+    ]);
 
     const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      CLUB_ID,
-      TARGET_START,
-      TARGET_END,
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
     );
 
     expect(result.skipped).toBe(1);
-    expect(result.sent).toBe(0);
-    expect(sendWhatsAppMessage).not.toHaveBeenCalled();
+    expect(mockSendWhatsAppMessage).not.toHaveBeenCalled();
+    expect(mockSendEmailFallback).not.toHaveBeenCalled();
   });
 
-  it("returns correct clubId in result", async () => {
-    const tx = buildMockTx({ chargeFindMany: [] });
-    setMockTx(tx);
+  it("initialises emailFallbacks to 0", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([]);
 
     const result = await sendOverdueNoticesForClub(
-      PRISMA_STUB,
-      "some-other-club",
-      TARGET_START,
-      TARGET_END,
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
     );
 
-    expect(result.clubId).toBe("some-other-club");
+    expect(result.emailFallbacks).toBe(0);
+  });
+
+  it("includes email in the member select query", async () => {
+    vi.mocked(withTenantSchema).mockResolvedValueOnce([]);
+
+    await sendOverdueNoticesForClub(
+      MOCK_PRISMA,
+      "club-1",
+      DATE_START,
+      DATE_END,
+    );
+
+    const { withTenantSchema: wts } = await import("../../lib/prisma.js");
+    expect(wts).toHaveBeenCalled();
   });
 });

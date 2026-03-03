@@ -73,6 +73,9 @@ export async function listMessages(
  * @param template     Template key, e.g. "charge_reminder_d3".
  * @param windowHours  Look-back window in hours (default: 20h — safe margin
  *                     within a daily cron cadence).
+ * @param channel      Optional channel filter. When provided, only messages on
+ *                     this channel are considered. When omitted, all channels
+ *                     are included (original behaviour — backward-compatible).
  */
 export async function hasRecentMessage(
   prisma: PrismaClient,
@@ -80,6 +83,7 @@ export async function hasRecentMessage(
   memberId: string,
   template: string,
   windowHours = 20,
+  channel?: "WHATSAPP" | "EMAIL",
 ): Promise<boolean> {
   const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
 
@@ -90,10 +94,51 @@ export async function hasRecentMessage(
         template,
         status: { not: "FAILED" },
         createdAt: { gte: since },
+        ...(channel ? { channel } : {}),
       },
       select: { id: true },
     });
   });
 
   return found !== null;
+}
+
+/**
+ * Counts FAILED WhatsApp messages for a given (memberId, template) pair
+ * within the last `windowHours` hours.
+ *
+ * Used by the email fallback logic (T-036) to determine whether a second
+ * WhatsApp attempt has already been made before escalating to email.
+ * When `count >= 1`, the current failure is at least the second attempt,
+ * which satisfies the "2 attempts" threshold for email fallback.
+ *
+ * Only FAILED WhatsApp messages are counted — SENT/PENDING rows are excluded.
+ *
+ * @param prisma       Singleton Prisma client.
+ * @param clubId       Tenant identifier.
+ * @param memberId     Internal Member.id.
+ * @param template     Template key, e.g. "charge_reminder_d3".
+ * @param windowHours  Look-back window in hours (default: 48h — covers two
+ *                     daily cron cycles).
+ */
+export async function countRecentFailedWhatsAppMessages(
+  prisma: PrismaClient,
+  clubId: string,
+  memberId: string,
+  template: string,
+  windowHours = 48,
+): Promise<number> {
+  const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    return tx.message.count({
+      where: {
+        memberId,
+        template,
+        channel: "WHATSAPP",
+        status: "FAILED",
+        createdAt: { gte: since },
+      },
+    });
+  });
 }

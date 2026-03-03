@@ -51,6 +51,42 @@ O ClubOS v1.0 é um SaaS multi-tenant voltado exclusivamente para clubes de fute
 
 ---
 
+## Landing Page — Estrutura e Decisão Arquitetural
+
+A landing page (marketing, preços, contato) fica **dentro de `apps/web/`**, no mesmo app Next.js do painel. Não há um app separado `apps/landing/`.
+
+### Justificativa
+
+Para um time de 1–2 devs no MVP, manter um segundo app Next.js (`apps/landing/`) significaria duplicar configurações de deploy, variáveis de ambiente, pipeline de CI e dependências — overhead desproporcional ao estágio atual. O Next.js App Router já oferece a separação necessária via _route groups_, sem custo de infra adicional.
+
+A separação em `apps/landing/` pode ser avaliada futuramente se o volume de conteúdo de marketing crescer o suficiente para justificar (blog, docs públicos, A/B testing de copy). Isso não é problema do MVP.
+
+### Convenção de pastas
+
+Os _route groups_ do App Router isolam layouts e contextos sem afetar as URLs:
+
+```
+apps/web/src/app/
+├── (marketing)/            # Páginas públicas — layout limpo, sem auth
+│   ├── page.tsx            # Landing principal
+│   ├── precos/
+│   │   └── page.tsx
+│   └── contato/
+│       └── page.tsx
+└── (app)/                  # Painel autenticado — layout com sidebar + auth guard
+    ├── dashboard/
+    ├── socios/
+    └── cobrancas/
+```
+
+### Regras de convivência
+
+- O route group `(marketing)` **nunca importa** componentes ou hooks do `(app)` — sem vazamento de bundle de autenticação, React Query ou lógica de painel para páginas públicas.
+- O `(app)` tem um layout raiz com middleware de autenticação; o `(marketing)` tem um layout raiz independente e sem guard.
+- Componentes verdadeiramente compartilhados (ex.: botão, tipografia, tokens de cor) vivem em `packages/ui/` ou em `apps/web/src/components/` sem pertencer a nenhum dos dois grupos.
+
+---
+
 ## Integrações de Pagamento — Gateway Abstraction
 
 A camada de pagamento do ClubOS é **agnóstica ao provedor**. Nenhum módulo de negócio (`ChargeService`, jobs, webhooks) acessa um gateway diretamente — tudo passa pela interface `PaymentGateway` e é resolvido pelo `GatewayRegistry`.
@@ -206,6 +242,9 @@ Dispara evento para dashboard (Redis pub/sub)
 clubos/
 ├── apps/
 │   ├── web/                        # Next.js (browser/desktop)
+│   │   └── src/app/
+│   │       ├── (marketing)/        # Landing, preços, contato — layout público
+│   │       └── (app)/              # Painel autenticado — layout com sidebar + auth guard
 │   └── api/                        # Fastify (backend)
 │       ├── src/
 │       │   ├── modules/
@@ -229,5 +268,6 @@ clubos/
 │       └── prisma/                 # schema.prisma + migrations
 └── packages/
     ├── shared-types/               # tipos TypeScript compartilhados
+    ├── ui/                         # componentes compartilhados entre (marketing) e (app)
     └── config/                     # tsconfig, eslint, prettier bases
 ```

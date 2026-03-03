@@ -8,11 +8,11 @@
 
 ## Resumo por Sprint
 
-| Sprint             | Foco Principal                                              | Tasks                         | Esforço  | Critério de Done                                    |
-| ------------------ | ----------------------------------------------------------- | ----------------------------- | -------- | --------------------------------------------------- |
-| Sprint 1 (Sem 3–4) | Fundação: Auth, Onboarding, Segurança base, CI/CD           | T-001 a T-019 + T-043 a T-047 | ~10d dev | Clube consegue fazer login e cadastrar sócios       |
-| Sprint 2 (Sem 5–6) | Core Financeiro: Cobranças Pix, Webhook, WhatsApp D-3/D0    | T-020 a T-035 + T-037 a T-041 | ~12d dev | Primeiro Pix cobrado e confirmado end-to-end        |
-| Sprint 3 (Sem 7–8) | Polimento e Confiabilidade: SSE, E2E tests, Fallback e-mail | T-036 + T-042 + T-048         | ~5d dev  | Sistema roda 1 semana em prod sem incidente crítico |
+| Sprint             | Foco Principal                                              | Tasks                                         | Esforço    | Critério de Done                                                       |
+| ------------------ | ----------------------------------------------------------- | --------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| Sprint 1 (Sem 3–4) | Fundação: Auth, Onboarding, Segurança base, CI/CD, Landing  | T-001 a T-019 + T-043 a T-047 + T-049 a T-053 | ~12.5d dev | Clube consegue fazer login e cadastrar sócios; site de marketing no ar |
+| Sprint 2 (Sem 5–6) | Core Financeiro: Cobranças Pix, Webhook, WhatsApp D-3/D0    | T-020 a T-035 + T-037 a T-041                 | ~12d dev   | Primeiro Pix cobrado e confirmado end-to-end                           |
+| Sprint 3 (Sem 7–8) | Polimento e Confiabilidade: SSE, E2E tests, Fallback e-mail | T-036 + T-042 + T-048                         | ~5d dev    | Sistema roda 1 semana em prod sem incidente crítico                    |
 
 ---
 
@@ -145,10 +145,37 @@
 | T-047 | Pipeline CI: GitHub Actions com lint + typecheck + test + build em todo PR        | 0.5d    | S1     |
 | T-048 | Testes E2E com Playwright: fluxo de login, cadastro de sócio, geração de cobrança | 2d      | S3     |
 
-| Ordem | ID    | Task                                                | Motivo da posição                                                 |
-| ----- | ----- | --------------------------------------------------- | ----------------------------------------------------------------- |
-| 33    | T-039 | Cards de KPI no dashboard                           | Depende de T-038                                                  |
-| 34    | T-040 | Gráfico de inadimplência 6 meses (Recharts)         | Depende de T-038                                                  |
-| 35    | T-041 | Tabela de inadimplentes + botão "Cobrar agora"      | Depende de T-038 e T-031                                          |
-| 36    | T-042 | Atualização em tempo real via SSE                   | Depende de T-027 e T-039                                          |
-| 37    | T-043 | Setup Sentry (front + back)                         | Deixado por último — mais valor quando os fluxos reais já existem |
+---
+
+## Épico 7 — Landing Page e Site de Marketing
+
+### US-09 — Site Público de Marketing
+
+**Como** potencial cliente (presidente de clube), **quero** acessar um site claro sobre o ClubOS, **para** entender a proposta de valor e iniciar o cadastro sem precisar falar com ninguém.
+
+> A landing page fica dentro de `apps/web/` usando route groups do Next.js App Router. Não há app separado. Ver decisão arquitetural completa em `design-docs.md`.
+
+| ID    | Task Técnica                                                                                        | Esforço | Sprint |
+| ----- | --------------------------------------------------------------------------------------------------- | ------- | ------ |
+| T-049 | Setup dos route groups `(marketing)` e `(app)` no App Router; configurar layouts raiz independentes | 0.25d   | S1     |
+| T-050 | Layout público: header com navegação (logo, links, CTA "Começar grátis") + footer                   | 0.5d    | S1     |
+| T-051 | Tela: Landing page principal — hero, proposta de valor, features, prova social, CTA final           | 1d      | S1     |
+| T-052 | Tela: Página de preços com tabela comparativa de planos e CTA por tier                              | 0.5d    | S1     |
+| T-053 | Tela: Página de contato com formulário simples (nome, e-mail, mensagem) integrado ao Resend         | 0.25d   | S1     |
+
+---
+
+## Ordem de Execução (referência)
+
+| Ordem | ID    | Task                                           | Motivo da posição                                                 |
+| ----- | ----- | ---------------------------------------------- | ----------------------------------------------------------------- |
+| 33    | T-039 | Cards de KPI no dashboard                      | Depende de T-038                                                  |
+| 34    | T-040 | Gráfico de inadimplência 6 meses (Recharts)    | Depende de T-038                                                  |
+| 35    | T-041 | Tabela de inadimplentes + botão "Cobrar agora" | Depende de T-038 e T-031                                          |
+| 36    | T-042 | Atualização em tempo real via SSE              | Depende de T-027 e T-039                                          |
+| 37    | T-043 | Setup Sentry (front + back)                    | Deixado por último — mais valor quando os fluxos reais já existem |
+| 38    | T-049 | Setup route groups (marketing) e (app)         | Deve ser feito antes de qualquer tela pública ou de painel        |
+| 39    | T-050 | Layout público (header + footer)               | Depende de T-049                                                  |
+| 40    | T-051 | Landing page principal                         | Depende de T-050                                                  |
+| 41    | T-052 | Página de preços                               | Depende de T-050                                                  |
+| 42    | T-053 | Página de contato                              | Depende de T-050                                                  |

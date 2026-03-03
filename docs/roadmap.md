@@ -45,6 +45,7 @@ A v1.0 não é apenas o MVP — é a fundação de dados de todo o ecossistema. 
 
 ### Features Should Have (entram se o tempo permitir)
 
+- **Site de marketing público** (landing page, preços, contato) dentro de `apps/web/` usando route groups do Next.js App Router — necessário para atingir a meta de 10 clubes pagantes além do piloto de 3. Custo estimado de ~2.5d justifica entrada no Sprint 1. Ver decisão arquitetural em `design-docs.md`.
 - Carteirinha digital do sócio com QR Code (PWA)
 - Relatório financeiro mensal exportável em PDF
 - Registro de despesas do clube (P&L simplificado)
@@ -254,23 +255,25 @@ Com time de 1–2 devs, o risco de 7 módulos em 12 meses é de **foco**, não d
 
 ### Riscos Estratégicos
 
-| Risco                                                        | Impacto | Mitigação                                                                                              |
-| ------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------ |
-| v1.0 não valida: inadimplência não cai o suficiente          | Alto    | Piloto com 3 clubes antes de escalar. Critério de go/no-go claro: ≥20% de redução.                     |
-| TreinoOS não vira hábito: treinador abandona após 2 semanas  | Alto    | Métrica de produto: ≥2 sessões/semana. Se não atingir em 30 dias, revisar onboarding antes de escalar. |
-| ScoutLink lança com perfis rasos e não retém scouts          | Alto    | Não lançar antes de 6 meses de BaseForte em produção. Curadoria manual nos primeiros 90 dias.          |
-| CampeonatOS lança sem massa crítica de clubes na liga        | Alto    | Iniciar com ligas onde ClubOS tem ≥70% de penetração. Liga parcial não é produto.                      |
-| LGPD: dados de atletas menores sem consentimento documentado | Alto    | Consentimento dos responsáveis no onboarding da escola (v1.5). Não deixar para resolver no lançamento. |
-| Time fragmenta atenção antes de v1.0 estar validado          | Alto    | Regra de go/no-go inviolável. Um módulo por vez.                                                       |
+| Risco                                                                           | Impacto | Mitigação                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.0 não valida: inadimplência não cai o suficiente                             | Alto    | Piloto com 3 clubes antes de escalar. Critério de go/no-go claro: ≥20% de redução.                                                                                                                       |
+| TreinoOS não vira hábito: treinador abandona após 2 semanas                     | Alto    | Métrica de produto: ≥2 sessões/semana. Se não atingir em 30 dias, revisar onboarding antes de escalar.                                                                                                   |
+| ScoutLink lança com perfis rasos e não retém scouts                             | Alto    | Não lançar antes de 6 meses de BaseForte em produção. Curadoria manual nos primeiros 90 dias.                                                                                                            |
+| CampeonatOS lança sem massa crítica de clubes na liga                           | Alto    | Iniciar com ligas onde ClubOS tem ≥70% de penetração. Liga parcial não é produto.                                                                                                                        |
+| LGPD: dados de atletas menores sem consentimento documentado                    | Alto    | Consentimento dos responsáveis no onboarding da escola (v1.5). Não deixar para resolver no lançamento.                                                                                                   |
+| Time fragmenta atenção antes de v1.0 estar validado                             | Alto    | Regra de go/no-go inviolável. Um módulo por vez.                                                                                                                                                         |
+| Site de marketing negligenciado: piloto de 3 clubes não escala para 10 pagantes | Médio   | Landing page entra como SHOULD HAVE no Sprint 1 (~2.5d). Se o tempo apertar, priorizar landing + preços e deixar página de contato para S2. Canal direto (WhatsApp/indicação) supre no curtíssimo prazo. |
 
 ### Riscos Técnicos
 
-| Risco                                                            | Impacto | Mitigação                                                                                |
-| ---------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------- |
-| Schema-per-tenant escala até ~500–1.000 clubes                   | Médio   | Planejar análise de migração para RLS ao atingir 300 clubes ativos.                      |
-| BaseForte hardware (ESP32) exige pipeline de dados em tempo real | Médio   | Hardware fica na Fase 2. MVP usa RPE manual. Avaliar WebSocket antes de lançar hardware. |
-| ScoutLink: upload de vídeo exige storage de objeto e CDN         | Baixo   | Cloudflare R2 + Stream. Limite de 60s por vídeo no MVP. Sem infraestrutura proprietária. |
-| WhatsApp bloqueia número por envio massivo                       | Médio   | Rate limit 30 msg/min por clube (já previsto em v1.0). Fallback Resend ativo.            |
+| Risco                                                            | Impacto | Mitigação                                                                                                                                            |
+| ---------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema-per-tenant escala até ~500–1.000 clubes                   | Médio   | Planejar análise de migração para RLS ao atingir 300 clubes ativos.                                                                                  |
+| BaseForte hardware (ESP32) exige pipeline de dados em tempo real | Médio   | Hardware fica na Fase 2. MVP usa RPE manual. Avaliar WebSocket antes de lançar hardware.                                                             |
+| ScoutLink: upload de vídeo exige storage de objeto e CDN         | Baixo   | Cloudflare R2 + Stream. Limite de 60s por vídeo no MVP. Sem infraestrutura proprietária.                                                             |
+| WhatsApp bloqueia número por envio massivo                       | Médio   | Rate limit 30 msg/min por clube (já previsto em v1.0). Fallback Resend ativo.                                                                        |
+| Bundle leak entre `(marketing)` e `(app)` no Next.js             | Baixo   | Regra de convivência documentada em `design-docs.md`: `(marketing)` nunca importa de `(app)`. Validar com bundle analyzer antes de ir para produção. |
 
 ---
 

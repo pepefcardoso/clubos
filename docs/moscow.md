@@ -30,13 +30,14 @@ Sem estas features, o produto não pode ser vendido nem validar sua proposta de 
 
 Estas features aumentam o valor percebido. Entram no MVP se o tempo permitir, ou na semana seguinte à validação.
 
-| #   | Feature                                          | Justificativa                                                         |
-| --- | ------------------------------------------------ | --------------------------------------------------------------------- |
-| S1  | Carteirinha digital do sócio com QR Code (PWA)   | Identidade digital; motiva o sócio a manter o pagamento em dia        |
-| S2  | Relatório financeiro mensal exportável em PDF    | Prestação de contas para diretoria; pedido recorrente nas entrevistas |
-| S3  | Registro de despesas do clube (P&L simplificado) | Completa a visão financeira; tesoureiro consegue ver saldo real       |
-| S4  | Histórico de pagamentos por sócio                | Suporte a disputas; sócio pode consultar o próprio histórico          |
-| S5  | Notificações in-app para novos pagamentos        | Feedback imediato ao tesoureiro sem precisar abrir o dashboard        |
+| #   | Feature                                                                                           | Justificativa                                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1  | Carteirinha digital do sócio com QR Code (PWA)                                                    | Identidade digital; motiva o sócio a manter o pagamento em dia                                                                                                                                                                                 |
+| S2  | Relatório financeiro mensal exportável em PDF                                                     | Prestação de contas para diretoria; pedido recorrente nas entrevistas                                                                                                                                                                          |
+| S3  | Registro de despesas do clube (P&L simplificado)                                                  | Completa a visão financeira; tesoureiro consegue ver saldo real                                                                                                                                                                                |
+| S4  | Histórico de pagamentos por sócio                                                                 | Suporte a disputas; sócio pode consultar o próprio histórico                                                                                                                                                                                   |
+| S5  | Notificações in-app para novos pagamentos                                                         | Feedback imediato ao tesoureiro sem precisar abrir o dashboard                                                                                                                                                                                 |
+| S6  | Site de marketing: landing page, página de preços e página de contato (route group `(marketing)`) | Necessário para converter os primeiros clubes pagantes além do piloto. Os 3 clubes do piloto podem ser onboardados manualmente, mas a meta de 10 pagantes exige canal de aquisição próprio. Custo baixo (~2.5d) justifica entrada no Sprint 1. |
 
 ---
 
@@ -58,13 +59,14 @@ Bom de ter, mas nenhum clube vai cancelar por falta dessas features no dia 1.
 
 Documentar o que **não** será feito é tão importante quanto o que será. Qualquer solicitação dessas funcionalidades durante o MVP deve ser redirecionada para o roadmap futuro.
 
-| #   | O que NÃO entra                           | Por quê                                              |
-| --- | ----------------------------------------- | ---------------------------------------------------- |
-| W1  | Integração com ArenaPass (bilheteria)     | Módulo v1.5 — depende de v1.0 estável e validado     |
-| W2  | Gestão de atletas / TreinoOS              | Módulo v2.0 — escopo completamente diferente         |
-| W3  | API pública para integrações de terceiros | Risco de segurança e suporte sem volume suficiente   |
-| W4  | Painel white-label para federações        | B2B enterprise — complexidade desproporcional ao MVP |
-| W5  | IA generativa para análise financeira     | Custo de infra e complexidade sem ROI validado ainda |
+| #   | O que NÃO entra                                                 | Por quê                                                                                                                           |
+| --- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| W1  | Integração com ArenaPass (bilheteria)                           | Módulo v1.5 — depende de v1.0 estável e validado                                                                                  |
+| W2  | Gestão de atletas / TreinoOS                                    | Módulo v2.0 — escopo completamente diferente                                                                                      |
+| W3  | API pública para integrações de terceiros                       | Risco de segurança e suporte sem volume suficiente                                                                                |
+| W4  | Painel white-label para federações                              | B2B enterprise — complexidade desproporcional ao MVP                                                                              |
+| W5  | IA generativa para análise financeira                           | Custo de infra e complexidade sem ROI validado ainda                                                                              |
+| W6  | Blog, docs públicos ou A/B testing de copy no site de marketing | Volume insuficiente no MVP para justificar a complexidade. Se necessário, extrai-se `apps/landing/` do monorepo em versão futura. |
 
 ---
 
@@ -72,7 +74,7 @@ Documentar o que **não** será feito é tão importante quanto o que será. Qua
 
 ```
 MUST   ████████████████████  ~20d  → Bloqueia o lançamento se ausente
-SHOULD ████████░░░░░░░░░░░░  ~5d   → Entra se couber na janela de 30d
+SHOULD ████████░░░░░░░░░░░░  ~7.5d → Entra se couber na janela de 30d (S6 tem ~2.5d)
 COULD  ░░░░░░░░░░░░░░░░░░░░  —     → Fase 2
 WON'T  ✗                    —     → Fora do produto por ora
 ```

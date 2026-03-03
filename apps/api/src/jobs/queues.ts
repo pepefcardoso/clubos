@@ -31,3 +31,30 @@ export const chargeGenerationQueue = new Queue("charge-generation", {
     },
   },
 });
+
+/**
+ * Queue for all billing reminder jobs (daily dispatch + per-club WhatsApp sends).
+ *
+ * Separate from `charge-generation` to allow:
+ * - Independent concurrency caps and retry policies.
+ * - Isolated monitoring — reminder failures don't pollute charge job metrics.
+ *
+ * Retry strategy (T-033):
+ *   attempt 1 fails → wait 5s  → attempt 2 (exponential: 10s, 20s, …)
+ *   Max 2 attempts — more retries risk duplicate sends if the failure was partial.
+ *
+ * Rate-limit triggered retries are handled by the worker throwing when
+ * all charges were blocked; BullMQ applies the backoff automatically.
+ */
+export const billingReminderQueue = new Queue("billing-reminders", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 200 },
+    removeOnFail: { count: 500 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 5_000,
+    },
+  },
+});

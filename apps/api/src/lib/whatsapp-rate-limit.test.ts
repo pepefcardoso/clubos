@@ -7,6 +7,10 @@ import {
 function makeMockRedis() {
   const zsets = new Map<string, Map<string, number>>();
 
+  /**
+   * Only used by checkAndConsumeWhatsAppRateLimit (via eval / ZADD path).
+   * Read-only helpers (pipeline) must NOT call this so they never create keys.
+   */
   const getOrCreate = (key: string): Map<string, number> => {
     if (!zsets.has(key)) zsets.set(key, new Map());
     return zsets.get(key)!;
@@ -47,18 +51,30 @@ function makeMockRedis() {
       const ops: Op[] = [];
 
       const pipe = {
+        /**
+         * RL-7 fix: use `zsets.get(key)` (not getOrCreate) so that
+         * calling ZREMRANGEBYSCORE on a non-existent key never creates it.
+         * This matches real Redis behaviour and keeps checkWhatsAppRateLimit
+         * genuinely read-only with respect to key creation.
+         */
         zremrangebyscore: (key: string, _min: string, max: string) => {
           ops.push(() => {
-            const zset = getOrCreate(key);
-            for (const [m, score] of zset) {
-              if (score <= Number(max)) zset.delete(m);
+            const zset = zsets.get(key);
+            if (zset) {
+              for (const [m, score] of zset) {
+                if (score <= Number(max)) zset.delete(m);
+              }
             }
             return [null, 0];
           });
           return pipe;
         },
+        /**
+         * RL-7 fix: same rationale — return 0 for unknown keys without
+         * touching the zsets map.
+         */
         zcard: (key: string) => {
-          ops.push(() => [null, getOrCreate(key).size]);
+          ops.push(() => [null, zsets.get(key)?.size ?? 0]);
           return pipe;
         },
         exec: async () => ops.map((op) => op()),
@@ -68,7 +84,8 @@ function makeMockRedis() {
 
     zrange: vi.fn(
       async (key: string, start: number, stop: number, withScores?: string) => {
-        const zset = getOrCreate(key);
+        const zset = zsets.get(key);
+        if (!zset) return [];
         const sorted = Array.from(zset.entries()).sort(([, a], [, b]) => a - b);
         const end = stop === -1 ? undefined : stop + 1;
         const slice = sorted.slice(start, end);
@@ -243,6 +260,16 @@ describe("checkWhatsAppRateLimit", () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * RL-7: checkWhatsAppRateLimit is a read-only preflight check.
+   * It must never create a Redis key that did not previously exist —
+   * calling it on a club with zero history should leave _zsets empty.
+   *
+   * Root cause of the original failure: the pipeline mock's
+   * zremrangebyscore called getOrCreate(), which unconditionally
+   * inserted an empty Map into _zsets. Fixed by using zsets.get()
+   * (a non-creating lookup) in both zremrangebyscore and zcard.
+   */
   it("RL-7: read-only check does not consume a slot", async () => {
     await checkWhatsAppRateLimit(redis as never, CLUB_A);
     await checkWhatsAppRateLimit(redis as never, CLUB_A);

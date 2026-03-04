@@ -1,12 +1,12 @@
 ## Verify and Create API Tests
 
-- [ ] `jobs/job-utils.test.ts`
-- [ ] `jobs/billing-reminders/service.test`
-- [ ] `jobs/billing-reminders/worker.test` (create)
-- [ ] `jobs/charge-generation/service.test`
-- [ ] `jobs/charge-generation/worker.test`
-- [ ] `jobs/overdue-notices/service.test`
-- [ ] `jobs/overdue-notices/worker.test` (create)
+- [X] `jobs/job-utils.test.ts`
+- [X] `jobs/billing-reminders/service.test`
+- [X] `jobs/billing-reminders/worker.test` (create)
+- [X] `jobs/charge-generation/service.test`
+- [X] `jobs/charge-generation/worker.test`
+- [X] `jobs/overdue-notices/service.test`
+- [X] `jobs/overdue-notices/worker.test` (create)
 
 - [ ] `lib/tenant-schema.test`
 - [ ] `lib/crypto.test`

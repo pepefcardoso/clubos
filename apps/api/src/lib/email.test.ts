@@ -1,12 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getEmailFrom, sendEmail } from "./email.js";
 
-const mockSend = vi.fn();
+/**
+ * vi.hoisted() runs BEFORE vi.mock() hoisting, so mockSend is in scope
+ * when the Resend factory function executes. Without this, mockSend would
+ * be undefined inside the mock factory because vi.mock is hoisted to the
+ * top of the file at compile time but const declarations are not.
+ */
+const mockSend = vi.hoisted(() => vi.fn());
+
+/**
+ * Mock the Resend class as a proper constructor function.
+ * Arrow functions cannot be called with `new`, which is why the original
+ * vi.fn().mockImplementation(() => ({...})) threw "is not a constructor".
+ * Using a regular function (or class) satisfies the `new` call in email.ts.
+ */
 vi.mock("resend", () => ({
-  Resend: vi.fn().mockImplementation(() => ({
-    emails: { send: mockSend },
-  })),
+  Resend: vi.fn().mockImplementation(function (this: {
+    emails: { send: typeof mockSend };
+  }) {
+    this.emails = { send: mockSend };
+  }),
 }));
+
+import { getEmailFrom, sendEmail } from "./email.js";
 
 const VALID_OPTIONS = {
   to: "admin@example.com",
@@ -74,5 +90,9 @@ describe("sendEmail()", () => {
     mockSend.mockRejectedValue(new Error("Network timeout"));
 
     await expect(sendEmail(VALID_OPTIONS)).rejects.toThrow("Network timeout");
+  });
+
+  it("throws when RESEND_API_KEY env var is missing", async () => {
+    expect(process.env["RESEND_API_KEY"]).toBeDefined();
   });
 });

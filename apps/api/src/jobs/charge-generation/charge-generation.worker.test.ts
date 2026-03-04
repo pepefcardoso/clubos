@@ -25,31 +25,39 @@ let capturedFailedHandler:
   | null = null;
 
 vi.mock("bullmq", () => ({
-  Worker: vi
-    .fn()
-    .mockImplementation(
-      (_queueName: string, processor: (job: MockJob) => Promise<unknown>) => {
-        capturedProcessor = processor;
-        return {
-          on: vi.fn((event: string, handler: unknown) => {
-            if (event === "failed") {
-              capturedFailedHandler = handler as typeof capturedFailedHandler;
-            }
-          }),
-          close: vi.fn(),
-        };
-      },
-    ),
+  Worker: vi.fn(function (
+    _queueName: string,
+    processor: (job: MockJob) => Promise<unknown>,
+  ) {
+    capturedProcessor = processor;
+    return {
+      on: vi.fn((event: string, handler: unknown) => {
+        if (event === "failed") {
+          capturedFailedHandler = handler as typeof capturedFailedHandler;
+        }
+      }),
+      close: vi.fn(),
+    };
+  }),
 }));
 
-const mockGenerateMonthlyCharges = vi.fn();
-const mockMarkChargesPendingRetry = vi.fn().mockResolvedValue({ updated: 0 });
-const MockNoActivePlanError = class NoActivePlanError extends Error {
-  constructor() {
-    super("O clube não possui nenhum plano ativo.");
-    this.name = "NoActivePlanError";
-  }
-};
+const {
+  mockGenerateMonthlyCharges,
+  mockMarkChargesPendingRetry,
+  MockNoActivePlanError,
+} = vi.hoisted(() => {
+  const MockNoActivePlanError = class NoActivePlanError extends Error {
+    constructor() {
+      super("O clube não possui nenhum plano ativo.");
+      this.name = "NoActivePlanError";
+    }
+  };
+  return {
+    mockGenerateMonthlyCharges: vi.fn(),
+    mockMarkChargesPendingRetry: vi.fn().mockResolvedValue({ updated: 0 }),
+    MockNoActivePlanError,
+  };
+});
 
 vi.mock("../../modules/charges/charges.service.js", () => ({
   generateMonthlyCharges: mockGenerateMonthlyCharges,

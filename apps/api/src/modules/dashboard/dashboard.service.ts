@@ -1,3 +1,4 @@
+import { MonthlyChargeStat } from "@clubos/shared-types";
 import type { PrismaClient } from "../../../generated/prisma/index.js";
 import { withTenantSchema } from "../../lib/prisma.js";
 
@@ -81,5 +82,90 @@ export async function getDashboardSummary(
         paidThisMonthAmountCents: paidThisMonth._sum.amountCents ?? 0,
       },
     };
+  });
+}
+
+export async function getChargesHistory(
+  prisma: PrismaClient,
+  clubId: string,
+  months = 6,
+): Promise<MonthlyChargeStat[]> {
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const now = new Date();
+
+    const ranges: Array<{ start: Date; end: Date }> = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const start = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1),
+      );
+      const end = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth() - i + 1,
+          0,
+          23,
+          59,
+          59,
+          999,
+        ),
+      );
+      ranges.push({ start, end });
+    }
+
+    const map = new Map<string, MonthlyChargeStat>();
+    for (const { start } of ranges) {
+      const key = start.toISOString().slice(0, 7);
+      map.set(key, {
+        month: key,
+        paid: 0,
+        overdue: 0,
+        pending: 0,
+        paidAmountCents: 0,
+        overdueAmountCents: 0,
+      });
+    }
+
+    const raw = await tx.$queryRaw<
+      Array<{
+        month: string;
+        status: string;
+        count: bigint;
+        amount_cents: bigint;
+      }>
+    >`
+      SELECT
+        TO_CHAR(DATE_TRUNC('month', "dueDate"), 'YYYY-MM-01') AS month,
+        status::text                                           AS status,
+        COUNT(*)::bigint                                       AS count,
+        COALESCE(SUM("amountCents"), 0)::bigint               AS amount_cents
+      FROM charges
+      WHERE
+        "dueDate" >= ${ranges[0]!.start}
+        AND "dueDate" <= ${ranges[ranges.length - 1]!.end}
+        AND status IN ('PAID', 'OVERDUE', 'PENDING', 'PENDING_RETRY')
+      GROUP BY DATE_TRUNC('month', "dueDate"), status
+      ORDER BY DATE_TRUNC('month', "dueDate") ASC
+    `;
+
+    for (const row of raw) {
+      const key = row.month.slice(0, 7);
+      const entry = map.get(key);
+      if (!entry) continue;
+
+      const count = Number(row.count);
+      const amount = Number(row.amount_cents);
+
+      if (row.status === "PAID") {
+        entry.paid += count;
+        entry.paidAmountCents += amount;
+      } else if (row.status === "OVERDUE") {
+        entry.overdue += count;
+        entry.overdueAmountCents += amount;
+      } else {
+        entry.pending += count;
+      }
+    }
+
+    return Array.from(map.values());
   });
 }

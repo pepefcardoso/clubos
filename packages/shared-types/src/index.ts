@@ -58,6 +58,16 @@ export interface Payment {
   gatewayTxid: string;
 }
 
+export interface MonthlyChargeStat {
+  /** "YYYY-MM" — ISO year-month of the billing window */
+  month: string;
+  paid: number;
+  overdue: number;
+  pending: number;
+  paidAmountCents: number;
+  overdueAmountCents: number;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;

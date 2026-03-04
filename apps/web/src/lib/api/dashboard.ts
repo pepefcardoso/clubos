@@ -1,3 +1,5 @@
+import { MonthlyChargeStat } from "../../../../../packages/shared-types/src";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export interface DashboardSummary {
@@ -51,4 +53,31 @@ export async function fetchDashboardSummary(
   }
 
   return res.json() as Promise<DashboardSummary>;
+}
+
+export async function fetchChargesHistory(
+  accessToken: string,
+  months = 6,
+): Promise<MonthlyChargeStat[]> {
+  const res = await fetch(
+    `${API_BASE}/api/dashboard/charges-history?months=${months}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+    throw new ApiError(
+      body.message ?? `Erro ao carregar histórico: ${res.status}`,
+      res.status,
+      body.error,
+    );
+  }
+
+  return res.json() as Promise<MonthlyChargeStat[]>;
 }

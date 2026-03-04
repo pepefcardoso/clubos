@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DashboardKpis } from "@/components/dashboard/DashboardKpis";
+import { DelinquencyChart } from "@/components/dashboard/DelinquencyChart";
 
 export const metadata: Metadata = {
     title: "Dashboard — ClubOS",
@@ -18,6 +19,7 @@ export default function DashboardPage() {
             </div>
 
             <DashboardKpis />
+            <DelinquencyChart />
         </div>
     );
 }

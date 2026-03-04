@@ -185,8 +185,6 @@
 
 | Ordem | ID    | Task                                           | Motivo da posição                                                 |
 | ----- | ----- | ---------------------------------------------- | ----------------------------------------------------------------- |
-| 33    | T-039 | Cards de KPI no dashboard                      | Depende de T-038                                                  |
-| 34    | T-040 | Gráfico de inadimplência 6 meses (Recharts)    | Depende de T-038                                                  |
 | 35    | T-041 | Tabela de inadimplentes + botão "Cobrar agora" | Depende de T-038 e T-031                                          |
 | 36    | T-042 | Atualização em tempo real via SSE              | Depende de T-027 e T-039                                          |
 | 37    | T-043 | Setup Sentry (front + back)                    | Deixado por último — mais valor quando os fluxos reais já existem |

@@ -17,21 +17,21 @@ import {
 } from "vitest";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
-import { clubRoutes } from "../clubs.routes.js";
-import { DuplicateSlugError, DuplicateCnpjError } from "../clubs.service.js";
+import { clubRoutes } from "./clubs.routes.js";
+import { DuplicateSlugError, DuplicateCnpjError } from "./clubs.service.js";
 
 vi.mock("../clubs.service.js", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../clubs.service.js")>();
+  const original = await importOriginal<typeof import("./clubs.service.js")>();
   return {
     ...original,
     createClub: vi.fn(),
   };
 });
 
-import { createClub } from "../clubs.service.js";
+import { createClub } from "./clubs.service.js";
 
 function makePrisma() {
-  return {} as unknown as import("../../../../generated/prisma/index.js").PrismaClient;
+  return {} as unknown as import("../../../generated/prisma/index.js").PrismaClient;
 }
 
 async function buildTestApp(): Promise<FastifyInstance> {

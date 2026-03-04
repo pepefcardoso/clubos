@@ -15,8 +15,8 @@
  */
 
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
-import { PrismaClient } from "../../../generated/prisma/index.js";
-import { provisionTenantSchema } from "../tenant-schema.js";
+import { PrismaClient } from "../../generated/prisma/index.js";
+import { provisionTenantSchema } from "./tenant-schema.js";
 
 
 /**

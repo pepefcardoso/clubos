@@ -17,8 +17,8 @@ import {
   DuplicateCnpjError,
   ClubNotFoundError,
   InvalidImageError,
-} from "../clubs.service.js";
-import type { CreateClubInput } from "../clubs.schema.js";
+} from "./clubs.service.js";
+import type { CreateClubInput } from "./clubs.schema.js";
 
 vi.mock("../../../lib/tenant-schema.js", () => ({
   provisionTenantSchema: vi.fn(),
@@ -50,9 +50,9 @@ vi.mock("sharp", () => ({
   default: vi.fn(() => sharpInstance),
 }));
 
-import { provisionTenantSchema } from "../../../lib/tenant-schema.js";
-import { saveFile } from "../../../lib/storage.js";
-import { sendEmail } from "../../../lib/email.js";
+import { provisionTenantSchema } from "../../lib/tenant-schema.js";
+import { saveFile } from "../../lib/storage.js";
+import { sendEmail } from "../../lib/email.js";
 import sharp from "sharp";
 
 const CLUB_ID = "clxyz1234567890abcdef";
@@ -96,7 +96,7 @@ function makePrisma(overrides?: {
 
   return {
     club: { create, findUnique, delete: del, update },
-  } as unknown as import("../../../../generated/prisma/index.js").PrismaClient;
+  } as unknown as import("../../../generated/prisma/index.js").PrismaClient;
 }
 
 const validInput: CreateClubInput = {

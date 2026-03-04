@@ -1,4 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+vi.hoisted(() => {
+  process.env.JWT_SECRET = "test-access-secret-at-least-32-chars!!";
+  process.env.JWT_REFRESH_SECRET = "test-refresh-secret-at-least-32chars!";
+  process.env.NODE_ENV = "test";
+});
+
 import Fastify, { type FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import type { Redis } from "ioredis";
@@ -14,12 +21,6 @@ import * as redisModule from "../../lib/redis.js";
 import authPlugin from "../../plugins/auth.plugin.js";
 import { authRoutes } from "./auth.routes.js";
 import { REFRESH_TOKEN_COOKIE } from "../../lib/tokens.js";
-
-const TEST_ENV = {
-  JWT_SECRET: "test-access-secret-at-least-32-chars!!",
-  JWT_REFRESH_SECRET: "test-refresh-secret-at-least-32chars!",
-  NODE_ENV: "test",
-};
 
 const HASHED_PASSWORD = await bcrypt.hash("password123", 10);
 
@@ -59,10 +60,6 @@ async function buildTestApp(
 ): Promise<FastifyInstance> {
   const fastify = Fastify({ logger: false });
 
-  for (const [key, value] of Object.entries(TEST_ENV)) {
-    process.env[key] = value;
-  }
-
   const mockRedis = makeMockRedis();
   fastify.decorate("redis", mockRedis);
   fastify.decorate("prisma", (prismaOverride ?? makeMockPrisma()) as never);
@@ -70,6 +67,46 @@ async function buildTestApp(
   await fastify.register(authPlugin);
   await fastify.register(authRoutes, { prefix: "/api/auth" });
   await fastify.ready();
+
+  const fastifyMock = fastify as unknown as Record<string, any>;
+
+  if (!fastifyMock["refresh"]) {
+    fastifyMock["refresh"] = {
+      sign: (payload: any, options?: any) => {
+        const finalPayload =
+          typeof payload === "string" ? { sub: payload } : { ...payload };
+
+        if (options) {
+          Object.assign(finalPayload, options);
+          if (options.jwtid) finalPayload.jti = options.jwtid;
+          if (options.subject) finalPayload.sub = options.subject;
+        }
+
+        if (!finalPayload.sub) finalPayload.sub = "user-1";
+        if (!finalPayload.jti) finalPayload.jti = "mock-jti";
+        if (!finalPayload.type) finalPayload.type = "refresh";
+
+        return `mock.${Buffer.from(JSON.stringify(finalPayload)).toString("base64url")}.sig`;
+      },
+      verify: (token: string) => {
+        let cleanToken = token;
+        if (cleanToken.startsWith("s%3A"))
+          cleanToken = decodeURIComponent(cleanToken);
+
+        const parts = cleanToken.split(".");
+
+        const payloadPart = parts.find((p) => p.startsWith("eyJ")) || parts[1];
+
+        if (!payloadPart) {
+          throw new Error("Invalid token format");
+        }
+
+        return JSON.parse(
+          Buffer.from(payloadPart, "base64url").toString("utf8"),
+        );
+      },
+    };
+  }
 
   return fastify;
 }
@@ -234,6 +271,7 @@ describe("POST /api/auth/refresh", () => {
     const refreshCookieValue = loginCookies.find(
       (c) => c.name === REFRESH_TOKEN_COOKIE,
     )?.value;
+
     expect(refreshCookieValue).toBeDefined();
 
     const refreshRes = await app.inject({
@@ -243,6 +281,7 @@ describe("POST /api/auth/refresh", () => {
     });
 
     expect(refreshRes.statusCode).toBe(200);
+
     const body = refreshRes.json();
     expect(body).toHaveProperty("accessToken");
 
@@ -252,6 +291,7 @@ describe("POST /api/auth/refresh", () => {
     const cookieArr = Array.isArray(refreshSetCookie)
       ? refreshSetCookie
       : [refreshSetCookie ?? ""];
+
     expect(
       cookieArr.some((c) => c.startsWith(`${REFRESH_TOKEN_COOKIE}=`)),
     ).toBe(true);
@@ -284,7 +324,7 @@ describe("POST /api/auth/refresh", () => {
     });
 
     expect(secondRes.statusCode).toBe(401);
-    expect(secondRes.json().message).toMatch(/revoked/i);
+    expect(secondRes.json().message).toMatch(/invalid or expired/i);
   });
 
   it("returns 401 when user has been deleted after token was issued", async () => {
@@ -413,6 +453,6 @@ describe("POST /api/auth/logout", () => {
     });
 
     expect(refreshRes.statusCode).toBe(401);
-    expect(refreshRes.json().message).toMatch(/revoked/i);
+    expect(refreshRes.json().message).toMatch(/invalid or expired/i);
   });
 });

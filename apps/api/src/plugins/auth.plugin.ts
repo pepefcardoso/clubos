@@ -97,9 +97,9 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
       try {
         payload = await (
           request as FastifyRequest & {
-            refreshVerify: <T>() => Promise<T>;
+            refreshVerify: <T>(token: string) => Promise<T>;
           }
-        ).refreshVerify<RefreshTokenPayload>();
+        ).refreshVerify<RefreshTokenPayload>(rawToken);
       } catch {
         return reply.status(401).send({
           statusCode: 401,

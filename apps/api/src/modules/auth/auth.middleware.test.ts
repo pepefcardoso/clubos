@@ -99,6 +99,20 @@ async function buildTestApp(
   if (options.autoReady !== false) {
     await fastify.ready();
   }
+
+  const fastifyMock = fastify as unknown as Record<string, any>;
+  if (!fastifyMock["refresh"]) {
+    fastifyMock["refresh"] = {
+      sign: (payload: any) =>
+        `mock.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.sig`,
+      verify: (token: string) => {
+        const parts = token.split(".");
+        if (parts.length !== 3) throw new Error("Invalid token format");
+        return JSON.parse(Buffer.from(parts[1]!, "base64url").toString("utf8"));
+      },
+    };
+  }
+
   return fastify;
 }
 

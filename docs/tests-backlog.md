@@ -8,21 +8,21 @@
 - [X] `jobs/overdue-notices/service.test`
 - [X] `jobs/overdue-notices/worker.test` (create)
 
-- [ ] `lib/tenant-schema.test`
-- [ ] `lib/crypto.test`
-- [ ] `lib/email.test`
-- [ ] `lib/prisma.test` (create)
-- [ ] `lib/redis.test` (create)
-- [ ] `lib/tokens.test` (create)
-- [ ] `lib/storage.test` (create)
-- [ ] `lib/whatsapp-rate-limit.test`
+- [X] `lib/tenant-schema.test`
+- [X] `lib/crypto.test`
+- [X] `lib/email.test`
+- [X] `lib/prisma.test` (create)
+- [X] `lib/redis.test` (create)
+- [X] `lib/tokens.test` (create)
+- [X] `lib/storage.test` (create)
+- [X] `lib/whatsapp-rate-limit.test`
 
-- [ ] `modules/auth/middleware.test`
-- [ ] `modules/auth/routes.test`
-- [ ] `modules/auth/service.test` (create)
+- [X] `modules/auth/middleware.test`
+- [X] `modules/auth/routes.test`
+- [X] `modules/auth/service.test` (create)
 
-- [ ] `modules/charges/routes.test`
-- [ ] `modules/charges/service.test`
+- [X] `modules/charges/routes.test`
+- [X] `modules/charges/service.test`
 
 - [ ] `modules/clubs/routes.test`
 - [ ] `modules/clubs/service.test`

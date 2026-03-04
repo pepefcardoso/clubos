@@ -42,6 +42,9 @@ A v1.0 não é apenas o MVP — é a fundação de dados de todo o ecossistema. 
 - Dashboard de inadimplência em tempo real (KPIs + gráfico 6 meses + SSE)
 - Régua de cobrança via WhatsApp (jobs D-3, D-0, D+3 — rate limit 30 msg/min — fallback e-mail Resend)
 - Autenticação segura (JWT 15min + refresh httpOnly 7d — roles ADMIN e TREASURER)
+- **Stub de cadastro de atletas** — schema `athletes` + CRUD `/api/athletes` + tela básica. Apenas campos de identidade e vínculo (`name`, `cpf`, `birth_date`, `position`, `status`, `club_id`). Nenhuma lógica de treino, carga ou saúde. Ver T-054 a T-056 em `backlog.md` e M9 em `moscow.md`.
+
+> **Por que o stub de atleta entra na v1.0?** A entidade `athlete` é dependência central de TreinoOS, BaseForte, FisioBase, ScoutLink e CampeonatOS. Criar o schema agora (~1.5d) evita uma migração de dados ao iniciar a v1.5 e elimina a dependência circular que existia na justificativa original dessa versão. Criar a entidade não é implementar o módulo — toda a lógica esportiva permanece na v1.5 em diante.
 
 ### Features Should Have (entram se o tempo permitir)
 
@@ -67,7 +70,7 @@ A v1.0 não é apenas o MVP — é a fundação de dados de todo o ecossistema. 
 
 ### Justificativa
 
-Upsell natural para clubes da v1.0: o cadastro de atletas já existe, o treinador já usa o sistema. Fricção de onboarding próxima de zero. O segundo modelo de receita — pai pagando diretamente pelo relatório do filho — cria uma camada B2C que não depende da inadimplência do clube.
+A v1.5 é o upsell natural para clubes da v1.0: o treinador já usa o sistema e o cadastro de atletas já existe na plataforma (criado como stub em v1.0). A fricção de onboarding é próxima de zero — não há redigitação de elenco, apenas ativação das features esportivas sobre uma entidade preexistente. O segundo modelo de receita — pai pagando diretamente pelo relatório do filho — cria uma camada B2C que não depende da inadimplência do clube.
 
 TreinoOS e BaseForte são unificados porque compartilham o mesmo usuário principal (treinador), o mesmo dado central (atleta) e o mesmo momento de uso (sessão de treino).
 
@@ -234,16 +237,16 @@ O CampeonatOS é o módulo que ativa o efeito de rede — mas só funciona com m
 
 Cada módulo herda dados e confiança dos anteriores. Essa sequência não é apenas estratégica — é uma restrição técnica real.
 
-| Módulo                      | Depende de       | Dado / Recurso Herdado                                                                                |
-| --------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------- |
-| TreinoOS + BaseForte (v1.5) | ClubOS (v1.0)    | Cadastro de atletas e sócios. Sem ele, onboarding duplica trabalho do treinador.                      |
-| FisioBase (v2.0)            | BaseForte (v1.5) | Dados de carga ACWR por atleta. Sem eles, FisioBase é apenas prontuário sem inteligência preditiva.   |
-| FisioBase (v2.0)            | ClubOS (v1.0)    | Identidade do atleta, clube e vínculo. Base de dados compartilhada.                                   |
-| ArenaPass (v2.5)            | ClubOS (v1.0)    | Cadastro de sócios para cruzamento torcedor→sócio. Funil de conversão só funciona com ClubOS maduro.  |
-| ScoutLink (v3.0)            | BaseForte (v1.5) | Histórico longitudinal de carga e evolução física. Mínimo 6 meses de dados para perfil rico.          |
-| ScoutLink (v3.0)            | FisioBase (v2.0) | Status de saúde e histórico de lesões (com permissão). Aumenta confiabilidade do perfil para o scout. |
-| CampeonatOS (v3.5)          | ClubOS (v1.0)    | Base de clubes cadastrados na plataforma. Massa crítica por liga viabiliza o produto.                 |
-| CampeonatOS (v3.5)          | TreinoOS (v1.5)  | Elenco e escalação já existentes. Reusa cadastro de jogadores para súmula digital.                    |
+| Módulo                      | Depende de       | Dado / Recurso Herdado                                                                                                                        |
+| --------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| TreinoOS + BaseForte (v1.5) | ClubOS (v1.0)    | Entidade `athlete` com identidade e vínculo criada como stub em v1.0. A v1.5 adiciona carga e avaliação técnica sobre essa base sem migração. |
+| FisioBase (v2.0)            | BaseForte (v1.5) | Dados de carga ACWR por atleta. Sem eles, FisioBase é apenas prontuário sem inteligência preditiva.                                           |
+| FisioBase (v2.0)            | ClubOS (v1.0)    | Identidade do atleta, clube e vínculo. Base de dados compartilhada.                                                                           |
+| ArenaPass (v2.5)            | ClubOS (v1.0)    | Cadastro de sócios para cruzamento torcedor→sócio. Funil de conversão só funciona com ClubOS maduro.                                          |
+| ScoutLink (v3.0)            | BaseForte (v1.5) | Histórico longitudinal de carga e evolução física. Mínimo 6 meses de dados para perfil rico.                                                  |
+| ScoutLink (v3.0)            | FisioBase (v2.0) | Status de saúde e histórico de lesões (com permissão). Aumenta confiabilidade do perfil para o scout.                                         |
+| CampeonatOS (v3.5)          | ClubOS (v1.0)    | Base de clubes cadastrados na plataforma. Massa crítica por liga viabiliza o produto.                                                         |
+| CampeonatOS (v3.5)          | TreinoOS (v1.5)  | Elenco e escalação já existentes. Reusa cadastro de jogadores para súmula digital.                                                            |
 
 ---
 

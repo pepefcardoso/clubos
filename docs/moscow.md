@@ -11,18 +11,21 @@
 
 Sem estas features, o produto não pode ser vendido nem validar sua proposta de valor central.
 
-| #   | Feature                                                            | Critério de Aceite                                          | Complexidade   |
-| --- | ------------------------------------------------------------------ | ----------------------------------------------------------- | -------------- |
-| M1  | Cadastro de clube (onboarding) com configuração de planos de sócio | Clube configura nome, logo, plano e valor em < 5 min        | Média — 3 dias |
-| M2  | Importação / cadastro manual de sócios (CSV ou formulário)         | 200 sócios importados sem erro em < 10 min                  | Média — 2 dias |
-| M3  | Geração de cobranças Pix com QR Code por sócio                     | Pix gerado e enviado em < 30s por sócio                     | Alta — 4 dias  |
-| M4  | Webhook de confirmação de pagamento Pix (Asaas)                    | Status do sócio atualiza em < 10s após pagamento            | Alta — 3 dias  |
-| M5  | Dashboard de inadimplência em tempo real                           | Exibe total de adimplentes, inadimplentes e valor a receber | Média — 2 dias |
-| M6  | Régua de cobrança via WhatsApp: D-3, D-0, D+3                      | Mensagem enviada automaticamente nos 3 marcos               | Alta — 4 dias  |
-| M7  | Autenticação segura (email/senha + refresh token)                  | Login funciona; sessão expira em 7 dias; 2FA opcional       | Baixa — 1 dia  |
-| M8  | Controle de acesso por papel: Admin do clube / Tesoureiro          | Tesoureiro não consegue apagar sócio; Admin sim             | Baixa — 1 dia  |
+| #   | Feature                                                            | Critério de Aceite                                                                          | Complexidade    |
+| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | --------------- |
+| M1  | Cadastro de clube (onboarding) com configuração de planos de sócio | Clube configura nome, logo, plano e valor em < 5 min                                        | Média — 3 dias  |
+| M2  | Importação / cadastro manual de sócios (CSV ou formulário)         | 200 sócios importados sem erro em < 10 min                                                  | Média — 2 dias  |
+| M3  | Geração de cobranças Pix com QR Code por sócio                     | Pix gerado e enviado em < 30s por sócio                                                     | Alta — 4 dias   |
+| M4  | Webhook de confirmação de pagamento Pix (Asaas)                    | Status do sócio atualiza em < 10s após pagamento                                            | Alta — 3 dias   |
+| M5  | Dashboard de inadimplência em tempo real                           | Exibe total de adimplentes, inadimplentes e valor a receber                                 | Média — 2 dias  |
+| M6  | Régua de cobrança via WhatsApp: D-3, D-0, D+3                      | Mensagem enviada automaticamente nos 3 marcos                                               | Alta — 4 dias   |
+| M7  | Autenticação segura (email/senha + refresh token)                  | Login funciona; sessão expira em 7 dias; 2FA opcional                                       | Baixa — 1 dia   |
+| M8  | Controle de acesso por papel: Admin do clube / Tesoureiro          | Tesoureiro não consegue apagar sócio; Admin sim                                             | Baixa — 1 dia   |
+| M9  | Stub de cadastro de atletas (entidade base para módulos futuros)   | CRUD `/api/athletes` funcional com campos de identidade; atleta vinculado ao clube no banco | Baixa — 1.5 dia |
 
-**Total estimado MUST:** ~20 dias de desenvolvimento
+> **Por que M9 é MUST HAVE e não SHOULD HAVE?** A entidade `athlete` é a espinha dorsal de TreinoOS, BaseForte, FisioBase, ScoutLink e CampeonatOS. Criar esse schema em v1.0 — sem lógica de treino ou saúde — custa ~1.5d e evita uma migração dolorosa de dados ao iniciar a v1.5. Tudo que está fora do escopo do stub (carga ACWR, protocolos, avaliação técnica) permanece nas versões correspondentes.
+
+**Total estimado MUST:** ~21.5 dias de desenvolvimento
 
 ---
 
@@ -59,24 +62,24 @@ Bom de ter, mas nenhum clube vai cancelar por falta dessas features no dia 1.
 
 Documentar o que **não** será feito é tão importante quanto o que será. Qualquer solicitação dessas funcionalidades durante o MVP deve ser redirecionada para o roadmap futuro.
 
-| #   | O que NÃO entra                                                 | Por quê                                                                                                                           |
-| --- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| W1  | Integração com ArenaPass (bilheteria)                           | Módulo v1.5 — depende de v1.0 estável e validado                                                                                  |
-| W2  | Gestão de atletas / TreinoOS                                    | Módulo v2.0 — escopo completamente diferente                                                                                      |
-| W3  | API pública para integrações de terceiros                       | Risco de segurança e suporte sem volume suficiente                                                                                |
-| W4  | Painel white-label para federações                              | B2B enterprise — complexidade desproporcional ao MVP                                                                              |
-| W5  | IA generativa para análise financeira                           | Custo de infra e complexidade sem ROI validado ainda                                                                              |
-| W6  | Blog, docs públicos ou A/B testing de copy no site de marketing | Volume insuficiente no MVP para justificar a complexidade. Se necessário, extrai-se `apps/landing/` do monorepo em versão futura. |
+| #   | O que NÃO entra                                                 | Por quê                                                                                                                                                           |
+| --- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| W1  | Integração com ArenaPass (bilheteria)                           | Módulo v1.5 — depende de v1.0 estável e validado                                                                                                                  |
+| W2  | Gestão de atletas / TreinoOS                                    | Módulo v2.0 — escopo completamente diferente. **Nota:** o stub de identidade do atleta (M9) é a exceção deliberada — criar a entidade não é implementar o módulo. |
+| W3  | API pública para integrações de terceiros                       | Risco de segurança e suporte sem volume suficiente                                                                                                                |
+| W4  | Painel white-label para federações                              | B2B enterprise — complexidade desproporcional ao MVP                                                                                                              |
+| W5  | IA generativa para análise financeira                           | Custo de infra e complexidade sem ROI validado ainda                                                                                                              |
+| W6  | Blog, docs públicos ou A/B testing de copy no site de marketing | Volume insuficiente no MVP para justificar a complexidade. Se necessário, extrai-se `apps/landing/` do monorepo em versão futura.                                 |
 
 ---
 
 ## Resumo Visual
 
 ```
-MUST   ████████████████████  ~20d  → Bloqueia o lançamento se ausente
-SHOULD ████████░░░░░░░░░░░░  ~7.5d → Entra se couber na janela de 30d (S6 tem ~2.5d)
-COULD  ░░░░░░░░░░░░░░░░░░░░  —     → Fase 2
-WON'T  ✗                    —     → Fora do produto por ora
+MUST   ████████████████████  ~21.5d → Bloqueia o lançamento se ausente
+SHOULD ████████░░░░░░░░░░░░  ~7.5d  → Entra se couber na janela de 30d (S6 tem ~2.5d)
+COULD  ░░░░░░░░░░░░░░░░░░░░  —      → Fase 2
+WON'T  ✗                    —      → Fora do produto por ora
 ```
 
 > **Regra de ouro:** a v1.0 não é "o começo da plataforma" — ela **é** o produto, e precisa ser lançada, vendida e validada antes de uma linha do módulo seguinte ser escrita.

@@ -8,11 +8,11 @@
 
 ## Resumo por Sprint
 
-| Sprint             | Foco Principal                                              | Tasks                                         | Esforço    | Critério de Done                                                       |
-| ------------------ | ----------------------------------------------------------- | --------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
-| Sprint 1 (Sem 3–4) | Fundação: Auth, Onboarding, Segurança base, CI/CD, Landing  | T-001 a T-019 + T-043 a T-047 + T-049 a T-053 | ~12.5d dev | Clube consegue fazer login e cadastrar sócios; site de marketing no ar |
-| Sprint 2 (Sem 5–6) | Core Financeiro: Cobranças Pix, Webhook, WhatsApp D-3/D0    | T-020 a T-035 + T-037 a T-041                 | ~12d dev   | Primeiro Pix cobrado e confirmado end-to-end                           |
-| Sprint 3 (Sem 7–8) | Polimento e Confiabilidade: SSE, E2E tests, Fallback e-mail | T-036 + T-042 + T-048                         | ~5d dev    | Sistema roda 1 semana em prod sem incidente crítico                    |
+| Sprint             | Foco Principal                                              | Tasks                                         | Esforço  | Critério de Done                                                    |
+| ------------------ | ----------------------------------------------------------- | --------------------------------------------- | -------- | ------------------------------------------------------------------- |
+| Sprint 1 (Sem 3–4) | Fundação: Auth, Onboarding, Segurança base, CI/CD, Landing  | T-001 a T-019 + T-043 a T-047 + T-049 a T-055 | ~14d dev | Clube consegue fazer login e cadastrar sócios e atletas; site no ar |
+| Sprint 2 (Sem 5–6) | Core Financeiro: Cobranças Pix, Webhook, WhatsApp D-3/D0    | T-020 a T-035 + T-037 a T-041                 | ~12d dev | Primeiro Pix cobrado e confirmado end-to-end                        |
+| Sprint 3 (Sem 7–8) | Polimento e Confiabilidade: SSE, E2E tests, Fallback e-mail | T-036 + T-042 + T-048                         | ~5d dev  | Sistema roda 1 semana em prod sem incidente crítico                 |
 
 ---
 
@@ -165,6 +165,22 @@
 
 ---
 
+## Épico 8 — Cadastro de Atletas (Stub v1.0)
+
+> **Contexto:** a entidade `athlete` é a espinha dorsal dos módulos TreinoOS, BaseForte, FisioBase, ScoutLink e CampeonatOS. Criá-la em v1.0 — sem qualquer lógica de treino ou saúde — elimina a dependência falsa descrita na justificativa da v1.5 ("o cadastro de atletas já existe") e evita migração dolorosa de dados em versões futuras. O stub contém apenas os campos de identidade e vínculo; tudo relativo a carga, lesão ou avaliação técnica pertence às versões seguintes.
+
+### US-10 — Stub de Cadastro de Atletas
+
+**Como** admin do clube, **quero** cadastrar os atletas do elenco com informações básicas, **para** que os módulos de treino e saúde das versões futuras já encontrem essa entidade pronta e vinculada ao clube.
+
+| ID    | Task Técnica                                                                                                                                  | Esforço | Sprint |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ |
+| T-054 | Schema `athletes` no banco: `id`, `club_id`, `name`, `cpf`, `birth_date`, `position` (enum), `status` (ACTIVE/INACTIVE), `created_at`         | 0.5d    | S1     |
+| T-055 | Endpoints CRUD `POST/GET/PUT/DELETE /api/athletes` com Zod schema; listagem com filtro por posição e status; upsert por CPF para idempotência | 0.5d    | S1     |
+| T-056 | Tela de listagem e cadastro/edição de atletas (nome, CPF, data de nascimento, posição, status); reutiliza componentes da tela de sócios       | 0.5d    | S1     |
+
+---
+
 ## Ordem de Execução (referência)
 
 | Ordem | ID    | Task                                           | Motivo da posição                                                 |
@@ -179,3 +195,6 @@
 | 40    | T-051 | Landing page principal                         | Depende de T-050                                                  |
 | 41    | T-052 | Página de preços                               | Depende de T-050                                                  |
 | 42    | T-053 | Página de contato                              | Depende de T-050                                                  |
+| 43    | T-054 | Schema `athletes` no banco                     | Base para T-055 e T-056; deve preceder qualquer módulo da v1.5    |
+| 44    | T-055 | CRUD `/api/athletes`                           | Depende de T-054                                                  |
+| 45    | T-056 | Tela de listagem e cadastro de atletas         | Depende de T-055                                                  |

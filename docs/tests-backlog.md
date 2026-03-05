@@ -33,19 +33,19 @@
 
 - [x] `modules/email/email-fallback.service.test`
 
-- [X] `modules/members/members-import.service.test`
-- [X] `modules/members/members-import.test`
-- [X] `modules/members/members-template.routes.test`
-- [X] `modules/members/routes.test` (create)
-- [X] `modules/members/service.test` (create)
-- [X] `modules/members/members.test`
+- [x] `modules/members/members-import.service.test`
+- [x] `modules/members/members-import.test`
+- [x] `modules/members/members-template.routes.test`
+- [x] `modules/members/routes.test` (create)
+- [x] `modules/members/service.test` (create)
+- [x] `modules/members/members.test`
 
-- [ ] `modules/messages/routes.test`
-- [ ] `modules/messages/service.test`
+- [x] `modules/messages/routes.test`
+- [x] `modules/messages/service.test`x
 
-- [ ] `modules/payments/gateways/asaas.gateway.test`
-- [ ] `modules/payments/interface.test` (create)
-- [ ] `modules/payments/registry.test` (create)
+- [x] `modules/payments/gateways/asaas.gateway.test`
+- [x] `modules/payments/interface.test` (create)
+- [x] `modules/payments/registry.test` (create)
 
 - [ ] `modules/plans/routes.test` (create)
 - [ ] `modules/plans/service.test`

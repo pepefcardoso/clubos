@@ -63,11 +63,11 @@
 - [x] `modules/whatsapp/providers/zapi.provider.test`
 - [x] `modules/whatsapp/providers/evolution.provider.test` (create)
 
-- [ ] `modules/protected.routes.test` (create)
+- [x] `modules/protected.routes.test` (create)
 
-- [ ] `plugins/auth.plugin.test`
-- [ ] `plugins/security-headers.plugin.test` (create)
-- [ ] `plugins/sensible.plugin.test` (create)
+- [x] `plugins/auth.plugin.test`
+- [x] `plugins/security-headers.plugin.test` (create)
+- [x] `plugins/sensible.plugin.test` (create)
 
 ## Verify and Create Web Tests
 

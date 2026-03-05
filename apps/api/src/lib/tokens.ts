@@ -21,11 +21,7 @@ export function issueRefreshToken(
   userId: string,
 ): { token: string; jti: string } {
   const jti = randomUUID();
-  const token = (
-    fastify as FastifyInstance & {
-      refresh: { sign: (payload: object, options?: object) => string };
-    }
-  ).refresh.sign(
+  const token = fastify.refresh.sign(
     { sub: userId, jti, type: "refresh" } satisfies RefreshTokenPayload,
     { expiresIn: REFRESH_TOKEN_EXPIRY },
   );

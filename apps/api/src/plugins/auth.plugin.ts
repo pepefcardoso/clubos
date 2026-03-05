@@ -1,6 +1,7 @@
 import fp from "fastify-plugin";
 import fastifyJwt from "@fastify/jwt";
 import fastifyCookie from "@fastify/cookie";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type {
   AccessTokenPayload,
@@ -13,6 +14,85 @@ const ROLE_HIERARCHY: Record<string, number> = {
   TREASURER: 1,
   ADMIN: 2,
 };
+
+// ---------------------------------------------------------------------------
+// Minimal HS256 JWT implementation for refresh tokens using Node.js crypto.
+//
+// Why not @fastify/jwt with namespace?
+//   Registering @fastify/jwt twice in the same Fastify v5 instance (even with
+//   different namespaces) is unreliable: the second registration may be silently
+//   skipped because the plugin name "@fastify/jwt" is already registered,
+//   leaving fastify.refresh undefined at runtime.
+//   Using Node.js built-in crypto avoids any plugin-lifecycle issues and keeps
+//   the refresh-token path dependency-free.
+// ---------------------------------------------------------------------------
+
+const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+function b64url(buf: Buffer): string {
+  return buf
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function fromB64url(str: string): Buffer {
+  return Buffer.from(str.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+}
+
+export interface RefreshJwt {
+  sign(payload: object, options?: object): string;
+  verify<T>(token: string): T;
+}
+
+function createRefreshJwt(secret: string): RefreshJwt {
+  return {
+    sign(payload: object, _options?: object): string {
+      const header = b64url(
+        Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })),
+      );
+      const now = Math.floor(Date.now() / 1000);
+      const body = b64url(
+        Buffer.from(
+          JSON.stringify({
+            iat: now,
+            exp: now + REFRESH_TOKEN_TTL_SECONDS,
+            ...payload,
+          }),
+        ),
+      );
+      const input = `${header}.${body}`;
+      const sig = b64url(createHmac("sha256", secret).update(input).digest());
+      return `${input}.${sig}`;
+    },
+
+    verify<T>(token: string): T {
+      const parts = token.split(".");
+      if (parts.length !== 3) throw new Error("Invalid JWT format");
+      const [h, p, s] = parts as [string, string, string];
+      const input = `${h}.${p}`;
+      const expectedSig = b64url(
+        createHmac("sha256", secret).update(input).digest(),
+      );
+      const sBuf = Buffer.from(s);
+      const eBuf = Buffer.from(expectedSig);
+      if (sBuf.length !== eBuf.length || !timingSafeEqual(sBuf, eBuf)) {
+        throw new Error("Invalid signature");
+      }
+      const decoded = JSON.parse(fromB64url(p).toString("utf8")) as T & {
+        exp?: number;
+      };
+      if (
+        decoded.exp !== undefined &&
+        decoded.exp < Math.floor(Date.now() / 1000)
+      ) {
+        throw new Error("Token expired");
+      }
+      return decoded;
+    },
+  };
+}
 
 async function authPlugin(fastify: FastifyInstance): Promise<void> {
   const jwtSecret = process.env["JWT_SECRET"];
@@ -32,11 +112,8 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
     sign: { algorithm: "HS256" },
   });
 
-  await fastify.register(fastifyJwt, {
-    secret: jwtRefreshSecret,
-    sign: { algorithm: "HS256" },
-    namespace: "refresh",
-  } as Parameters<typeof fastifyJwt>[1]);
+  const refreshJwt = createRefreshJwt(jwtRefreshSecret);
+  fastify.decorate("refresh", refreshJwt);
 
   // ---------------------------------------------------------------------------
   // verifyAccessToken
@@ -95,11 +172,7 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
 
       let payload: RefreshTokenPayload;
       try {
-        payload = await (
-          request as FastifyRequest & {
-            refreshVerify: <T>(token: string) => Promise<T>;
-          }
-        ).refreshVerify<RefreshTokenPayload>(rawToken);
+        payload = fastify.refresh.verify<RefreshTokenPayload>(rawToken);
       } catch {
         return reply.status(401).send({
           statusCode: 401,
@@ -133,7 +206,7 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
   // ---------------------------------------------------------------------------
   // requireRole
   // Returns a preHandler that enforces a minimum role level.
-  // Usage: preHandler: [fastify.verifyAccessToken, fastify.requireRole('ADMIN')]
+  // Usage: preHandler: [fastify.requireRole('ADMIN')]
   //
   // ADMIN > TREASURER — an ADMIN can access any TREASURER-protected route.
   // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import type { PrismaClient } from "../../generated/prisma/index.js";
 import type { Redis } from "ioredis";
 import type { Queue } from "bullmq";
 import type { WebhookJobData } from "../modules/webhooks/webhooks.service.js";
+import type { RefreshJwt } from "../plugins/auth.plugin.js";
 
 export interface AccessTokenPayload {
   sub: string;
@@ -22,6 +23,12 @@ declare module "fastify" {
     redis: Redis;
     /** BullMQ queue for incoming webhook events. Populated in buildApp(). */
     webhookQueue: Queue<WebhookJobData>;
+    /**
+     * Refresh-token JWT signer / verifier.
+     * Uses JWT_REFRESH_SECRET via HS256 (Node.js built-in crypto).
+     * Separate from fastify.jwt so access and refresh tokens use different secrets.
+     */
+    refresh: RefreshJwt;
     /**
      * Verifies the Bearer access token from the Authorization header.
      * Populates `request.user` on success.

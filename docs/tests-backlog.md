@@ -59,9 +59,9 @@
 - [x] `modules/webhooks/webhooks.worker.test`
 - [x] `modules/webhooks/service.test` (create)
 
-- [ ] `modules/whatsapp/service.test`
-- [ ] `modules/whatsapp/providers/zapi.provider.test`
-- [ ] `modules/whatsapp/providers/evolution.provider.test` (create)
+- [x] `modules/whatsapp/service.test`
+- [x] `modules/whatsapp/providers/zapi.provider.test`
+- [x] `modules/whatsapp/providers/evolution.provider.test` (create)
 
 - [ ] `modules/protected.routes.test` (create)
 

@@ -363,7 +363,7 @@ describe("sendWhatsAppMessage", () => {
       await sendWhatsAppMessage(PRISMA_STUB, BASE_INPUT);
 
       expect(provider.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ phone: "55119999900000" }),
+        expect.objectContaining({ phone: "5511999990000" }),
       );
     });
   });

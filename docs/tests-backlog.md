@@ -1,35 +1,35 @@
 ## Verify and Create API Tests
 
-- [X] `jobs/job-utils.test.ts`
-- [X] `jobs/billing-reminders/service.test`
-- [X] `jobs/billing-reminders/worker.test` (create)
-- [X] `jobs/charge-generation/service.test`
-- [X] `jobs/charge-generation/worker.test`
-- [X] `jobs/overdue-notices/service.test`
-- [X] `jobs/overdue-notices/worker.test` (create)
+- [x] `jobs/job-utils.test.ts`
+- [x] `jobs/billing-reminders/service.test`
+- [x] `jobs/billing-reminders/worker.test` (create)
+- [x] `jobs/charge-generation/service.test`
+- [x] `jobs/charge-generation/worker.test`
+- [x] `jobs/overdue-notices/service.test`
+- [x] `jobs/overdue-notices/worker.test` (create)
 
-- [X] `lib/tenant-schema.test`
-- [X] `lib/crypto.test`
-- [X] `lib/email.test`
-- [X] `lib/prisma.test` (create)
-- [X] `lib/redis.test` (create)
-- [X] `lib/tokens.test` (create)
-- [X] `lib/storage.test` (create)
-- [X] `lib/whatsapp-rate-limit.test`
+- [x] `lib/tenant-schema.test`
+- [x] `lib/crypto.test`
+- [x] `lib/email.test`
+- [x] `lib/prisma.test` (create)
+- [x] `lib/redis.test` (create)
+- [x] `lib/tokens.test` (create)
+- [x] `lib/storage.test` (create)
+- [x] `lib/whatsapp-rate-limit.test`
 
-- [X] `modules/auth/middleware.test`
-- [X] `modules/auth/routes.test`
-- [X] `modules/auth/service.test` (create)
+- [x] `modules/auth/middleware.test`
+- [x] `modules/auth/routes.test`
+- [x] `modules/auth/service.test` (create)
 
-- [X] `modules/charges/routes.test`
-- [X] `modules/charges/service.test`
+- [x] `modules/charges/routes.test`
+- [x] `modules/charges/service.test`
 
-- [ ] `modules/clubs/routes.test`
-- [ ] `modules/clubs/service.test`
-- [ ] `modules/clubs/email-templates/welcome.test`
+- [x] `modules/clubs/routes.test`
+- [x] `modules/clubs/service.test`
+- [x] `modules/clubs/email-templates/welcome.test`
 
-- [ ] `modules/dashboard/routes.test`
-- [ ] `modules/dashboard/service.test` (create)
+- [x] `modules/dashboard/routes.test` (create)
+- [x] `modules/dashboard/service.test` (create)
 
 - [ ] `modules/email/email-fallback.service.test`
 

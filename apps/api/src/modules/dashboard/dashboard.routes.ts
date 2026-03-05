@@ -33,7 +33,9 @@ export async function dashboardRoutes(fastify: FastifyInstance): Promise<void> {
    */
   fastify.get("/charges-history", async (request, reply) => {
     const query = request.query as { months?: string };
-    const months = Math.min(12, Math.max(1, Number(query.months ?? 6) || 6));
+    const raw = Number(query.months);
+    const months = Math.min(12, Math.max(1, Number.isNaN(raw) ? 6 : raw));
+
     const user = request.user as AccessTokenPayload;
     const data = await getChargesHistory(fastify.prisma, user.clubId, months);
     return reply.status(200).send(data);

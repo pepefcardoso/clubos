@@ -20,22 +20,22 @@ import {
 } from "./clubs.service.js";
 import type { CreateClubInput } from "./clubs.schema.js";
 
-vi.mock("../../../lib/tenant-schema.js", () => ({
+vi.mock("../../lib/tenant-schema.js", () => ({
   provisionTenantSchema: vi.fn(),
 }));
 
-vi.mock("../../../lib/prisma.js", () => ({
+vi.mock("../../lib/prisma.js", () => ({
   isPrismaUniqueConstraintError: (err: unknown) =>
     (err as { code?: string })?.code === "P2002",
 }));
 
-vi.mock("../../../lib/storage.js", () => ({
+vi.mock("../../lib/storage.js", () => ({
   saveFile: vi.fn().mockImplementation(async (filename: string) => {
     return `http://localhost:3001/uploads/${filename}`;
   }),
 }));
 
-vi.mock("../../../lib/email.js", () => ({
+vi.mock("../../lib/email.js", () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -105,6 +105,8 @@ const validInput: CreateClubInput = {
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
+
   vi.mocked(provisionTenantSchema).mockResolvedValue(undefined);
   vi.mocked(sendEmail).mockResolvedValue(undefined);
   sharpInstance.metadata.mockResolvedValue({ width: 500, height: 500 });

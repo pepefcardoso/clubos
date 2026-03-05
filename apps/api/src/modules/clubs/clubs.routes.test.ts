@@ -20,7 +20,7 @@ import type { FastifyInstance } from "fastify";
 import { clubRoutes } from "./clubs.routes.js";
 import { DuplicateSlugError, DuplicateCnpjError } from "./clubs.service.js";
 
-vi.mock("../clubs.service.js", async (importOriginal) => {
+vi.mock("./clubs.service.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("./clubs.service.js")>();
   return {
     ...original,
@@ -38,6 +38,10 @@ async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   app.decorate("prisma", makePrisma());
   app.decorate("redis", {} as never);
+
+  app.decorate("verifyAccessToken", async () => {});
+  app.decorate("requireRole", (_role: "ADMIN" | "TREASURER") => async () => {});
+
   await app.register(clubRoutes, { prefix: "/api/clubs" });
   return app;
 }

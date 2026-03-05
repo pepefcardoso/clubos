@@ -22,20 +22,19 @@ vi.mock("../../lib/prisma.js", () => ({
 
 vi.mock("bullmq", () => {
   const workerListeners: Record<string, ((...args: unknown[]) => void)[]> = {};
-  const MockWorker = vi
-    .fn()
-    .mockImplementation(
-      (_queueName: string, processor: (job: unknown) => Promise<unknown>) => {
-        _capturedProcessor = processor;
-        return {
-          on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
-            workerListeners[event] = workerListeners[event] ?? [];
-            workerListeners[event].push(handler);
-          }),
-          _listeners: workerListeners,
-        };
-      },
-    );
+  const MockWorker = vi.fn().mockImplementation(function (
+    _queueName: string,
+    processor: (job: unknown) => Promise<unknown>,
+  ) {
+    _capturedProcessor = processor;
+    return {
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        workerListeners[event] = workerListeners[event] ?? [];
+        workerListeners[event].push(handler);
+      }),
+      _listeners: workerListeners,
+    };
+  });
   return { Worker: MockWorker };
 });
 
@@ -74,7 +73,7 @@ function setMockTx(tx: ReturnType<typeof buildMockTx>) {
   _currentMockTx = tx;
 }
 
-import { withTenantSchema } from "../../lib/prisma.js";
+import { withTenantSchema, getPrismaClient } from "../../lib/prisma.js";
 import {
   hasExistingPayment,
   resolveClubIdFromChargeId,
@@ -155,6 +154,11 @@ describe("hasExistingPayment", () => {
 describe("resolveClubIdFromChargeId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(withTenantSchema).mockImplementation((async (
+      _prisma: unknown,
+      _clubId: unknown,
+      fn: (tx: unknown) => Promise<unknown>,
+    ) => fn(_currentMockTx as never)) as never);
   });
 
   it("returns the clubId when a charge is found in the first club", async () => {
@@ -305,7 +309,6 @@ describe("Webhook worker processor — guard clauses", () => {
   it("returns { skipped: true, reason: 'charge_not_found' } when resolveClubIdFromChargeId returns null", async () => {
     setMockTx(buildMockTx({ chargeFindUnique: null }));
 
-    const { getPrismaClient } = await import("../../lib/prisma.js");
     vi.mocked(getPrismaClient).mockReturnValue({
       club: { findMany: vi.fn().mockResolvedValue([{ id: "club-001" }]) },
     } as never);
@@ -338,7 +341,6 @@ describe("Webhook worker processor — idempotency (T-028 core)", () => {
   });
 
   function setupWithClubId(paymentExists: boolean) {
-    const { getPrismaClient } = require("../../lib/prisma.js");
     vi.mocked(getPrismaClient).mockReturnValue({
       club: {
         findMany: vi.fn().mockResolvedValue([{ id: RESOLVED_CLUB_ID }]),
@@ -349,12 +351,36 @@ describe("Webhook worker processor — idempotency (T-028 core)", () => {
       async (_prisma, _clubId, fn) => {
         return fn({
           charge: {
-            findUnique: vi.fn().mockResolvedValue({ id: "charge-abc" }),
+            findUnique: vi.fn().mockResolvedValue({
+              id: "charge-abc",
+              memberId: "member-001",
+              amountCents: 14990,
+              method: "PIX",
+              status: "PENDING",
+            }),
+            update: vi.fn().mockResolvedValue({}),
+          },
+          member: {
+            findUnique: vi
+              .fn()
+              .mockResolvedValue({ id: "member-001", status: "ACTIVE" }),
+            update: vi.fn().mockResolvedValue({}),
           },
           payment: {
             findUnique: vi
               .fn()
               .mockResolvedValue(paymentExists ? { id: "pay-existing" } : null),
+            create: vi.fn().mockResolvedValue({
+              id: "pay-new-001",
+              chargeId: "charge-abc",
+              paidAt: new Date(),
+              method: "PIX",
+              amountCents: 14990,
+              gatewayTxid: "txid-001",
+            }),
+          },
+          auditLog: {
+            create: vi.fn().mockResolvedValue({}),
           },
         } as never);
       },
@@ -404,7 +430,6 @@ describe("Webhook worker processor — idempotency (T-028 core)", () => {
   });
 
   it("returns { processed: true, paymentId, chargeId, ... } for non-duplicate PAYMENT_RECEIVED", async () => {
-    const { getPrismaClient } = require("../../lib/prisma.js");
     vi.mocked(getPrismaClient).mockReturnValue({
       club: {
         findMany: vi.fn().mockResolvedValue([{ id: RESOLVED_CLUB_ID }]),
@@ -470,16 +495,41 @@ describe("Webhook worker processor — clubId re-use on retry", () => {
       async (_prisma, _clubId, fn) => {
         return fn({
           charge: {
-            findUnique: vi.fn().mockResolvedValue({ id: "charge-abc" }),
+            findUnique: vi.fn().mockResolvedValue({
+              id: "charge-abc",
+              memberId: "member-001",
+              amountCents: 14990,
+              method: "PIX",
+              status: "PENDING",
+            }),
+            update: vi.fn().mockResolvedValue({}),
           },
-          payment: { findUnique: vi.fn().mockResolvedValue(null) },
+          member: {
+            findUnique: vi
+              .fn()
+              .mockResolvedValue({ id: "member-001", status: "ACTIVE" }),
+            update: vi.fn().mockResolvedValue({}),
+          },
+          payment: {
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({
+              id: "pay-new-001",
+              chargeId: "charge-abc",
+              paidAt: new Date(),
+              method: "PIX",
+              amountCents: 14990,
+              gatewayTxid: "txid-001",
+            }),
+          },
+          auditLog: {
+            create: vi.fn().mockResolvedValue({}),
+          },
         } as never);
       },
     );
   });
 
   it("does not call resolveClubIdFromChargeId when clubId is already in job.data", async () => {
-    const { getPrismaClient } = await import("../../lib/prisma.js");
     const mockPrisma = {
       club: { findMany: vi.fn() },
     };
@@ -495,7 +545,6 @@ describe("Webhook worker processor — clubId re-use on retry", () => {
   });
 
   it("calls job.updateData with the resolved clubId on first resolution", async () => {
-    const { getPrismaClient } = await import("../../lib/prisma.js");
     vi.mocked(getPrismaClient).mockReturnValue({
       club: { findMany: vi.fn().mockResolvedValue([{ id: "club-001" }]) },
     } as never);
@@ -528,16 +577,14 @@ describe("Webhook worker — lifecycle and error handling", () => {
   });
 
   it("does not throw when the failed handler receives an undefined job", () => {
-    startWebhookWorker();
-    const onCalls = vi.mocked(startWebhookWorker().on).mock.calls;
-    const { Worker } = require("bullmq");
-    const lastWorkerInstance = vi.mocked(Worker).mock.results.at(-1)?.value;
+    const w = startWebhookWorker();
     const failedListeners =
       (
-        lastWorkerInstance as {
+        w as unknown as {
           _listeners: Record<string, ((j: unknown, e: Error) => void)[]>;
         }
       )._listeners["failed"] ?? [];
+
     expect(() => {
       for (const listener of failedListeners) {
         listener(undefined, new Error("boom"));
@@ -559,7 +606,6 @@ describe("Webhook worker — unhandled event types", () => {
         } as never);
       },
     );
-    const { getPrismaClient } = require("../../lib/prisma.js");
     vi.mocked(getPrismaClient).mockReturnValue({
       club: { findMany: vi.fn().mockResolvedValue([{ id: "club-001" }]) },
     } as never);

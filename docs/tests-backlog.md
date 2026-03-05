@@ -53,11 +53,11 @@
 - [x] `modules/templates/routes.test`
 - [x] `modules/templates/service.test`
 
-- [ ] `modules/webhooks/webhooks.integration.test`
-- [ ] `modules/webhooks/webhooks.routes.test`
-- [ ] `modules/webhooks/webhooks.service.handlepayment.test`
-- [ ] `modules/webhooks/webhooks.worker.test`
-- [ ] `modules/webhooks/service.test` (create)
+- [x] `modules/webhooks/webhooks.integration.test`
+- [x] `modules/webhooks/webhooks.routes.test`
+- [x] `modules/webhooks/webhooks.service.handlepayment.test`
+- [x] `modules/webhooks/webhooks.worker.test`
+- [x] `modules/webhooks/service.test` (create)
 
 - [ ] `modules/whatsapp/service.test`
 - [ ] `modules/whatsapp/providers/zapi.provider.test`

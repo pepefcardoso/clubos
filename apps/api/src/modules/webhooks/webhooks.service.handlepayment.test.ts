@@ -26,28 +26,29 @@ vi.mock("bullmq", () => {
   const workerListeners: Record<string, ((...args: unknown[]) => void)[]> = {};
   let _capturedProcessor: ((job: unknown) => Promise<unknown>) | undefined;
 
-  const MockWorker = vi
-    .fn()
-    .mockImplementation(
-      (_queueName: string, processor: (job: unknown) => Promise<unknown>) => {
-        _capturedProcessor = processor;
-        (
-          MockWorker as unknown as { _lastProcessor: typeof processor }
-        )._lastProcessor = processor;
-        return {
-          on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
-            workerListeners[event] = workerListeners[event] ?? [];
-            workerListeners[event].push(handler);
-          }),
-          _listeners: workerListeners,
-        };
-      },
-    );
+  const MockWorker = vi.fn().mockImplementation(function (
+    _queueName: string,
+    processor: (job: unknown) => Promise<unknown>,
+  ) {
+    _capturedProcessor = processor;
+    (
+      MockWorker as unknown as { _lastProcessor: typeof processor }
+    )._lastProcessor = processor;
+    return {
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        workerListeners[event] = workerListeners[event] ?? [];
+        workerListeners[event].push(handler);
+      }),
+      _listeners: workerListeners,
+    };
+  });
 
+  void _capturedProcessor;
   return { Worker: MockWorker };
 });
 
-import { withTenantSchema } from "../../lib/prisma.js";
+import { Worker } from "bullmq";
+import { withTenantSchema, getPrismaClient } from "../../lib/prisma.js";
 import {
   handlePaymentReceived,
   ChargeNotFoundError,
@@ -520,22 +521,21 @@ describe("Webhook worker processor — T-027 PAYMENT_RECEIVED integration", () =
   beforeEach(() => {
     vi.clearAllMocks();
 
-    const { Worker } = require("bullmq");
-    vi.mocked(Worker).mockImplementation(
-      (_queueName: string, processor: (job: unknown) => Promise<unknown>) => {
-        capturedProcessor = processor;
-        return {
-          on: vi.fn(),
-          _listeners: {},
-        };
-      },
-    );
+    vi.mocked(Worker).mockImplementation(function (
+      _queueName: string,
+      processor: (job: unknown) => Promise<unknown>,
+    ) {
+      capturedProcessor = processor;
+      return {
+        on: vi.fn(),
+        _listeners: {},
+      };
+    } as never);
 
     vi.mocked(withTenantSchema).mockImplementation(
       async (_prisma, _clubId, fn) => fn(_currentMockTx as never),
     );
 
-    const { getPrismaClient } = require("../../lib/prisma.js");
     vi.mocked(getPrismaClient).mockReturnValue({
       club: { findMany: vi.fn().mockResolvedValue([{ id: CLUB_ID }]) },
     } as never);

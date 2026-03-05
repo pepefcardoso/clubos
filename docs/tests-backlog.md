@@ -47,11 +47,11 @@
 - [x] `modules/payments/interface.test` (create)
 - [x] `modules/payments/registry.test` (create)
 
-- [ ] `modules/plans/routes.test` (create)
-- [ ] `modules/plans/service.test`
+- [x] `modules/plans/routes.test` (create)
+- [x] `modules/plans/service.test`
 
-- [ ] `modules/templates/routes.test`
-- [ ] `modules/templates/service.test`
+- [x] `modules/templates/routes.test`
+- [x] `modules/templates/service.test`
 
 - [ ] `modules/webhooks/webhooks.integration.test`
 - [ ] `modules/webhooks/webhooks.routes.test`

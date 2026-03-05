@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Redis } from "ioredis";
 import FormData from "form-data";
@@ -8,6 +8,16 @@ vi.mock("../../lib/redis.js", () => ({
   storeRefreshToken: vi.fn().mockResolvedValue(undefined),
   consumeRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn().mockResolvedValue(undefined),
+}));
+
+const mockFindMemberByCpf = vi.fn();
+const mockEncryptField = vi.fn();
+
+vi.mock("../../lib/crypto.js", () => ({
+  findMemberByCpf: (...args: unknown[]) => mockFindMemberByCpf(...args),
+  encryptField: (...args: unknown[]) => mockEncryptField(...args),
+  getEncryptionKey: () => "ci-test-encryption-key-32chars-xxx",
+  decryptField: vi.fn(),
 }));
 
 import authPlugin from "../../plugins/auth.plugin.js";
@@ -30,6 +40,12 @@ const ADMIN_USER = {
   clubId: "club-1",
   role: "ADMIN" as const,
 };
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockFindMemberByCpf.mockResolvedValue(null);
+  mockEncryptField.mockResolvedValue(new Uint8Array([1, 2, 3]));
+});
 
 describe("parseCsv — unit tests", () => {
   it("parses a valid CSV with header and returns rows", () => {
@@ -147,8 +163,16 @@ function makeMockPrismaForImport(
   options: { existingCpfs?: string[]; activePlanId?: string } = {},
 ) {
   const { existingCpfs = [], activePlanId } = options;
-  const upsertedMembers = new Map<string, { id: string; cpf: string }>();
   let memberIdCounter = 0;
+
+  if (existingCpfs.length > 0) {
+    mockFindMemberByCpf.mockImplementation(
+      async (_tx: unknown, cpf: string) => {
+        if (existingCpfs.includes(cpf)) return { id: `existing-${cpf}` };
+        return null;
+      },
+    );
+  }
 
   return {
     $transaction: vi
@@ -157,41 +181,24 @@ function makeMockPrismaForImport(
         const tx = {
           $executeRawUnsafe: vi.fn().mockResolvedValue(undefined),
           member: {
-            findMany: vi
+            create: vi.fn().mockImplementation(() => {
+              return Promise.resolve({ id: `member-id-${++memberIdCounter}` });
+            }),
+            update: vi
               .fn()
-              .mockImplementation(
-                ({ where }: { where: { cpf: { in: string[] } } }) => {
-                  const found = (where.cpf.in as string[])
-                    .filter((cpf) => existingCpfs.includes(cpf))
-                    .map((cpf) => ({ cpf }));
-                  return Promise.resolve(found);
-                },
-              ),
-            upsert: vi
-              .fn()
-              .mockImplementation(
-                ({
-                  where,
-                  create,
-                }: {
-                  where: { cpf: string };
-                  create: { cpf: string };
-                }) => {
-                  const cpf = where.cpf;
-                  if (!upsertedMembers.has(cpf)) {
-                    const id = `member-id-${++memberIdCounter}`;
-                    upsertedMembers.set(cpf, { id, cpf });
-                  }
-                  return Promise.resolve(upsertedMembers.get(cpf));
-                },
-              ),
+              .mockImplementation(({ where }: { where: { id: string } }) => {
+                return Promise.resolve({ id: where.id });
+              }),
           },
           plan: {
             findUnique: vi
               .fn()
               .mockImplementation(({ where }: { where: { id: string } }) => {
                 if (activePlanId && where.id === activePlanId) {
-                  return Promise.resolve({ id: activePlanId, isActive: true });
+                  return Promise.resolve({
+                    id: activePlanId,
+                    isActive: true,
+                  });
                 }
                 return Promise.resolve(null);
               }),
@@ -431,6 +438,8 @@ describe("POST /api/members/import — integration tests", () => {
   afterEach(async () => {
     await app?.close();
     vi.clearAllMocks();
+    mockFindMemberByCpf.mockResolvedValue(null);
+    mockEncryptField.mockResolvedValue(new Uint8Array([1, 2, 3]));
   });
 
   it("returns 200 with created count for a valid CSV upload", async () => {

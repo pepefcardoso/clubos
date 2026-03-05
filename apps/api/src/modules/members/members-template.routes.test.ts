@@ -1,16 +1,49 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
+
+vi.mock("../../lib/redis.js", () => ({
+  getRedisClient: vi.fn().mockReturnValue({
+    on: vi.fn(),
+    get: vi.fn(),
+    set: vi.fn(),
+    del: vi.fn(),
+    pipeline: vi.fn(),
+    quit: vi.fn().mockResolvedValue(undefined),
+    disconnect: vi.fn(),
+  }),
+  storeRefreshToken: vi.fn().mockResolvedValue(undefined),
+  consumeRefreshToken: vi.fn().mockResolvedValue(null),
+  revokeRefreshToken: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../jobs/index.js", () => ({
+  registerJobs: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../../lib/prisma.js", () => ({
+  getPrismaClient: vi.fn().mockReturnValue({}),
+  withTenantSchema: vi.fn(),
+  isPrismaUniqueConstraintError: vi.fn(),
+}));
+
 import { buildApp } from "../../server.js";
 
 describe("GET /api/members/import/template", () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
+    process.env["ASAAS_API_KEY"] = "ci-fake-asaas-key";
+    process.env["ASAAS_WEBHOOK_SECRET"] = "ci-fake-webhook-secret";
+    process.env["JWT_SECRET"] = "ci-test-jwt-secret-at-least-32chars!!";
+    process.env["JWT_REFRESH_SECRET"] = "ci-test-refresh-secret-at-least-32ch!";
+    process.env["MEMBER_ENCRYPTION_KEY"] = "ci-test-encryption-key-32chars-xxx";
+    process.env["REDIS_URL"] = "redis://localhost:6379";
+
     app = await buildApp();
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it("returns 200 with CSV content-type and attachment disposition", async () => {
@@ -33,11 +66,9 @@ describe("GET /api/members/import/template", () => {
     });
 
     const firstLine = res.body.split("\n")[0] ?? "";
-
     expect(firstLine).toContain("nome");
     expect(firstLine).toContain("cpf");
     expect(firstLine).toContain("telefone");
-
     expect(firstLine).toContain("email");
     expect(firstLine).toContain("plano_id");
     expect(firstLine).toContain("data_entrada");
@@ -62,9 +93,8 @@ describe("GET /api/members/import/template", () => {
       url: "/api/members/import/template",
     });
 
-    const body = res.body;
-    expect(body).toMatch(/\d{4}-\d{2}-\d{2}/);
-    expect(body).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    expect(res.body).toMatch(/\d{4}-\d{2}-\d{2}/);
+    expect(res.body).toMatch(/\d{2}\/\d{2}\/\d{4}/);
   });
 
   it("does not require an Authorization header (public endpoint)", async () => {

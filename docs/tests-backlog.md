@@ -31,14 +31,14 @@
 - [x] `modules/dashboard/routes.test` (create)
 - [x] `modules/dashboard/service.test` (create)
 
-- [ ] `modules/email/email-fallback.service.test`
+- [x] `modules/email/email-fallback.service.test`
 
-- [ ] `modules/members/members-import.service.test`
-- [ ] `modules/members/members-import.test`
-- [ ] `modules/members/members-template.routes.test`
-- [ ] `modules/members/routes.test` (create)
-- [ ] `modules/members/service.test` (create)
-- [ ] `modules/members/members.test`
+- [X] `modules/members/members-import.service.test`
+- [X] `modules/members/members-import.test`
+- [X] `modules/members/members-template.routes.test`
+- [X] `modules/members/routes.test` (create)
+- [X] `modules/members/service.test` (create)
+- [X] `modules/members/members.test`
 
 - [ ] `modules/messages/routes.test`
 - [ ] `modules/messages/service.test`

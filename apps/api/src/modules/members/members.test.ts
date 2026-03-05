@@ -9,6 +9,17 @@ vi.mock("../../lib/redis.js", () => ({
   revokeRefreshToken: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockFindMemberByCpf = vi.fn();
+const mockEncryptField = vi.fn();
+const mockDecryptField = vi.fn();
+
+vi.mock("../../lib/crypto.js", () => ({
+  findMemberByCpf: (...args: unknown[]) => mockFindMemberByCpf(...args),
+  encryptField: (...args: unknown[]) => mockEncryptField(...args),
+  decryptField: (...args: unknown[]) => mockDecryptField(...args),
+  getEncryptionKey: () => "ci-test-encryption-key-32chars-xxx",
+}));
+
 import authPlugin from "../../plugins/auth.plugin.js";
 import { issueAccessToken } from "../../lib/tokens.js";
 import { memberRoutes } from "./members.routes.js";
@@ -35,12 +46,14 @@ const VALID_PLAN = {
   id: "cjld2cyuq0000t3rmniod1foy",
   name: "Sócio Bronze",
   isActive: true,
+  priceCents: 9900,
 };
 
 const INACTIVE_PLAN = {
   id: "cjld2cyuq0001t3rmniod1foz",
   name: "Plano Inativo",
   isActive: false,
+  priceCents: 5000,
 };
 
 type MockMember = {
@@ -53,19 +66,40 @@ type MockMember = {
   joinedAt: Date;
 };
 
+const BASE_MEMBER: MockMember = {
+  id: "cjld2cyuq0002t3rmniod1foa",
+  name: "João Silva",
+  cpf: "12345678901",
+  phone: "11999990000",
+  email: null,
+  status: "ACTIVE",
+  joinedAt: new Date("2026-01-01T00:00:00.000Z"),
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+
+  mockFindMemberByCpf.mockResolvedValue(null);
+
+  mockEncryptField.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+  mockDecryptField.mockImplementation((_: unknown, v: unknown) =>
+    Promise.resolve(typeof v === "string" ? v : "decrypted"),
+  );
+});
+
 function makeMockPrisma(options?: {
   planOverride?: typeof VALID_PLAN | null;
   existingCpf?: string;
 }) {
-  const createdMember: MockMember = {
-    id: "cjld2cyuq0002t3rmniod1foa",
-    name: "João Silva",
-    cpf: "12345678901",
-    phone: "11999990000",
-    email: null,
-    status: "ACTIVE",
-    joinedAt: new Date("2026-01-01T00:00:00.000Z"),
-  };
+  if (options?.existingCpf) {
+    mockFindMemberByCpf.mockImplementation(
+      async (_tx: unknown, cpf: string) => {
+        if (cpf === options.existingCpf) return { id: "existing-member-id" };
+        return null;
+      },
+    );
+  }
 
   const memberPlanCreate = vi.fn().mockResolvedValue({});
   const auditLogCreate = vi.fn().mockResolvedValue({});
@@ -76,6 +110,7 @@ function makeMockPrisma(options?: {
       .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
         const tx = {
           $executeRawUnsafe: vi.fn().mockResolvedValue(undefined),
+
           plan: {
             findUnique: vi
               .fn()
@@ -95,23 +130,16 @@ function makeMockPrisma(options?: {
                 return Promise.resolve(null);
               }),
           },
+
           member: {
-            create: vi
-              .fn()
-              .mockImplementation(({ data }: { data: { cpf: string } }) => {
-                if (options?.existingCpf && data.cpf === options.existingCpf) {
-                  const err = new Error("Unique constraint failed") as Error & {
-                    code: string;
-                  };
-                  err.code = "P2002";
-                  return Promise.reject(err);
-                }
-                return Promise.resolve({ ...createdMember, ...data });
-              }),
+            create: vi.fn().mockResolvedValue(BASE_MEMBER),
           },
+
           memberPlan: {
             create: memberPlanCreate,
+            findMany: vi.fn().mockResolvedValue([]),
           },
+
           auditLog: {
             create: auditLogCreate,
           },

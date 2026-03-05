@@ -5,6 +5,77 @@ import {
   importMembersFromCsv,
 } from "./members-import.service.js";
 
+const mockFindMemberByCpf = vi.fn();
+const mockEncryptField = vi.fn();
+
+vi.mock("../../lib/crypto.js", () => ({
+  findMemberByCpf: (...args: unknown[]) => mockFindMemberByCpf(...args),
+  encryptField: (...args: unknown[]) => mockEncryptField(...args),
+  getEncryptionKey: () => "ci-test-encryption-key-32chars-xxx",
+  decryptField: vi.fn(),
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockFindMemberByCpf.mockResolvedValue(null);
+  mockEncryptField.mockResolvedValue(new Uint8Array([1, 2, 3]));
+});
+
+function buildMockTx(overrides: Record<string, unknown> = {}) {
+  return {
+    $executeRawUnsafe: vi.fn().mockResolvedValue(undefined),
+    member: {
+      create: vi
+        .fn()
+        .mockImplementation(({ data }: { data: { name: string } }) =>
+          Promise.resolve({ id: `id-${data.name}`, ...data }),
+        ),
+      update: vi
+        .fn()
+        .mockImplementation(
+          ({
+            where,
+            data,
+          }: {
+            where: { id: string };
+            data: Record<string, unknown>;
+          }) => Promise.resolve({ id: where.id, ...data }),
+        ),
+    },
+    plan: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    memberPlan: {
+      upsert: vi.fn().mockResolvedValue({}),
+    },
+    auditLog: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    ...overrides,
+  };
+}
+
+function buildMockPrisma(txOverrides: Record<string, unknown> = {}) {
+  const tx = buildMockTx(txOverrides);
+  const prisma = {
+    $transaction: vi
+      .fn()
+      .mockImplementation((fn: (tx: unknown) => Promise<unknown>) => fn(tx)),
+    _tx: tx,
+  };
+  return prisma as unknown as {
+    $transaction: ReturnType<typeof vi.fn>;
+    _tx: typeof tx;
+  } & import("../../../generated/prisma/index.js").PrismaClient;
+}
+
+const VALID_CSV = `nome,cpf,telefone,email
+João Silva,12345678901,11999990000,joao@email.com
+Maria Souza,98765432100,21988881111,maria@email.com`;
+
+const VALID_CSV_SINGLE = `nome,cpf,telefone
+João Silva,12345678901,11999990000`;
+
 describe("parseCsv", () => {
   it("returns rows for a valid CSV", () => {
     const csv = `nome,cpf,telefone,email\nJoão Silva,12345678901,11999990000,joao@email.com`;
@@ -182,61 +253,6 @@ describe("validateRow", () => {
   });
 });
 
-function buildMockTx(overrides: Record<string, unknown> = {}) {
-  return {
-    member: {
-      findMany: vi.fn().mockResolvedValue([]),
-      upsert: vi
-        .fn()
-        .mockImplementation(
-          ({
-            create,
-          }: {
-            create: {
-              cpf: string;
-              name: string;
-              phone: string;
-              email: string | null;
-              joinedAt?: Date;
-            };
-          }) => Promise.resolve({ id: `id-${create.cpf}`, ...create }),
-        ),
-    },
-    plan: {
-      findUnique: vi.fn().mockResolvedValue(null),
-    },
-    memberPlan: {
-      upsert: vi.fn().mockResolvedValue({}),
-    },
-    auditLog: {
-      create: vi.fn().mockResolvedValue({}),
-    },
-    $executeRawUnsafe: vi.fn().mockResolvedValue(undefined),
-    ...overrides,
-  };
-}
-
-function buildMockPrisma(txOverrides: Record<string, unknown> = {}) {
-  const tx = buildMockTx(txOverrides);
-  const prisma = {
-    $transaction: vi
-      .fn()
-      .mockImplementation((fn: (tx: unknown) => Promise<unknown>) => fn(tx)),
-    _tx: tx,
-  };
-  return prisma as unknown as {
-    $transaction: ReturnType<typeof vi.fn>;
-    _tx: typeof tx;
-  } & import("../../../generated/prisma/index.js").PrismaClient;
-}
-
-const VALID_CSV = `nome,cpf,telefone,email
-João Silva,12345678901,11999990000,joao@email.com
-Maria Souza,98765432100,21988881111,maria@email.com`;
-
-const VALID_CSV_SINGLE = `nome,cpf,telefone
-João Silva,12345678901,11999990000`;
-
 describe("importMembersFromCsv", () => {
   const clubId = "club-001";
   const actorId = "actor-001";
@@ -269,17 +285,10 @@ describe("importMembersFromCsv", () => {
   });
 
   it("updates all members on reimport (created=0, updated=N)", async () => {
-    const tx = buildMockTx();
-    (tx.member.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { cpf: "12345678901" },
-      { cpf: "98765432100" },
-    ]);
-    const prisma = {
-      $transaction: vi
-        .fn()
-        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) => fn(tx)),
-    } as unknown as import("../../../generated/prisma/index.js").PrismaClient;
-
+    mockFindMemberByCpf.mockImplementation(
+      async (_tx: unknown, cpf: string) => ({ id: `existing-${cpf}` }),
+    );
+    const prisma = buildMockPrisma();
     const result = await importMembersFromCsv(
       prisma,
       clubId,
@@ -293,16 +302,13 @@ describe("importMembersFromCsv", () => {
   });
 
   it("correctly counts mix of new and existing CPFs", async () => {
-    const tx = buildMockTx();
-    (tx.member.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { cpf: "12345678901" },
-    ]);
-    const prisma = {
-      $transaction: vi
-        .fn()
-        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) => fn(tx)),
-    } as unknown as import("../../../generated/prisma/index.js").PrismaClient;
-
+    mockFindMemberByCpf.mockImplementation(
+      async (_tx: unknown, cpf: string) => {
+        if (cpf === "12345678901") return { id: "existing-id" };
+        return null;
+      },
+    );
+    const prisma = buildMockPrisma();
     const result = await importMembersFromCsv(
       prisma,
       clubId,
@@ -375,11 +381,9 @@ João Silva,12345678901,11999990000,plan-001`;
     }
   });
 
-  it("does NOT include joinedAt in upsert update payload", async () => {
+  it("does NOT include joinedAt in update payload", async () => {
+    mockFindMemberByCpf.mockResolvedValue({ id: "existing-member" });
     const tx = buildMockTx();
-    (tx.member.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { cpf: "12345678901" },
-    ]);
     const prisma = {
       $transaction: vi
         .fn()
@@ -388,17 +392,15 @@ João Silva,12345678901,11999990000,plan-001`;
 
     await importMembersFromCsv(prisma, clubId, actorId, VALID_CSV_SINGLE);
 
-    const upsertCall = (tx.member.upsert as ReturnType<typeof vi.fn>).mock
+    const updateCall = (tx.member.update as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0];
-    expect(upsertCall).toBeDefined();
-    expect(upsertCall.update).not.toHaveProperty("joinedAt");
+    expect(updateCall).toBeDefined();
+    expect(updateCall.data).not.toHaveProperty("joinedAt");
   });
 
-  it("does NOT include status in upsert update payload", async () => {
+  it("does NOT include status in update payload", async () => {
+    mockFindMemberByCpf.mockResolvedValue({ id: "existing-member" });
     const tx = buildMockTx();
-    (tx.member.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { cpf: "12345678901" },
-    ]);
     const prisma = {
       $transaction: vi
         .fn()
@@ -407,9 +409,9 @@ João Silva,12345678901,11999990000,plan-001`;
 
     await importMembersFromCsv(prisma, clubId, actorId, VALID_CSV_SINGLE);
 
-    const upsertCall = (tx.member.upsert as ReturnType<typeof vi.fn>).mock
+    const updateCall = (tx.member.update as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0];
-    expect(upsertCall.update).not.toHaveProperty("status");
+    expect(updateCall.data).not.toHaveProperty("status");
   });
 
   it("returns imported=total, created and updated counts, errors array for mixed CSV", async () => {

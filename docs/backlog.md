@@ -185,7 +185,6 @@
 
 | Ordem | ID    | Task                                       | Motivo da posição                                                    |
 | ----- | ----- | ------------------------------------------ | -------------------------------------------------------------------- |
-| 2     | T-050 | Layout público (header + footer)           | Depende de T-049                                                     |
 | 3     | T-051 | Landing page principal                     | Depende de T-050                                                     |
 | 4     | T-052 | Página de preços                           | Depende de T-050                                                     |
 | 5     | T-053 | Página de contato                          | Depende de T-050                                                     |

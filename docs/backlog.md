@@ -185,7 +185,6 @@
 
 | Ordem | ID    | Task                                       | Motivo da posição                                                    |
 | ----- | ----- | ------------------------------------------ | -------------------------------------------------------------------- |
-| 1     | T-049 | Setup route groups `(marketing)` e `(app)` | Fundação do App Router; deve preceder toda tela pública ou de painel |
 | 2     | T-050 | Layout público (header + footer)           | Depende de T-049                                                     |
 | 3     | T-051 | Landing page principal                     | Depende de T-050                                                     |
 | 4     | T-052 | Página de preços                           | Depende de T-050                                                     |

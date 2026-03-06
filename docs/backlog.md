@@ -10,9 +10,9 @@
 
 | Sprint             | Foco Principal                                              | Tasks                                         | Esforço  | Critério de Done                                                    |
 | ------------------ | ----------------------------------------------------------- | --------------------------------------------- | -------- | ------------------------------------------------------------------- |
-| Sprint 1 (Sem 3–4) | Fundação: Auth, Onboarding, Segurança base, CI/CD, Landing  | T-001 a T-019 + T-043 a T-047 + T-049 a T-055 | ~14d dev | Clube consegue fazer login e cadastrar sócios e atletas; site no ar |
+| Sprint 1 (Sem 3–4) | Fundação: Auth, Onboarding, Segurança base, CI/CD, Landing  | T-001 a T-019 + T-044 a T-047 + T-049 a T-056 | ~14d dev | Clube consegue fazer login e cadastrar sócios e atletas; site no ar |
 | Sprint 2 (Sem 5–6) | Core Financeiro: Cobranças Pix, Webhook, WhatsApp D-3/D0    | T-020 a T-035 + T-037 a T-041                 | ~12d dev | Primeiro Pix cobrado e confirmado end-to-end                        |
-| Sprint 3 (Sem 7–8) | Polimento e Confiabilidade: SSE, E2E tests, Fallback e-mail | T-036 + T-042 + T-048                         | ~5d dev  | Sistema roda 1 semana em prod sem incidente crítico                 |
+| Sprint 3 (Sem 7–8) | Polimento e Confiabilidade: SSE, E2E tests, Fallback e-mail | T-036 + T-042 + T-043 + T-048                 | ~5d dev  | Sistema roda 1 semana em prod sem incidente crítico                 |
 
 ---
 
@@ -138,7 +138,7 @@
 
 | ID    | Task Técnica                                                                      | Esforço | Sprint |
 | ----- | --------------------------------------------------------------------------------- | ------- | ------ |
-| T-043 | Setup Sentry no front e back: capturar erros não tratados em produção             | 0.5d    | S1     |
+| T-043 | Setup Sentry no front e back: capturar erros não tratados em produção             | 0.5d    | S3     |
 | T-044 | Rate limiting global na API: 100 req/min por IP via `@fastify/rate-limit` + Redis | 0.5d    | S1     |
 | T-045 | HTTPS obrigatório; HSTS header; CSP básico no Next.js                             | 0.25d   | S1     |
 | T-046 | Criptografia de CPF e telefone em repouso (pgcrypto AES-256)                      | 1d      | S1     |
@@ -183,15 +183,16 @@
 
 ## Ordem de Execução (referência)
 
-| Ordem | ID    | Task                                           | Motivo da posição                                                 |
-| ----- | ----- | ---------------------------------------------- | ----------------------------------------------------------------- |
-| 36    | T-042 | Atualização em tempo real via SSE              | Depende de T-027 e T-039                                          |
-| 37    | T-043 | Setup Sentry (front + back)                    | Deixado por último — mais valor quando os fluxos reais já existem |
-| 38    | T-049 | Setup route groups (marketing) e (app)         | Deve ser feito antes de qualquer tela pública ou de painel        |
-| 39    | T-050 | Layout público (header + footer)               | Depende de T-049                                                  |
-| 40    | T-051 | Landing page principal                         | Depende de T-050                                                  |
-| 41    | T-052 | Página de preços                               | Depende de T-050                                                  |
-| 42    | T-053 | Página de contato                              | Depende de T-050                                                  |
-| 43    | T-054 | Schema `athletes` no banco                     | Base para T-055 e T-056; deve preceder qualquer módulo da v1.5    |
-| 44    | T-055 | CRUD `/api/athletes`                           | Depende de T-054                                                  |
-| 45    | T-056 | Tela de listagem e cadastro de atletas         | Depende de T-055                                                  |
+| Ordem | ID    | Task                                           | Motivo da posição                                                       |
+| ----- | ----- | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| 1     | T-049 | Setup route groups `(marketing)` e `(app)`     | Fundação do App Router; deve preceder toda tela pública ou de painel    |
+| 2     | T-050 | Layout público (header + footer)               | Depende de T-049                                                        |
+| 3     | T-051 | Landing page principal                         | Depende de T-050                                                        |
+| 4     | T-052 | Página de preços                               | Depende de T-050                                                        |
+| 5     | T-053 | Página de contato                              | Depende de T-050                                                        |
+| …     | …     | T-001 a T-041 (core financeiro e sócios)       | —                                                                       |
+| 41    | T-042 | Atualização em tempo real via SSE              | Depende de T-027 e T-039                                                |
+| 42    | T-043 | Setup Sentry (front + back)                    | Deixado por último — mais valor quando os fluxos reais já existem       |
+| 43    | T-054 | Schema `athletes` no banco                     | Base para T-055 e T-056; deve preceder qualquer módulo da v1.5          |
+| 44    | T-055 | CRUD `/api/athletes`                           | Depende de T-054                                                        |
+| 45    | T-056 | Tela de listagem e cadastro de atletas         | Depende de T-055                                                        |

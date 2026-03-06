@@ -115,14 +115,13 @@ export async function logoutUser(
 ): Promise<void> {
   if (rawToken) {
     try {
-      const refreshJwt = (
-        fastify as FastifyInstance & {
-          refresh: { verify: (token: string) => RefreshTokenPayload };
-        }
-      ).refresh;
+      const payload = (
+  fastify as FastifyInstance & {
+    refresh: { verify: (token: string) => unknown };
+  }
+).refresh.verify(rawToken) as RefreshTokenPayload;
 
-      const payload = refreshJwt.verify(rawToken);
-      await revokeRefreshToken(redis, payload.jti);
+await revokeRefreshToken(redis, payload.jti);
     } catch {
       // Token already expired or invalid — no action needed; it's useless anyway.
     }

@@ -100,8 +100,8 @@ export async function createMember(
     const member = await tx.member.create({
       data: {
         name: input.name,
-        cpf: encryptedCpf,
-        phone: encryptedPhone,
+        cpf: Buffer.from(encryptedCpf).toString('hex'),
+phone: Buffer.from(encryptedPhone).toString('hex'),
         email: input.email ?? null,
         ...(input.joinedAt ? { joinedAt: new Date(input.joinedAt) } : {}),
       },
@@ -124,8 +124,8 @@ export async function createMember(
     });
 
     const [cpf, phone] = await Promise.all([
-      decryptField(tx, member.cpf),
-      decryptField(tx, member.phone),
+        decryptField(tx, Buffer.from(member.cpf, 'hex')),
+        decryptField(tx, Buffer.from(member.phone, 'hex')),
     ]);
 
     const plans: MemberPlanSummary[] = [];
@@ -162,8 +162,8 @@ export async function getMemberById(
     if (!member) throw new MemberNotFoundError();
 
     const [cpf, phone] = await Promise.all([
-      decryptField(tx, member.cpf),
-      decryptField(tx, member.phone),
+      decryptField(tx, Buffer.from(member.cpf, 'hex')),
+decryptField(tx, Buffer.from(member.phone, 'hex')),
     ]);
 
     const plansMap = await loadActivePlans(tx, [memberId]);
@@ -235,8 +235,8 @@ export async function updateMember(
     });
 
     const [cpf, phone] = await Promise.all([
-      decryptField(tx, updated.cpf),
-      decryptField(tx, updated.phone),
+      decryptField(tx, Buffer.from(updated.cpf, 'hex')),
+decryptField(tx, Buffer.from(updated.phone, 'hex')),
     ]);
 
     const plansMap = await loadActivePlans(tx, [memberId]);

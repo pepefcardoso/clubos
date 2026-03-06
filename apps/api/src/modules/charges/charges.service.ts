@@ -387,7 +387,13 @@ export async function generateMonthlyCharges(
           prisma,
           clubId,
           createdCharge,
-          memberRow,
+          {
+            id: mp.memberId,
+            name: mp.member.name,
+            cpf: Buffer.from(memberRow.cpf, 'hex'),
+            phone: Buffer.from(memberRow.phone, 'hex'),
+            email: memberRow.email,
+          }
         );
 
         if ("error" in dispatchResult) {

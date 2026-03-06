@@ -268,7 +268,7 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
       {
         clubId,
         memberId,
-        encryptedPhone: row.member.phone,
+        encryptedPhone: Buffer.from(row.member.phone, 'hex'),
         template: TEMPLATE_KEYS.CHARGE_REMINDER_MANUAL,
         renderedBody,
       },

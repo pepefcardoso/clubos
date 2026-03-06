@@ -37,6 +37,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.19.15",
     "@types/papaparse": "^5.5.2",
     "@typescript-eslint/eslint-plugin": "^8.56.1",

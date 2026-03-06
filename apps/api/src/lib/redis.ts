@@ -1,4 +1,4 @@
-import Redis from "ioredis";
+import { Redis } from 'ioredis';
 
 let _redis: Redis | null = null;
 
@@ -15,7 +15,7 @@ export function getRedisClient(): Redis {
       enableReadyCheck: true,
     });
 
-    _redis.on("error", (err) => {
+    _redis.on("error", (err: Error) => {
       console.error("[Redis] connection error:", err);
     });
   }

@@ -195,7 +195,7 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
         return reply.status(401).send({
           statusCode: 401,
           error: "Unauthorized",
-          message: "Refresh token has been revoked or already used.",
+          message: "Invalid or expired refresh token.",
         });
       }
 

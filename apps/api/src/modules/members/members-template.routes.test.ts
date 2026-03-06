@@ -10,6 +10,7 @@ vi.mock("../../lib/redis.js", () => ({
     pipeline: vi.fn(),
     quit: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn(),
+    defineCommand: vi.fn(),
   }),
   storeRefreshToken: vi.fn().mockResolvedValue(undefined),
   consumeRefreshToken: vi.fn().mockResolvedValue(null),
@@ -21,7 +22,9 @@ vi.mock("../../jobs/index.js", () => ({
 }));
 
 vi.mock("../../lib/prisma.js", () => ({
-  getPrismaClient: vi.fn().mockReturnValue({}),
+  getPrismaClient: vi.fn().mockReturnValue({
+    $disconnect: vi.fn().mockResolvedValue(undefined),
+  }),
   withTenantSchema: vi.fn(),
   isPrismaUniqueConstraintError: vi.fn(),
 }));

@@ -390,10 +390,10 @@ export async function generateMonthlyCharges(
           {
             id: mp.memberId,
             name: mp.member.name,
-            cpf: Buffer.from(memberRow.cpf, 'hex'),
-            phone: Buffer.from(memberRow.phone, 'hex'),
+            cpf: Buffer.from(memberRow.cpf),
+            phone: Buffer.from(memberRow.phone),
             email: memberRow.email,
-          }
+          },
         );
 
         if ("error" in dispatchResult) {

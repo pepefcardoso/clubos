@@ -201,7 +201,7 @@ async function processBatch(
             where: { id: existing.id },
             data: {
               name: row.name,
-              phone: Buffer.from(encryptedPhone).toString('hex'),
+              phone: Buffer.from(encryptedPhone),
               email: row.email ?? null,
             },
           });
@@ -210,8 +210,8 @@ async function processBatch(
           member = await tx.member.create({
             data: {
               name: row.name,
-              cpf: Buffer.from(encryptedCpf).toString('hex'),
-phone: Buffer.from(encryptedPhone).toString('hex'),
+              cpf: Buffer.from(encryptedCpf),
+              phone: Buffer.from(encryptedPhone),
               email: row.email ?? null,
               ...(row.joinedAt ? { joinedAt: row.joinedAt } : {}),
             },

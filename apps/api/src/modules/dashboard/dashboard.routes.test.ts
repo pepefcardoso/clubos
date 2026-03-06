@@ -1,13 +1,11 @@
 /**
- * Route-level tests for GET /api/dashboard/summary and
- * GET /api/dashboard/charges-history.
+ * Route-level tests for:
+ *   GET /api/dashboard/summary
+ *   GET /api/dashboard/charges-history
+ *   GET /api/dashboard/overdue-members
  *
  * Uses Fastify's inject() to exercise routing and query-param handling
  * without a real database. The service layer is fully mocked.
- *
- * Authentication is not exercised here — these routes live inside
- * protectedRoutes in production, but the test registers them directly
- * and injects a synthetic request.user so the handler can read clubId.
  */
 
 import {
@@ -31,10 +29,15 @@ vi.mock("./dashboard.service.js", async (importOriginal) => {
     ...original,
     getDashboardSummary: vi.fn(),
     getChargesHistory: vi.fn(),
+    getOverdueMembers: vi.fn(),
   };
 });
 
-import { getDashboardSummary, getChargesHistory } from "./dashboard.service.js";
+import {
+  getDashboardSummary,
+  getChargesHistory,
+  getOverdueMembers,
+} from "./dashboard.service.js";
 
 const TEST_CLUB_ID = "club_test_123";
 const TEST_USER: AccessTokenPayload = {
@@ -74,6 +77,30 @@ const MOCK_HISTORY = [
   },
 ];
 
+const MOCK_OVERDUE_RESULT = {
+  data: [
+    {
+      memberId: "mem_001",
+      memberName: "João Silva",
+      chargeId: "chg_001",
+      amountCents: 9900,
+      dueDate: new Date("2025-01-15"),
+      daysPastDue: 45,
+    },
+    {
+      memberId: "mem_002",
+      memberName: "Maria Santos",
+      chargeId: "chg_002",
+      amountCents: 14900,
+      dueDate: new Date("2025-01-20"),
+      daysPastDue: 40,
+    },
+  ],
+  total: 8,
+  page: 1,
+  limit: 20,
+};
+
 async function buildTestApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   app.decorate(
@@ -102,6 +129,7 @@ afterAll(async () => {
 beforeEach(() => {
   vi.mocked(getDashboardSummary).mockReset();
   vi.mocked(getChargesHistory).mockReset();
+  vi.mocked(getOverdueMembers).mockReset();
 });
 
 describe("GET /api/dashboard/summary", () => {
@@ -262,6 +290,158 @@ describe("GET /api/dashboard/charges-history", () => {
     const res = await app.inject({
       method: "GET",
       url: "/api/dashboard/charges-history",
+    });
+
+    expect(res.statusCode).toBe(500);
+  });
+});
+
+describe("GET /api/dashboard/overdue-members", () => {
+  it("returns 200 with paginated overdue members", async () => {
+    vi.mocked(getOverdueMembers).mockResolvedValue(MOCK_OVERDUE_RESULT);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/dashboard/overdue-members",
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data).toHaveLength(2);
+    expect(body.total).toBe(8);
+    expect(body.page).toBe(1);
+    expect(body.limit).toBe(20);
+  });
+
+  it("defaults to page=1 and limit=20 when query params are absent", async () => {
+    vi.mocked(getOverdueMembers).mockResolvedValue(MOCK_OVERDUE_RESULT);
+
+    await app.inject({
+      method: "GET",
+      url: "/api/dashboard/overdue-members",
+    });
+
+    expect(getOverdueMembers).toHaveBeenCalledWith(
+      expect.anything(),
+      TEST_CLUB_ID,
+      1,
+      20,
+    );
+  });
+
+  it("passes page and limit query params to the service", async () => {
+    vi.mocked(getOverdueMembers).mockResolvedValue({
+      ...MOCK_OVERDUE_RESULT,
+      page: 2,
+      limit: 10,
+    });
+
+    await app.inject({
+      method: "GET",
+      url: "/api/dashboard/overdue-members?page=2&limit=10",
+    });
+
+    expect(getOverdueMembers).toHaveBeenCalledWith(
+      expect.anything(),
+      TEST_CLUB_ID,
+      2,
+      10,
+    );
+  });
+
+  it("clamps limit to a maximum of 50", async () => {
+    vi.mocked(getOverdueMembers).mockResolvedValue(MOCK_OVERDUE_RESULT);
+
+    await app.inject({
+      method: "GET",
+      url: "/api/dashboard/overdue-members?limit=200",
+    });
+
+    expect(getOverdueMembers).toHaveBeenCalledWith(
+      expect.anything(),
+      TEST_CLUB_ID,
+      expect.any(Number),
+      50,
+    );
+  });
+
+  it("clamps page to a minimum of 1", async () => {
+    vi.mocked(getOverdueMembers).mockResolvedValue(MOCK_OVERDUE_RESULT);
+
+    await app.inject({
+      method: "GET",
+      url: "/api/dashboard/overdue-members?page=0",
+    });
+
+    expect(getOverdueMembers).toHaveBeenCalledWith(
+      expect.anything(),
+      TEST_CLUB_ID,
+      1,
+      expect.any(Number),
+    );
+  });
+
+  it("treats non-numeric page as default 1", async () => {
+    vi.mocked(getOverdueMembers).mockResolvedValue(MOCK_OVERDUE_RESULT);
+
+    await app.inject({
+      method: "GET",
+      url: "/api/dashboard/overdue-members?page=abc",
+    });
+
+    expect(getOverdueMembers).toHaveBeenCalledWith(
+      expect.anything(),
+      TEST_CLUB_ID,
+      1,
+      expect.any(Number),
+    );
+  });
+
+  it("calls getOverdueMembers with the authenticated user's clubId", async () => {
+    vi.mocked(getOverdueMembers).mockResolvedValue(MOCK_OVERDUE_RESULT);
+
+    await app.inject({
+      method: "GET",
+      url: "/api/dashboard/overdue-members",
+    });
+
+    expect(getOverdueMembers).toHaveBeenCalledOnce();
+    expect(getOverdueMembers).toHaveBeenCalledWith(
+      expect.anything(),
+      TEST_CLUB_ID,
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it("returns empty data array when no overdue members exist", async () => {
+    vi.mocked(getOverdueMembers).mockResolvedValue({
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/dashboard/overdue-members",
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.data).toHaveLength(0);
+    expect(body.total).toBe(0);
+  });
+
+  it("propagates unhandled service errors as 500", async () => {
+    vi.mocked(getOverdueMembers).mockRejectedValue(
+      new Error("Raw query failed"),
+    );
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/dashboard/overdue-members",
     });
 
     expect(res.statusCode).toBe(500);

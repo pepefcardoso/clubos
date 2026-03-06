@@ -9,6 +9,34 @@ vi.mock("../../lib/redis.js", () => ({
   revokeRefreshToken: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../../lib/prisma.js", () => ({
+  withTenantSchema: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("../messages/messages.service.js", () => ({
+  hasRecentMessage: vi.fn().mockResolvedValue(false),
+}));
+
+vi.mock("../../lib/whatsapp-rate-limit.js", () => ({
+  checkAndConsumeWhatsAppRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, retryAfterMs: 0 }),
+}));
+
+vi.mock("../templates/templates.service.js", () => ({
+  buildRenderedMessage: vi.fn().mockResolvedValue("Mocked message body"),
+}));
+
+vi.mock("../whatsapp/whatsapp.service.js", () => ({
+  sendWhatsAppMessage: vi
+    .fn()
+    .mockResolvedValue({ messageId: "msg_1", status: "SENT" }),
+}));
+
+vi.mock("../templates/templates.constants.js", () => ({
+  TEMPLATE_KEYS: { CHARGE_REMINDER_MANUAL: "charge_reminder_manual" },
+}));
+
 const mockListMembers = vi.fn();
 const mockGetMemberById = vi.fn();
 const mockUpdateMember = vi.fn();
@@ -45,7 +73,15 @@ vi.mock("./members.service.js", () => {
   };
 });
 
-import { MemberNotFoundError } from "./members.service.js";
+vi.mock("./members-import.service.js", () => ({
+  importMembersFromCsv: vi.fn().mockResolvedValue({ imported: 0, errors: [] }),
+}));
+
+import {
+  DuplicateCpfError,
+  PlanNotFoundError,
+  MemberNotFoundError,
+} from "./members.service.js";
 
 import authPlugin from "../../plugins/auth.plugin.js";
 import { issueAccessToken } from "../../lib/tokens.js";
@@ -258,6 +294,185 @@ describe("GET /api/members", () => {
       ADMIN_USER.clubId,
       expect.objectContaining({ page: 1, limit: 20 }),
     );
+  });
+});
+
+describe("POST /api/members", () => {
+  let app: FastifyInstance;
+  afterEach(async () => {
+    await app?.close();
+  });
+
+  const VALID_PAYLOAD = {
+    name: "Ana Lima",
+    cpf: "11122233344",
+    phone: "11988887777",
+  };
+
+  it("returns 201 with created member on valid input", async () => {
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: VALID_PAYLOAD,
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toHaveProperty("id");
+  });
+
+  it("returns 201 for TREASURER role (no role restriction on create)", async () => {
+    app = await buildTestApp();
+    const token = issueAccessToken(app, TREASURER_USER);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: VALID_PAYLOAD,
+    });
+    expect(res.statusCode).toBe(201);
+  });
+
+  it("returns 201 with optional email included", async () => {
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { ...VALID_PAYLOAD, email: "ana@clube.com" },
+    });
+    expect(res.statusCode).toBe(201);
+  });
+
+  it("returns 201 with planId included", async () => {
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { ...VALID_PAYLOAD, planId: "cjld2cyuq0000t3rmniod1foy" },
+    });
+    expect(res.statusCode).toBe(201);
+  });
+
+  it("returns 400 when name is missing", async () => {
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    const { name: _name, ...withoutName } = VALID_PAYLOAD;
+    void _name;
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: withoutName,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("returns 400 when cpf is missing", async () => {
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    const { cpf: _cpf, ...withoutCpf } = VALID_PAYLOAD;
+    void _cpf;
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: withoutCpf,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("returns 400 when phone is missing", async () => {
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    const { phone: _phone, ...withoutPhone } = VALID_PAYLOAD;
+    void _phone;
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: withoutPhone,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("returns 409 when DuplicateCpfError is thrown", async () => {
+    mockCreateMember.mockRejectedValue(new DuplicateCpfError());
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: VALID_PAYLOAD,
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({
+      statusCode: 409,
+      error: "Conflict",
+      message: "Sócio com este CPF já está cadastrado",
+    });
+  });
+
+  it("returns 404 when PlanNotFoundError is thrown", async () => {
+    mockCreateMember.mockRejectedValue(new PlanNotFoundError());
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { ...VALID_PAYLOAD, planId: "nonexistent-plan" },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toMatchObject({
+      statusCode: 404,
+      error: "Not Found",
+      message: "Plano não encontrado ou inativo",
+    });
+  });
+
+  it("returns 401 when no token is provided", async () => {
+    app = await buildTestApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/members",
+      payload: VALID_PAYLOAD,
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("calls createMember with correct clubId and actorId", async () => {
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: VALID_PAYLOAD,
+    });
+    expect(mockCreateMember).toHaveBeenCalledWith(
+      expect.anything(),
+      ADMIN_USER.clubId,
+      ADMIN_USER.sub,
+      expect.objectContaining({ name: "Ana Lima" }),
+    );
+  });
+
+  it("does not call createMember when validation fails", async () => {
+    app = await buildTestApp();
+    const token = issueAccessToken(app, ADMIN_USER);
+    await app.inject({
+      method: "POST",
+      url: "/api/members",
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { name: "X" },
+    });
+    expect(mockCreateMember).not.toHaveBeenCalled();
   });
 });
 

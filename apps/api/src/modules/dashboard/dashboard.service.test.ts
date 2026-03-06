@@ -1,16 +1,16 @@
 /**
- * Unit tests for getDashboardSummary (T-038).
+ * Unit tests for getDashboardSummary, getChargesHistory, and getOverdueMembers.
  *
  * All Prisma I/O is mocked via withTenantSchema — no real database or
- * tenant schema setup required. The tests cover:
- *   1. Happy path — populated tenant with mixed data
- *   2. Empty tenant — new club with no rows yet
- *   3. Cancelled payment exclusion
- *   4. Cross-month boundary (previous month and future-dated payments excluded)
+ * tenant schema setup required.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getDashboardSummary } from "./dashboard.service.js";
+import {
+  getDashboardSummary,
+  getChargesHistory,
+  getOverdueMembers,
+} from "./dashboard.service.js";
 import type { PrismaClient } from "../../../generated/prisma/index.js";
 
 type MemberGroupRow = { status: string; _count: { id: number } };
@@ -28,11 +28,20 @@ interface TxOverrides {
   memberGroups?: MemberGroupRow[];
   chargeGroups?: ChargeGroupRow[];
   paymentAggregate?: PaymentAggregateResult;
+  queryRawResults?: unknown[];
 }
 
 function buildMockTx(overrides: TxOverrides = {}) {
+  const queryRawQueue = overrides.queryRawResults
+    ? [...overrides.queryRawResults]
+    : [];
+
   return {
     $executeRawUnsafe: vi.fn().mockResolvedValue(undefined),
+    $queryRaw: vi.fn().mockImplementation(() => {
+      const next = queryRawQueue.shift();
+      return Promise.resolve(next ?? []);
+    }),
     member: {
       groupBy: vi.fn().mockResolvedValue(overrides.memberGroups ?? []),
     },
@@ -150,14 +159,6 @@ describe("getDashboardSummary — populated tenant", () => {
   });
 
   it("queries charges only for PENDING and OVERDUE statuses", async () => {
-    const prisma = buildMockPrisma({
-      memberGroups,
-      chargeGroups,
-      paymentAggregate,
-    });
-    await getDashboardSummary(prisma, CLUB_ID);
-
-    const tx = buildMockTx({ memberGroups, chargeGroups, paymentAggregate });
     const spyTx = buildMockTx({ memberGroups, chargeGroups, paymentAggregate });
     const spyPrisma = {
       $transaction: vi
@@ -174,8 +175,6 @@ describe("getDashboardSummary — populated tenant", () => {
         where: { status: { in: ["PENDING", "OVERDUE"] } },
       }),
     );
-
-    void tx;
   });
 
   it("filters payments aggregate with cancelledAt: null", async () => {
@@ -343,5 +342,336 @@ describe("getDashboardSummary — partial data", () => {
     expect(result.members.active).toBe(20);
     expect(result.members.inactive).toBe(0);
     expect(result.members.overdue).toBe(0);
+  });
+});
+
+describe("getChargesHistory — happy path", () => {
+  it("returns an array with exactly `months` entries", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [[]] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getChargesHistory(prisma, CLUB_ID, 3);
+
+    expect(result).toHaveLength(3);
+  });
+
+  it("all entries have the required shape with numeric fields", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [[]] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getChargesHistory(prisma, CLUB_ID, 2);
+
+    for (const entry of result) {
+      expect(typeof entry.month).toBe("string");
+      expect(entry.month).toMatch(/^\d{4}-\d{2}$/);
+      expect(typeof entry.paid).toBe("number");
+      expect(typeof entry.overdue).toBe("number");
+      expect(typeof entry.pending).toBe("number");
+      expect(typeof entry.paidAmountCents).toBe("number");
+      expect(typeof entry.overdueAmountCents).toBe("number");
+    }
+  });
+
+  it("zero-fills months with no raw rows", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [[]] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getChargesHistory(prisma, CLUB_ID, 4);
+
+    for (const entry of result) {
+      expect(entry.paid).toBe(0);
+      expect(entry.overdue).toBe(0);
+      expect(entry.pending).toBe(0);
+      expect(entry.paidAmountCents).toBe(0);
+      expect(entry.overdueAmountCents).toBe(0);
+    }
+  });
+
+  it("maps PAID rows to paid count and paidAmountCents", async () => {
+    const now = new Date();
+    const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+    const rawRows = [
+      {
+        month: monthKey,
+        status: "PAID",
+        count: BigInt(12),
+        amount_cents: BigInt(60000),
+      },
+    ];
+
+    const spyTx = buildMockTx({ queryRawResults: [rawRows] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getChargesHistory(prisma, CLUB_ID, 1);
+    const thisMonth = result[result.length - 1]!;
+
+    expect(thisMonth.paid).toBe(12);
+    expect(thisMonth.paidAmountCents).toBe(60000);
+  });
+
+  it("maps OVERDUE rows to overdue count and overdueAmountCents", async () => {
+    const now = new Date();
+    const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+    const rawRows = [
+      {
+        month: monthKey,
+        status: "OVERDUE",
+        count: BigInt(5),
+        amount_cents: BigInt(25000),
+      },
+    ];
+
+    const spyTx = buildMockTx({ queryRawResults: [rawRows] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getChargesHistory(prisma, CLUB_ID, 1);
+    const thisMonth = result[result.length - 1]!;
+
+    expect(thisMonth.overdue).toBe(5);
+    expect(thisMonth.overdueAmountCents).toBe(25000);
+  });
+
+  it("maps PENDING and PENDING_RETRY rows to the pending count only", async () => {
+    const now = new Date();
+    const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+    const rawRows = [
+      {
+        month: monthKey,
+        status: "PENDING",
+        count: BigInt(7),
+        amount_cents: BigInt(35000),
+      },
+      {
+        month: monthKey,
+        status: "PENDING_RETRY",
+        count: BigInt(2),
+        amount_cents: BigInt(10000),
+      },
+    ];
+
+    const spyTx = buildMockTx({ queryRawResults: [rawRows] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getChargesHistory(prisma, CLUB_ID, 1);
+    const thisMonth = result[result.length - 1]!;
+
+    expect(thisMonth.pending).toBe(9);
+  });
+
+  it("returns entries ordered oldest-first", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [[]] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getChargesHistory(prisma, CLUB_ID, 3);
+
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i]!.month >= result[i - 1]!.month).toBe(true);
+    }
+  });
+
+  it("uses default months=6 when not specified", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [[]] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getChargesHistory(prisma, CLUB_ID);
+
+    expect(result).toHaveLength(6);
+  });
+});
+
+describe("getOverdueMembers — happy path", () => {
+  const mockRows = [
+    {
+      member_id: "mem_001",
+      member_name: "João Silva",
+      charge_id: "chg_001",
+      amount_cents: BigInt(9900),
+      due_date: new Date("2025-01-10"),
+    },
+    {
+      member_id: "mem_002",
+      member_name: "Maria Santos",
+      charge_id: "chg_002",
+      amount_cents: BigInt(14900),
+      due_date: new Date("2025-01-15"),
+    },
+  ];
+  const mockCount = [{ count: BigInt(2) }];
+
+  it("returns data, total, page, and limit in result", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [mockRows, mockCount] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getOverdueMembers(prisma, CLUB_ID, 1, 20);
+
+    expect(result.data).toHaveLength(2);
+    expect(result.total).toBe(2);
+    expect(result.page).toBe(1);
+    expect(result.limit).toBe(20);
+  });
+
+  it("maps raw SQL columns to camelCase OverdueMemberRow fields", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [mockRows, mockCount] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getOverdueMembers(prisma, CLUB_ID, 1, 20);
+    const first = result.data[0]!;
+
+    expect(first.memberId).toBe("mem_001");
+    expect(first.memberName).toBe("João Silva");
+    expect(first.chargeId).toBe("chg_001");
+    expect(first.amountCents).toBe(9900);
+    expect(first.dueDate).toBeInstanceOf(Date);
+  });
+
+  it("converts BigInt amount_cents to Number", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [mockRows, mockCount] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getOverdueMembers(prisma, CLUB_ID, 1, 20);
+
+    for (const row of result.data) {
+      expect(typeof row.amountCents).toBe("number");
+    }
+  });
+
+  it("computes daysPastDue as a non-negative integer", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [mockRows, mockCount] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getOverdueMembers(prisma, CLUB_ID, 1, 20);
+
+    for (const row of result.data) {
+      expect(row.daysPastDue).toBeGreaterThanOrEqual(0);
+      expect(Number.isInteger(row.daysPastDue)).toBe(true);
+    }
+  });
+});
+
+describe("getOverdueMembers — empty result", () => {
+  it("returns empty data and total=0 when no overdue members exist", async () => {
+    const spyTx = buildMockTx({
+      queryRawResults: [[], [{ count: BigInt(0) }]],
+    });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getOverdueMembers(prisma, CLUB_ID, 1, 20);
+
+    expect(result.data).toHaveLength(0);
+    expect(result.total).toBe(0);
+  });
+
+  it("handles missing countResult gracefully (total defaults to 0)", async () => {
+    const spyTx = buildMockTx({ queryRawResults: [[], []] });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getOverdueMembers(prisma, CLUB_ID, 1, 20);
+
+    expect(result.total).toBe(0);
+  });
+});
+
+describe("getOverdueMembers — pagination", () => {
+  it("reflects the requested page and limit in the result", async () => {
+    const spyTx = buildMockTx({
+      queryRawResults: [[], [{ count: BigInt(50) }]],
+    });
+    const prisma = {
+      $transaction: vi
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => Promise<unknown>) =>
+          fn(spyTx),
+        ),
+    } as unknown as PrismaClient;
+
+    const result = await getOverdueMembers(prisma, CLUB_ID, 3, 10);
+
+    expect(result.page).toBe(3);
+    expect(result.limit).toBe(10);
+    expect(result.total).toBe(50);
   });
 });

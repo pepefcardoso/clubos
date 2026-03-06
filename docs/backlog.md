@@ -185,7 +185,6 @@
 
 | Ordem | ID    | Task                                           | Motivo da posição                                                 |
 | ----- | ----- | ---------------------------------------------- | ----------------------------------------------------------------- |
-| 35    | T-041 | Tabela de inadimplentes + botão "Cobrar agora" | Depende de T-038 e T-031                                          |
 | 36    | T-042 | Atualização em tempo real via SSE              | Depende de T-027 e T-039                                          |
 | 37    | T-043 | Setup Sentry (front + back)                    | Deixado por último — mais valor quando os fluxos reais já existem |
 | 38    | T-049 | Setup route groups (marketing) e (app)         | Deve ser feito antes de qualquer tela pública ou de painel        |

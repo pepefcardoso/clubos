@@ -2,11 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   useCreateMember,
   useUpdateMember,
+  useRemindMember,
   MEMBERS_QUERY_KEY,
 } from "./use-members";
-
-// ── Mocks ──────────────────────────────────────────────────────────────────
-// vi.hoisted ensures variables are initialized before the hoisted vi.mock factories run
 
 const {
   mockUseMutation,
@@ -15,6 +13,7 @@ const {
   mockGetAccessToken,
   mockCreateMember,
   mockUpdateMember,
+  mockRemindMember,
 } = vi.hoisted(() => {
   const mockInvalidateQueries = vi.fn();
   return {
@@ -26,6 +25,7 @@ const {
     mockGetAccessToken: vi.fn(),
     mockCreateMember: vi.fn(),
     mockUpdateMember: vi.fn(),
+    mockRemindMember: vi.fn(),
   };
 });
 
@@ -43,7 +43,9 @@ vi.mock("@/lib/api/members", () => ({
   updateMember: mockUpdateMember,
 }));
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+vi.mock("@/lib/api/dashboard", () => ({
+  remindMember: mockRemindMember,
+}));
 
 const FAKE_TOKEN = "test-token";
 
@@ -58,7 +60,10 @@ const fakeMember = {
   joinedAt: "2025-01-01T00:00:00.000Z",
 };
 
-// ── Tests ──────────────────────────────────────────────────────────────────
+const fakeRemindResult = {
+  messageId: "msg_abc_123",
+  status: "SENT" as const,
+};
 
 describe("MEMBERS_QUERY_KEY", () => {
   it("is ['members']", () => {
@@ -256,5 +261,110 @@ describe("useUpdateMember", () => {
     await expect(
       mutationFn({ memberId: "nonexistent", payload: { name: "X" } }),
     ).rejects.toThrow("Sócio não encontrado");
+  });
+});
+
+describe("useRemindMember", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAccessToken.mockResolvedValue(FAKE_TOKEN);
+    mockUseMutation.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    });
+  });
+
+  it("calls useMutation and returns its result", () => {
+    const result = useRemindMember();
+    expect(mockUseMutation).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ isPending: false });
+  });
+
+  it("mutationFn calls remindMember with memberId and token", async () => {
+    mockRemindMember.mockResolvedValue(fakeRemindResult);
+    useRemindMember();
+
+    const [{ mutationFn }] = mockUseMutation.mock.calls[0] as [
+      { mutationFn: (memberId: string) => Promise<unknown> },
+    ];
+    const result = await mutationFn("mem_1");
+
+    expect(mockGetAccessToken).toHaveBeenCalledTimes(1);
+    expect(mockRemindMember).toHaveBeenCalledWith(FAKE_TOKEN, "mem_1");
+    expect(result).toEqual(fakeRemindResult);
+  });
+
+  it("mutationFn returns FAILED status when message could not be sent", async () => {
+    const failResult = {
+      messageId: "msg_xyz",
+      status: "FAILED" as const,
+      failReason: "Phone unreachable",
+    };
+    mockRemindMember.mockResolvedValue(failResult);
+    useRemindMember();
+
+    const [{ mutationFn }] = mockUseMutation.mock.calls[0] as [
+      { mutationFn: (memberId: string) => Promise<unknown> },
+    ];
+    const result = await mutationFn("mem_1");
+
+    expect(result).toEqual(failResult);
+  });
+
+  it("mutationFn throws when no token is available", async () => {
+    mockGetAccessToken.mockResolvedValue(null);
+    useRemindMember();
+
+    const [{ mutationFn }] = mockUseMutation.mock.calls[0] as [
+      { mutationFn: (memberId: string) => Promise<unknown> },
+    ];
+
+    await expect(mutationFn("mem_1")).rejects.toThrow("Não autenticado");
+    expect(mockRemindMember).not.toHaveBeenCalled();
+  });
+
+  it("onSuccess invalidates OVERDUE_MEMBERS_QUERY_KEY", () => {
+    useRemindMember();
+
+    const [{ onSuccess }] = mockUseMutation.mock.calls[0] as [
+      { onSuccess: () => void },
+    ];
+    onSuccess();
+
+    expect(mockInvalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: expect.arrayContaining(["dashboard", "overdue-members"]),
+      }),
+    );
+  });
+
+  it("mutationFn propagates ApiError (e.g. 429) from remindMember", async () => {
+    const apiError = Object.assign(new Error("Mensagem já enviada"), {
+      status: 429,
+    });
+    mockRemindMember.mockRejectedValue(apiError);
+    useRemindMember();
+
+    const [{ mutationFn }] = mockUseMutation.mock.calls[0] as [
+      { mutationFn: (memberId: string) => Promise<unknown> },
+    ];
+
+    await expect(mutationFn("mem_1")).rejects.toMatchObject({ status: 429 });
+  });
+
+  it("mutationFn propagates generic errors from remindMember", async () => {
+    mockRemindMember.mockRejectedValue(new Error("Network error"));
+    useRemindMember();
+
+    const [{ mutationFn }] = mockUseMutation.mock.calls[0] as [
+      { mutationFn: (memberId: string) => Promise<unknown> },
+    ];
+
+    await expect(mutationFn("mem_abc")).rejects.toThrow("Network error");
+  });
+
+  it("uses the query client returned by useQueryClient", () => {
+    useRemindMember();
+    expect(mockUseQueryClient).toHaveBeenCalled();
   });
 });

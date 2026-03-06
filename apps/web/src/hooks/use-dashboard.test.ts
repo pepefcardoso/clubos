@@ -2,23 +2,24 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   useDashboardSummary,
   useChargesHistory,
+  useOverdueMembers,
   DASHBOARD_QUERY_KEY,
   CHARGES_HISTORY_QUERY_KEY,
+  OVERDUE_MEMBERS_QUERY_KEY,
 } from "./use-dashboard";
-
-// ── Mocks ──────────────────────────────────────────────────────────────────
-// vi.hoisted ensures variables are initialized before the hoisted vi.mock factories run
 
 const {
   mockUseQuery,
   mockGetAccessToken,
   mockFetchDashboardSummary,
   mockFetchChargesHistory,
+  mockFetchOverdueMembers,
 } = vi.hoisted(() => ({
   mockUseQuery: vi.fn(),
   mockGetAccessToken: vi.fn(),
   mockFetchDashboardSummary: vi.fn(),
   mockFetchChargesHistory: vi.fn(),
+  mockFetchOverdueMembers: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -32,9 +33,8 @@ vi.mock("@/hooks/use-auth", () => ({
 vi.mock("@/lib/api/dashboard", () => ({
   fetchDashboardSummary: mockFetchDashboardSummary,
   fetchChargesHistory: mockFetchChargesHistory,
+  fetchOverdueMembers: mockFetchOverdueMembers,
 }));
-
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 const FAKE_TOKEN = "test-token";
 
@@ -60,7 +60,21 @@ const fakeHistory = [
   },
 ];
 
-// ── Tests ──────────────────────────────────────────────────────────────────
+const fakeOverdueResult = {
+  data: [
+    {
+      memberId: "mem_1",
+      memberName: "João Silva",
+      chargeId: "chg_1",
+      amountCents: 9900,
+      dueDate: "2025-01-10",
+      daysPastDue: 55,
+    },
+  ],
+  total: 1,
+  page: 1,
+  limit: 20,
+};
 
 describe("DASHBOARD_QUERY_KEY", () => {
   it("is ['dashboard', 'summary']", () => {
@@ -71,6 +85,12 @@ describe("DASHBOARD_QUERY_KEY", () => {
 describe("CHARGES_HISTORY_QUERY_KEY", () => {
   it("is ['dashboard', 'charges-history']", () => {
     expect(CHARGES_HISTORY_QUERY_KEY).toEqual(["dashboard", "charges-history"]);
+  });
+});
+
+describe("OVERDUE_MEMBERS_QUERY_KEY", () => {
+  it("is ['dashboard', 'overdue-members']", () => {
+    expect(OVERDUE_MEMBERS_QUERY_KEY).toEqual(["dashboard", "overdue-members"]);
   });
 });
 
@@ -216,5 +236,90 @@ describe("useChargesHistory", () => {
     ];
 
     await expect(queryFn()).rejects.toThrow("api down");
+  });
+});
+
+describe("useOverdueMembers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAccessToken.mockResolvedValue(FAKE_TOKEN);
+    mockUseQuery.mockReturnValue({
+      data: fakeOverdueResult,
+      isLoading: false,
+      isError: false,
+    });
+  });
+
+  it("calls useQuery and returns its result", () => {
+    const result = useOverdueMembers();
+    expect(mockUseQuery).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ data: fakeOverdueResult, isLoading: false });
+  });
+
+  it("includes default page=1 and limit=20 in queryKey", () => {
+    useOverdueMembers();
+    const [config] = mockUseQuery.mock.calls[0] as [{ queryKey: unknown[] }];
+    expect(config.queryKey).toEqual([...OVERDUE_MEMBERS_QUERY_KEY, 1, 20]);
+  });
+
+  it("includes custom page and limit in queryKey", () => {
+    useOverdueMembers(3, 10);
+    const [config] = mockUseQuery.mock.calls[0] as [{ queryKey: unknown[] }];
+    expect(config.queryKey).toEqual([...OVERDUE_MEMBERS_QUERY_KEY, 3, 10]);
+  });
+
+  it("sets staleTime to 30 000 ms (shorter than KPI staleTime)", () => {
+    useOverdueMembers();
+    const [config] = mockUseQuery.mock.calls[0] as [{ staleTime: number }];
+    expect(config.staleTime).toBe(30_000);
+  });
+
+  it("queryFn fetches overdue members with access token and defaults", async () => {
+    mockFetchOverdueMembers.mockResolvedValue(fakeOverdueResult);
+    useOverdueMembers();
+
+    const [{ queryFn }] = mockUseQuery.mock.calls[0] as [
+      { queryFn: () => Promise<unknown> },
+    ];
+    const result = await queryFn();
+
+    expect(mockGetAccessToken).toHaveBeenCalledTimes(1);
+    expect(mockFetchOverdueMembers).toHaveBeenCalledWith(FAKE_TOKEN, 1, 20);
+    expect(result).toEqual(fakeOverdueResult);
+  });
+
+  it("queryFn passes custom page and limit to fetchOverdueMembers", async () => {
+    mockFetchOverdueMembers.mockResolvedValue(fakeOverdueResult);
+    useOverdueMembers(2, 10);
+
+    const [{ queryFn }] = mockUseQuery.mock.calls[0] as [
+      { queryFn: () => Promise<unknown> },
+    ];
+    await queryFn();
+
+    expect(mockFetchOverdueMembers).toHaveBeenCalledWith(FAKE_TOKEN, 2, 10);
+  });
+
+  it("queryFn throws when no token is available", async () => {
+    mockGetAccessToken.mockResolvedValue(null);
+    useOverdueMembers();
+
+    const [{ queryFn }] = mockUseQuery.mock.calls[0] as [
+      { queryFn: () => Promise<unknown> },
+    ];
+
+    await expect(queryFn()).rejects.toThrow("Não autenticado");
+    expect(mockFetchOverdueMembers).not.toHaveBeenCalled();
+  });
+
+  it("queryFn propagates errors from fetchOverdueMembers", async () => {
+    mockFetchOverdueMembers.mockRejectedValue(new Error("503 unavailable"));
+    useOverdueMembers();
+
+    const [{ queryFn }] = mockUseQuery.mock.calls[0] as [
+      { queryFn: () => Promise<unknown> },
+    ];
+
+    await expect(queryFn()).rejects.toThrow("503 unavailable");
   });
 });

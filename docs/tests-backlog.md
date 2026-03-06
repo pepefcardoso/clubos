@@ -71,13 +71,13 @@
 
 ## Verify and Create Web Tests
 
-- [ ] `lib/auth.test` (create)
-- [ ] `lib/format.test`
-- [ ] `lib/utils.test` (create)
-- [ ] `lib/api/clubs.test` (create)
-- [ ] `lib/api/dashboard.test` (create)
-- [ ] `lib/api/members.test` (create)
-- [ ] `lib/api/plans.test`
+- [x] `lib/auth.test` (create)
+- [x] `lib/format.test`
+- [x] `lib/utils.test` (create)
+- [x] `lib/api/clubs.test` (create)
+- [x] `lib/api/dashboard.test` (create)
+- [x] `lib/api/members.test` (create)
+- [x] `lib/api/plans.test`
 - [ ] `hooks/use-auth.test` (create)
 - [ ] `hooks/use-dashboard.test` (create)
 - [ ] `hooks/use-members.test` (create)

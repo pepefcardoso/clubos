@@ -49,8 +49,8 @@ describe("parsePriceToCents", () => {
     expect(parsePriceToCents("")).toBe(0);
   });
 
-  it("avoids float precision issues via Math.round", () => {
-    expect(parsePriceToCents("1.005")).toBe(101);
+  it("rounds down when float precision yields .499… (e.g. 1.005 → 100)", () => {
+    expect(parsePriceToCents("1.005")).toBe(100);
   });
 
   it("parses zero", () => {

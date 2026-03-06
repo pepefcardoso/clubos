@@ -19,6 +19,7 @@ vi.mock("../../lib/redis.js", () => ({
 
 vi.mock("../../jobs/index.js", () => ({
   registerJobs: vi.fn().mockResolvedValue(undefined),
+  closeJobs: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../lib/prisma.js", () => ({

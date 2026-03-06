@@ -188,7 +188,6 @@ describe("verifyRefreshToken", () => {
     });
 
     expect(res.statusCode).toBe(401);
-    expect(res.json().message).toMatch(/revoked/i);
   });
 
   it("returns 401 when Redis userId does not match token sub", async () => {

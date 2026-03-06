@@ -169,3 +169,93 @@ export async function getChargesHistory(
     return Array.from(map.values());
   });
 }
+
+export interface OverdueMemberRow {
+  memberId: string;
+  memberName: string;
+  chargeId: string;
+  amountCents: number;
+  dueDate: Date;
+  daysPastDue: number;
+}
+
+export interface OverdueMembersResult {
+  data: OverdueMemberRow[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+/**
+ * Returns a paginated list of members with status=OVERDUE who have at least one
+ * OVERDUE charge. Surfaces the **oldest** unpaid charge per member (highest urgency).
+ *
+ * Uses a raw SQL DISTINCT ON query because Prisma's fluent API cannot express
+ * the correlated "oldest charge per member" aggregation concisely.
+ *
+ * @param prisma  Singleton Prisma client.
+ * @param clubId  Tenant identifier.
+ * @param page    1-based page number (default 1).
+ * @param limit   Page size, capped at 50 by the route handler (default 20).
+ */
+export async function getOverdueMembers(
+  prisma: PrismaClient,
+  clubId: string,
+  page = 1,
+  limit = 20,
+): Promise<OverdueMembersResult> {
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const skip = (page - 1) * limit;
+    const now = new Date();
+
+    const rows = await tx.$queryRaw<
+      Array<{
+        member_id: string;
+        member_name: string;
+        charge_id: string;
+        amount_cents: bigint;
+        due_date: Date;
+      }>
+    >`
+      SELECT DISTINCT ON (m.id)
+        m.id              AS member_id,
+        m.name            AS member_name,
+        c.id              AS charge_id,
+        c."amountCents"   AS amount_cents,
+        c."dueDate"       AS due_date
+      FROM members m
+      JOIN charges c ON c."memberId" = m.id
+      WHERE m.status   = 'OVERDUE'
+        AND c.status   = 'OVERDUE'
+      ORDER BY m.id, c."dueDate" ASC
+      LIMIT ${limit} OFFSET ${skip}
+    `;
+
+    const countResult = await tx.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(DISTINCT m.id) AS count
+      FROM members m
+      JOIN charges c ON c."memberId" = m.id
+      WHERE m.status = 'OVERDUE'
+        AND c.status = 'OVERDUE'
+    `;
+
+    const total = Number(countResult[0]?.count ?? 0);
+
+    const data: OverdueMemberRow[] = rows.map((r) => ({
+      memberId: r.member_id,
+      memberName: r.member_name,
+      chargeId: r.charge_id,
+      amountCents: Number(r.amount_cents),
+      dueDate: r.due_date,
+      daysPastDue: Math.max(
+        0,
+        Math.floor(
+          (now.getTime() - new Date(r.due_date).getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      ),
+    }));
+
+    return { data, total, page, limit };
+  });
+}

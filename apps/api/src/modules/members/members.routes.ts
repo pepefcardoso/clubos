@@ -14,7 +14,21 @@ import {
   MemberNotFoundError,
 } from "./members.service.js";
 import { importMembersFromCsv } from "./members-import.service.js";
+import { getRedisClient } from "../../lib/redis.js";
+import { checkAndConsumeWhatsAppRateLimit } from "../../lib/whatsapp-rate-limit.js";
+import { hasRecentMessage } from "../messages/messages.service.js";
+import { sendWhatsAppMessage } from "../whatsapp/whatsapp.service.js";
+import { buildRenderedMessage } from "../templates/templates.service.js";
+import { withTenantSchema } from "../../lib/prisma.js";
+import { TEMPLATE_KEYS } from "../templates/templates.constants.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
+
+/**
+ * Cooldown window (hours) for the manual remind endpoint.
+ * Shorter than the 20h automated cron window — prevents accidental double-taps
+ * from an admin clicking "Cobrar agora" twice in quick succession.
+ */
+const MANUAL_REMIND_COOLDOWN_H = 4;
 
 export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
   /**
@@ -154,6 +168,116 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
       }
     },
   );
+
+  /**
+   * POST /api/members/:memberId/remind
+   *
+   * Triggers an on-demand WhatsApp reminder for the given member's oldest OVERDUE charge.
+   * Accessible by both ADMIN and TREASURER — no requireRole guard needed beyond the
+   * verifyAccessToken already applied by protectedRoutes.
+   *
+   * Guards applied (in order):
+   *   1. Idempotency — 4-hour cooldown window via hasRecentMessage()
+   *   2. Rate limit  — 30 msg/min per club via checkAndConsumeWhatsAppRateLimit()
+   *   3. Existence   — member must exist and have at least one OVERDUE charge
+   *
+   * Returns:
+   *   200  { messageId, status: "SENT" | "FAILED", failReason? }
+   *   404  member not found or no OVERDUE charges
+   *   429  idempotency or rate limit exceeded (human-readable message)
+   *   502  WhatsApp provider threw unexpectedly (should not normally occur —
+   *        sendWhatsAppMessage captures provider errors into status="FAILED")
+   */
+  fastify.post("/:memberId/remind", async (request, reply) => {
+    const { clubId } = request.user as AccessTokenPayload;
+    const actorId = request.actorId;
+    const { memberId } = request.params as { memberId: string };
+
+    const alreadySent = await hasRecentMessage(
+      fastify.prisma,
+      clubId,
+      memberId,
+      TEMPLATE_KEYS.CHARGE_REMINDER_MANUAL,
+      MANUAL_REMIND_COOLDOWN_H,
+    );
+    if (alreadySent) {
+      return reply.status(429).send({
+        statusCode: 429,
+        error: "Too Many Requests",
+        message: `Uma mensagem já foi enviada para este sócio nas últimas ${MANUAL_REMIND_COOLDOWN_H} horas.`,
+      });
+    }
+
+    const redis = getRedisClient();
+    const rl = await checkAndConsumeWhatsAppRateLimit(redis, clubId);
+    if (!rl.allowed) {
+      return reply.status(429).send({
+        statusCode: 429,
+        error: "Too Many Requests",
+        message: `Limite de mensagens atingido. Tente novamente em ${Math.ceil(rl.retryAfterMs / 1000)}s.`,
+      });
+    }
+
+    const row = await withTenantSchema(fastify.prisma, clubId, async (tx) => {
+      const charge = await tx.charge.findFirst({
+        where: { memberId, status: "OVERDUE" },
+        orderBy: { dueDate: "asc" },
+        select: {
+          id: true,
+          amountCents: true,
+          dueDate: true,
+          gatewayMeta: true,
+        },
+      });
+      if (!charge) return null;
+
+      const member = await tx.member.findUnique({
+        where: { id: memberId },
+        select: { id: true, name: true, phone: true },
+      });
+      if (!member) return null;
+
+      return { member, charge };
+    });
+
+    if (!row) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: "Not Found",
+        message: "Sócio não encontrado ou sem cobranças em atraso.",
+      });
+    }
+
+    const renderedBody = await buildRenderedMessage(
+      fastify.prisma,
+      clubId,
+      TEMPLATE_KEYS.CHARGE_REMINDER_MANUAL,
+      {
+        amountCents: row.charge.amountCents,
+        dueDate: row.charge.dueDate,
+        gatewayMeta: row.charge.gatewayMeta as
+          | Record<string, unknown>
+          | null
+          | undefined,
+      },
+      row.member.name,
+    );
+
+    const result = await sendWhatsAppMessage(
+      fastify.prisma,
+      {
+        clubId,
+        memberId,
+        encryptedPhone: row.member.phone,
+        template: TEMPLATE_KEYS.CHARGE_REMINDER_MANUAL,
+        renderedBody,
+      },
+      actorId,
+    );
+
+    const statusCode = result.status === "SENT" ? 200 : 502;
+    return reply.status(statusCode).send(result);
+  });
 
   /**
    * POST /api/members/import

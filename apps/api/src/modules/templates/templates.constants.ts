@@ -1,9 +1,10 @@
 /**
  * Canonical keys for the three trigger moments in the billing reminder flow.
  *
- *   charge_reminder_d3  → sent 3 days before the due date
- *   charge_reminder_d0  → sent on the due date itself
- *   overdue_notice      → sent 3 days after the due date (D+3)
+ *   charge_reminder_d3     → sent 3 days before the due date
+ *   charge_reminder_d0     → sent on the due date itself
+ *   overdue_notice         → sent 3 days after the due date (D+3)
+ *   charge_reminder_manual → sent on-demand via the "Cobrar agora" dashboard action (T-041)
  *
  * These keys are stored verbatim in Message.template for auditability.
  */
@@ -11,6 +12,7 @@ export const TEMPLATE_KEYS = {
   CHARGE_REMINDER_D3: "charge_reminder_d3",
   CHARGE_REMINDER_D0: "charge_reminder_d0",
   OVERDUE_NOTICE: "overdue_notice",
+  CHARGE_REMINDER_MANUAL: "charge_reminder_manual",
 } as const;
 
 export type TemplateKey = (typeof TEMPLATE_KEYS)[keyof typeof TEMPLATE_KEYS];
@@ -43,4 +45,12 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, string> = {
     "Regularize sua situação pelo Pix abaixo e mantenha seus benefícios:\n\n" +
     "{pix_link}\n\n" +
     "Em caso de dúvidas, entre em contato conosco.",
+
+  charge_reminder_manual:
+    "Olá, {nome}! 👋\n\n" +
+    "Identificamos que sua mensalidade de *{valor}* está em atraso " +
+    "(vencimento: {vencimento}).\n\n" +
+    "Regularize sua situação pelo Pix abaixo e continue aproveitando os benefícios do clube:\n\n" +
+    "{pix_link}\n\n" +
+    "Em caso de dúvidas, entre em contato conosco. 🏆",
 };

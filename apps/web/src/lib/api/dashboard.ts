@@ -81,3 +81,85 @@ export async function fetchChargesHistory(
 
   return res.json() as Promise<MonthlyChargeStat[]>;
 }
+
+export interface OverdueMemberRow {
+  memberId: string;
+  memberName: string;
+  chargeId: string;
+  amountCents: number;
+  dueDate: string;
+  daysPastDue: number;
+}
+
+export interface OverdueMembersResult {
+  data: OverdueMemberRow[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface RemindMemberResult {
+  messageId: string;
+  status: "SENT" | "FAILED";
+  failReason?: string | undefined;
+}
+
+/**
+ * Fetches paginated overdue members from GET /api/dashboard/overdue-members.
+ */
+export async function fetchOverdueMembers(
+  accessToken: string,
+  page = 1,
+  limit = 20,
+): Promise<OverdueMembersResult> {
+  const res = await fetch(
+    `${API_BASE}/api/dashboard/overdue-members?page=${page}&limit=${limit}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+    throw new ApiError(
+      body.message ?? `Erro ao carregar inadimplentes: ${res.status}`,
+      res.status,
+      body.error,
+    );
+  }
+
+  return res.json() as Promise<OverdueMembersResult>;
+}
+
+/**
+ * Triggers an on-demand WhatsApp reminder for a member via POST /api/members/:id/remind.
+ * Throws ApiError on HTTP 4xx / 5xx — callers should handle 429 specially.
+ */
+export async function remindMember(
+  accessToken: string,
+  memberId: string,
+): Promise<RemindMemberResult> {
+  const res = await fetch(`${API_BASE}/api/members/${memberId}/remind`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+    throw new ApiError(
+      body.message ?? "Erro ao enviar lembrete",
+      res.status,
+      body.error,
+    );
+  }
+
+  return res.json() as Promise<RemindMemberResult>;
+}

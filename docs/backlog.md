@@ -183,13 +183,12 @@
 
 ## Ordem de Execução (referência)
 
-| Ordem | ID    | Task                                       | Motivo da posição                                                    |
-| ----- | ----- | ------------------------------------------ | -------------------------------------------------------------------- |
-| 3     | T-051 | Landing page principal                     | Depende de T-050                                                     |
-| 4     | T-052 | Página de preços                           | Depende de T-050                                                     |
-| 5     | T-053 | Página de contato                          | Depende de T-050                                                     |
-| 6    | T-042 | Atualização em tempo real via SSE          | Depende de T-027 e T-039                                             |
-| 7    | T-043 | Setup Sentry (front + back)                | Deixado por último — mais valor quando os fluxos reais já existem    |
-| 8    | T-054 | Schema `athletes` no banco                 | Base para T-055 e T-056; deve preceder qualquer módulo da v1.5       |
-| 9    | T-055 | CRUD `/api/athletes`                       | Depende de T-054                                                     |
-| 10    | T-056 | Tela de listagem e cadastro de atletas     | Depende de T-055                                                     |
+| Ordem | ID    | Task                                   | Motivo da posição                                                 |
+| ----- | ----- | -------------------------------------- | ----------------------------------------------------------------- |
+| 4     | T-052 | Página de preços                       | Depende de T-050                                                  |
+| 5     | T-053 | Página de contato                      | Depende de T-050                                                  |
+| 6     | T-042 | Atualização em tempo real via SSE      | Depende de T-027 e T-039                                          |
+| 7     | T-043 | Setup Sentry (front + back)            | Deixado por último — mais valor quando os fluxos reais já existem |
+| 8     | T-054 | Schema `athletes` no banco             | Base para T-055 e T-056; deve preceder qualquer módulo da v1.5    |
+| 9     | T-055 | CRUD `/api/athletes`                   | Depende de T-054                                                  |
+| 10    | T-056 | Tela de listagem e cadastro de atletas | Depende de T-055                                                  |

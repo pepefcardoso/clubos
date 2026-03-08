@@ -67,7 +67,13 @@ function buildCsp(isProduction) {
     ].join("; ");
   }
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) {
+    throw new Error(
+      "[next.config.js] NEXT_PUBLIC_API_URL must be set for production builds. " +
+        "Without it, connect-src in the CSP header will be incomplete and all API calls will be blocked by the browser.",
+    );
+  }
 
   return [
     "default-src 'self'",

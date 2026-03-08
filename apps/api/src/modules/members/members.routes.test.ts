@@ -426,7 +426,7 @@ describe("POST /api/members", () => {
       method: "POST",
       url: "/api/members",
       headers: { Authorization: `Bearer ${token}` },
-      payload: { ...VALID_PAYLOAD, planId: "nonexistent-plan" },
+      payload: { ...VALID_PAYLOAD, planId: "cjld2cyuq0099t3rmniod1fff" },
     });
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({

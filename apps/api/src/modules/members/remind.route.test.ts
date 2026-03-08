@@ -133,6 +133,17 @@ async function buildApp(): Promise<FastifyInstance> {
     {} as unknown as import("../../../generated/prisma/index.js").PrismaClient,
   );
 
+  app.decorate(
+    "requireRole",
+    (_minimumRole: "ADMIN" | "TREASURER") =>
+      async (
+        _request: import("fastify").FastifyRequest,
+        _reply: import("fastify").FastifyReply,
+      ) => {
+        // no-op in these tests — role is fixed via TEST_USER
+      },
+  );
+
   app.addHook("preHandler", async (request) => {
     (request as unknown as { user: AccessTokenPayload }).user = TEST_USER;
     (request as unknown as { actorId: string }).actorId = TEST_ACTOR_ID;

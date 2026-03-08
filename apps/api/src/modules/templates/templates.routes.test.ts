@@ -43,7 +43,13 @@ const TREASURER_USER = {
   role: "TREASURER" as const,
 };
 
-const MOCK_TEMPLATES = Object.values(TEMPLATE_KEYS).map((key) => ({
+const CONFIGURABLE_KEYS = [
+  TEMPLATE_KEYS.CHARGE_REMINDER_D3,
+  TEMPLATE_KEYS.CHARGE_REMINDER_D0,
+  TEMPLATE_KEYS.OVERDUE_NOTICE,
+] as const;
+
+const MOCK_TEMPLATES = CONFIGURABLE_KEYS.map((key) => ({
   key,
   channel: "WHATSAPP" as const,
   body: DEFAULT_TEMPLATES[key],

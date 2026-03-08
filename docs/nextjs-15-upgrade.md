@@ -8,10 +8,10 @@
 
 ## Before You Start
 
-- [ ] Make sure all current tests pass: `pnpm test`
-- [ ] Make sure there are no TypeScript errors: `pnpm typecheck`
+- [x] Make sure all current tests pass: `pnpm test`
+- [x] Make sure there are no TypeScript errors: `pnpm typecheck`
 - [ ] Create a new branch: `git checkout -b feature/nextjs-15-upgrade`
-- [ ] Commit any pending work — you want a clean diff
+- [x] Commit any pending work — you want a clean diff
 
 ---
 

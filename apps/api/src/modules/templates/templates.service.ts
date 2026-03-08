@@ -8,6 +8,12 @@ import {
 import type { TemplateVars, TemplateListItem } from "./templates.schema.js";
 import type { GatewayMeta, PixGatewayMeta } from "../charges/charges.schema.js";
 
+const CONFIGURABLE_TEMPLATE_KEYS = [
+  TEMPLATE_KEYS.CHARGE_REMINDER_D3,
+  TEMPLATE_KEYS.CHARGE_REMINDER_D0,
+  TEMPLATE_KEYS.OVERDUE_NOTICE,
+] as const;
+
 /**
  * Formats an integer cent value to a Brazilian Real currency string.
  *
@@ -105,7 +111,7 @@ export async function listTemplates(
 
   const customMap = new Map(customRows.map((r) => [r.key, r]));
 
-  return Object.values(TEMPLATE_KEYS).map((key) => {
+  return CONFIGURABLE_TEMPLATE_KEYS.map((key) => {
     const custom = customMap.get(key);
     const isCustom = custom?.isActive === true;
     return {

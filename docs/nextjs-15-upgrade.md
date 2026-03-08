@@ -10,7 +10,7 @@
 
 - [x] Make sure all current tests pass: `pnpm test`
 - [x] Make sure there are no TypeScript errors: `pnpm typecheck`
-- [ ] Create a new branch: `git checkout -b feature/nextjs-15-upgrade`
+- [x] Create a new branch: `git checkout -b feature/nextjs-15-upgrade`
 - [x] Commit any pending work — you want a clean diff
 
 ---

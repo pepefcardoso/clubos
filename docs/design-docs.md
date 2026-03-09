@@ -85,6 +85,14 @@ apps/web/src/app/
 - O `(app)` tem um layout raiz com middleware de autenticação; o `(marketing)` tem um layout raiz independente e sem guard.
 - Componentes verdadeiramente compartilhados (ex.: botão, tipografia, tokens de cor) vivem em `packages/ui/` ou em `apps/web/src/components/` sem pertencer a nenhum dos dois grupos.
 
+### Abordagem de Design e Componentização (Marketing)
+
+Para evitar a aparência de "template genérico" e focar na conversão, a Landing Page adota o princípio de **"Show, Don't Tell"**.
+
+- **Mockups baseados em código:** Em vez de importar imagens `.png` pesadas ou exportadas do Figma, os elementos demonstrativos (mensagens do bot, comprovativos de Pix) são componentes React construídos com Tailwind. Isso garante escalabilidade, facilidade de manutenção (se o texto mudar, mudamos no código) e performance (zero bytes de rede gastos em imagens).
+- **Grids Assimétricos (Bento Grids):** A secção de funcionalidades utilizará CSS Grid para criar composições variadas, prendendo a atenção do utilizador muito melhor do que listas ou cards simétricos tradicionais.
+- **Micro-interações de Storytelling:** Componentes de marketing podem usar Tailwind Animate para revelar informações em scroll, ajudando a guiar o olhar do "lead" pelo fluxo de valor da aplicação.
+
 ---
 
 ## Integrações de Pagamento — Gateway Abstraction

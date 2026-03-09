@@ -5,21 +5,27 @@ import { ContactForm } from "@/components/marketing/ContactForm";
 export const metadata: Metadata = {
     title: "Contato — ClubOS",
     description:
-        "Fale com o time do ClubOS. Responderemos em até 1 dia útil.",
+        "Fale com a equipa do ClubOS. Responderemos em até 1 dia útil.",
 };
 
 export default function ContactPage() {
     return (
         <section
             aria-labelledby="contact-heading"
-            className="bg-neutral-50 py-20 sm:py-28 min-h-[calc(100vh-4rem)]"
+            className="bg-neutral-50 py-20 sm:py-28 min-h-[calc(100vh-4rem)] relative overflow-hidden"
         >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 max-w-5xl mx-auto">
-                    <div className="flex flex-col gap-6">
+            <div
+                className="absolute inset-0 opacity-[0.02] pointer-events-none"
+                style={{ backgroundImage: `radial-gradient(circle at 1px 1px, black 1px, transparent 0)`, backgroundSize: '32px 32px' }}
+            />
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 max-w-5xl mx-auto items-start">
+
+                    <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-widest text-primary-600 mb-3">
-                                Fale conosco
+                            <p className="text-xs font-bold uppercase tracking-widest text-primary-600 mb-3">
+                                Fale connosco
                             </p>
                             <h1
                                 id="contact-heading"
@@ -27,43 +33,43 @@ export default function ContactPage() {
                             >
                                 Como podemos ajudar?
                             </h1>
-                            <p className="mt-4 text-neutral-500 text-sm leading-relaxed">
+                            <p className="mt-4 text-neutral-500 text-base leading-relaxed">
                                 Dúvidas sobre planos, sugestões de funcionalidades ou quer
-                                saber mais sobre o ClubOS? Envie uma mensagem — respondemos
+                                saber mais sobre o ClubOS? Envie uma mensagem — a nossa equipa responde
                                 em até 1 dia útil.
                             </p>
                         </div>
 
-                        <div className="flex flex-col gap-4 mt-2">
-                            <div className="flex items-start gap-3">
+                        <div className="flex flex-col gap-6">
+                            <div className="flex items-start gap-4">
                                 <div
-                                    className="w-9 h-9 rounded-md bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5"
+                                    className="w-12 h-12 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center flex-shrink-0 shadow-sm"
                                     aria-hidden="true"
                                 >
-                                    <Mail size={16} className="text-primary-600" />
+                                    <Mail size={20} className="text-primary-600" />
                                 </div>
-                                <div>
-                                    <p className="text-sm font-semibold text-neutral-900">
-                                        E-mail
+                                <div className="pt-1">
+                                    <p className="text-sm font-bold text-neutral-900">
+                                        E-mail direto
                                     </p>
-                                    <p className="text-sm text-neutral-500">
+                                    <p className="text-sm text-neutral-500 mt-0.5">
                                         contato@clubos.com.br
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-4">
                                 <div
-                                    className="w-9 h-9 rounded-md bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5"
+                                    className="w-12 h-12 rounded-xl bg-accent-50 border border-accent-100 flex items-center justify-center flex-shrink-0 shadow-sm"
                                     aria-hidden="true"
                                 >
-                                    <MessageSquare size={16} className="text-primary-600" />
+                                    <MessageSquare size={20} className="text-accent-500" />
                                 </div>
-                                <div>
-                                    <p className="text-sm font-semibold text-neutral-900">
-                                        Resposta
+                                <div className="pt-1">
+                                    <p className="text-sm font-bold text-neutral-900">
+                                        Tempo de Resposta
                                     </p>
-                                    <p className="text-sm text-neutral-500">
+                                    <p className="text-sm text-neutral-500 mt-0.5">
                                         Em até 1 dia útil
                                     </p>
                                 </div>
@@ -71,9 +77,12 @@ export default function ContactPage() {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-lg border border-neutral-200 shadow-sm p-8">
+                    <div className="bg-white rounded-3xl border border-neutral-200 shadow-xl p-8 sm:p-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 fill-mode-both relative overflow-hidden">
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 to-accent-400 opacity-80" />
+
                         <ContactForm />
                     </div>
+
                 </div>
             </div>
         </section>

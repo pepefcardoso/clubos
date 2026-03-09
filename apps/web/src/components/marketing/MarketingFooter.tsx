@@ -16,37 +16,38 @@ export function MarketingFooter() {
     const year = new Date().getFullYear();
 
     return (
-        <footer className="border-t border-neutral-200 bg-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div className="space-y-3">
+        <footer className="border-t border-neutral-800 bg-neutral-900 text-neutral-300">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 lg:py-16">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-8">
+
+                    <div className="space-y-5 md:col-span-2">
                         <Link
                             href="/"
-                            className="flex items-center gap-2.5"
+                            className="flex items-center gap-2.5 group w-fit"
                             aria-label="ClubOS — página inicial"
                         >
-                            <div className="w-7 h-7 rounded-lg bg-primary-500 flex items-center justify-center flex-shrink-0">
-                                <Shield size={14} className="text-white" strokeWidth={2} aria-hidden="true" />
+                            <div className="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center flex-shrink-0 shadow-inner transition-transform duration-300 group-hover:scale-105">
+                                <Shield size={16} className="text-white" strokeWidth={2.5} aria-hidden="true" />
                             </div>
-                            <span className="text-[0.9375rem] font-bold text-neutral-900 tracking-tight">
+                            <span className="text-[1.0625rem] font-bold text-white tracking-tight">
                                 ClubOS
                             </span>
                         </Link>
-                        <p className="text-sm text-neutral-500 max-w-[220px] leading-relaxed">
-                            Gestão financeira para clubes de futebol. Reduza a inadimplência com cobranças automáticas.
+                        <p className="text-sm text-neutral-400 max-w-sm leading-relaxed">
+                            A plataforma definitiva de gestão financeira para clubes de futebol. Esqueça as planilhas e reduza a inadimplência com automação inteligente.
                         </p>
                     </div>
 
                     <div>
-                        <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+                        <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-5">
                             Produto
                         </h3>
-                        <ul className="space-y-2.5">
+                        <ul className="space-y-3.5">
                             {FOOTER_LINKS.produto.map((link) => (
                                 <li key={link.href}>
                                     <Link
                                         href={link.href}
-                                        className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+                                        className="text-sm text-neutral-400 hover:text-primary-400 transition-colors"
                                     >
                                         {link.label}
                                     </Link>
@@ -56,15 +57,15 @@ export function MarketingFooter() {
                     </div>
 
                     <div>
-                        <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+                        <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-5">
                             Conta
                         </h3>
-                        <ul className="space-y-2.5">
+                        <ul className="space-y-3.5">
                             {FOOTER_LINKS.conta.map((link) => (
                                 <li key={link.href}>
                                     <Link
                                         href={link.href}
-                                        className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+                                        className="text-sm text-neutral-400 hover:text-primary-400 transition-colors"
                                     >
                                         {link.label}
                                     </Link>
@@ -74,11 +75,19 @@ export function MarketingFooter() {
                     </div>
                 </div>
 
-                <div className="mt-10 pt-6 border-t border-neutral-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <p className="text-xs text-neutral-400">
+                <div className="mt-16 pt-8 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <p className="text-sm text-neutral-500">
                         © {year} ClubOS. Todos os direitos reservados.
                     </p>
-                    {/* T-future: add Privacidade / Termos links here */}
+
+                    <div className="flex items-center gap-6">
+                        <span className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer">
+                            Termos de Uso
+                        </span>
+                        <span className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer">
+                            Privacidade
+                        </span>
+                    </div>
                 </div>
             </div>
         </footer>

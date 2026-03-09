@@ -22,6 +22,21 @@ A referência de personalidade é: um contador jovem e organizado que também en
 
 ---
 
+## Diretrizes para Marketing (Landing Page)
+
+O site público (marketing) tem o objetivo de converter visitantes em clientes. A sua interface deve transmitir **confiança, resultados financeiros e a energia do desporto**, fugindo de padrões genéricos de SaaS.
+
+**Princípios do Marketing:**
+
+- **Show, Don't Tell (Mostre, não apenas fale):** Em vez de descrever uma funcionalidade, mostre-a a acontecer. Use mockups construídos em código (HTML/CSS) que simulam o sistema real, como mensagens de WhatsApp, notificações de Pix recebido ou pedaços do dashboard.
+- **Identidade Dinâmica e Premium:**
+  - Use fundos escuros (`primary-900` ou `neutral-900`) em secções heroicas ou de alto impacto para criar contraste e um aspeto premium.
+  - Evite fundos com bolinhas genéricas. Prefira texturas abstratas que remetam para o futebol de forma subtil (ex: linhas de campo táticas, grids técnicos).
+  - Sem banco de imagens genérico: Proibido usar fotos de pessoas a sorrir para portáteis. As "imagens" devem ser a própria interface do ClubOS.
+- **Padrões de Layout (Bento Grids):** Evite o padrão repetitivo de "texto na esquerda, imagem na direita" ou "4 cards iguais lado a lado". Use grids assimétricos (Bento Grids) para secções de funcionalidades, criando um ritmo visual muito mais moderno e atrativo.
+- **Motion Design com Propósito:** Animações devem ajudar a contar a história. Exemplo: um card de Pix a deslizar para cima (`slide-up`) ou um contador numérico a aumentar. Não use animações de "flutuação" contínua e sem sentido.
+- **Tipografia Híbrida:** Use a fonte `JetBrains Mono` (monospace) não só no painel, mas também em grandes métricas no site de marketing (ex: `R$ 80,00` ou `25%`), reforçando a ideia de que somos um sistema financeiro preciso e tecnológico.
+
 ## Design Tokens
 
 Todos os valores abaixo devem ser configurados em `tailwind.config.ts` como extensão do tema, para que os tokens sejam usáveis como classes utilitárias em qualquer componente.

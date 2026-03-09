@@ -1,6 +1,7 @@
 import { Worker, type Job } from "bullmq";
 import { getRedisClient } from "../../lib/redis.js";
 import { getPrismaClient } from "../../lib/prisma.js";
+import { emitPaymentConfirmed } from "../../lib/sse-bus.js";
 import {
   hasExistingPayment,
   resolveClubIdFromChargeId,
@@ -19,6 +20,10 @@ import {
  *
  * T-027 extends the processor with the full PAYMENT_RECEIVED handler
  * (create Payment, update Charge, update Member status).
+ *
+ * T-042 adds: after successful handlePaymentReceived, emit an SSE event
+ * via emitPaymentConfirmed() so connected dashboard clients update in
+ * real-time without a page reload.
  *
  * Two-layer idempotency:
  *   Layer 1 — BullMQ: deterministic jobId prevents enqueueing the same
@@ -99,6 +104,14 @@ export function startWebhookWorker(): Worker<WebhookJobData> {
           );
           return result;
         }
+
+        emitPaymentConfirmed(clubId, {
+          chargeId: result.chargeId,
+          memberId: result.memberId,
+          amountCents: result.amountCents,
+          memberStatusUpdated: result.memberStatusUpdated,
+          paidAt: new Date().toISOString(),
+        });
 
         job.log(
           `[webhook-worker] PAYMENT_RECEIVED processed — ` +

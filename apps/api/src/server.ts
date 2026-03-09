@@ -17,6 +17,7 @@ import { clubRoutes } from "./modules/clubs/clubs.routes.js";
 import { protectedRoutes } from "./modules/protected.routes.js";
 import { registerGateways } from "./modules/payments/gateways/index.js";
 import { webhookRoutes } from "./modules/webhooks/webhooks.routes.js";
+import { eventsRoutes } from "./modules/events/events.routes.js";
 import type { WebhookJobData } from "./modules/webhooks/webhooks.service.js";
 import fastifyMultipart from "@fastify/multipart";
 import { registerJobs, closeJobs } from "./jobs/index.js";
@@ -31,9 +32,10 @@ export async function buildApp() {
             level: process.env["LOG_LEVEL"] ?? "info",
             transport: { target: "pino-pretty" },
           } as const)
-        : ({
+        : {
             level: process.env["LOG_LEVEL"] ?? "info",
-          } as const);
+            redact: ["req.query.token"] as string[],
+          };
 
   const fastify = Fastify({ logger: loggerOptions });
 
@@ -65,7 +67,7 @@ export async function buildApp() {
     redis,
     max: 100,
     timeWindow: "1 minute",
-    errorResponseBuilder: (_request, context) => ({
+    errorResponseBuilder: (_request: unknown, context: { after: string }) => ({
       statusCode: 429,
       error: "Too Many Requests",
       message: `Rate limit exceeded. Try again in ${context.after}.`,
@@ -92,6 +94,8 @@ export async function buildApp() {
 
   await fastify.register(webhookRoutes, { prefix: "/webhooks" });
 
+  await fastify.register(eventsRoutes, { prefix: "/api/events" });
+
   fastify.get(
     "/api/members/import/template",
     { config: { rateLimit: false } },
@@ -112,14 +116,10 @@ export async function buildApp() {
 
   await fastify.register(protectedRoutes, { prefix: "/api" });
 
-  fastify.get(
-    "/health",
-    { config: { rateLimit: false } },
-    async (_request, _reply) => ({
-      status: "ok",
-      timestamp: new Date().toISOString(),
-    }),
-  );
+  fastify.get("/health", { config: { rateLimit: false } }, async () => ({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+  }));
 
   fastify.addHook("onClose", async () => {
     await prisma.$disconnect();

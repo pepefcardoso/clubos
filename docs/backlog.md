@@ -185,7 +185,6 @@
 
 | Ordem | ID    | Task                                   | Motivo da posição                                                 |
 | ----- | ----- | -------------------------------------- | ----------------------------------------------------------------- |
-| 4     | T-052 | Página de preços                       | Depende de T-050                                                  |
 | 5     | T-053 | Página de contato                      | Depende de T-050                                                  |
 | 6     | T-042 | Atualização em tempo real via SSE      | Depende de T-027 e T-039                                          |
 | 7     | T-043 | Setup Sentry (front + back)            | Deixado por último — mais valor quando os fluxos reais já existem |

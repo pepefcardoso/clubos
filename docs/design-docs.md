@@ -22,14 +22,19 @@ O ClubOS v1.0 é um SaaS multi-tenant voltado exclusivamente para clubes de fute
 
 ### Front-end
 
-| Tecnologia             | Versão          | Justificativa                                                        |
-| ---------------------- | --------------- | -------------------------------------------------------------------- |
-| Next.js                | 14 (App Router) | SSR nativo, bom SEO para portal público, ecossistema React maduro    |
-| TypeScript             | 5.x             | Tipagem evita bugs de runtime em fluxos financeiros críticos         |
-| Tailwind CSS           | 3.x             | Velocidade de UI sem CSS custom; tokens de design via config         |
-| shadcn/ui              | latest          | Componentes acessíveis, sem dependência pesada; copia código no repo |
-| React Query (TanStack) | 5.x             | Cache e sincronização de estado servidor — elimina boilerplate       |
-| React Hook Form + Zod  | latest          | Validação de formulários financeiros no client antes de bater na API |
+| Tecnologia             | Versão  | Justificativa                                                        | Status         |
+| ---------------------- | ------- | -------------------------------------------------------------------- | -------------- |
+| Next.js                | 16.1.6  | SSR nativo, bom SEO para portal público, ecossistema React maduro    | ✅ Implementado |
+| React                  | 19.2.4  | Concurrent features; Server Components nativos no App Router         | ✅ Implementado |
+| TypeScript             | 5.9.3   | Tipagem evita bugs de runtime em fluxos financeiros críticos         | ✅ Implementado |
+| Tailwind CSS           | 3.4.19  | Velocidade de UI sem CSS custom; tokens de design via config         | ✅ Implementado |
+| shadcn/ui              | latest  | Componentes acessíveis, sem dependência pesada; copia código no repo | ✅ Implementado |
+| React Query (TanStack) | 5.90.21 | Cache e sincronização de estado servidor — elimina boilerplate       | ✅ Implementado |
+| React Hook Form + Zod  | 7.71 / 4.3.6 | Validação de formulários financeiros no client antes de bater na API | ✅ Implementado |
+| Recharts               | 3.7.0   | Gráfico de histórico de cobranças no dashboard                       | ✅ Implementado |
+| Resend                 | 6.9.3   | Envio de e-mail para formulário de contato (marketing)               | ✅ Implementado |
+
+> **Nota:** a versão Next.js foi atualizada de 14 para 16.1.6 e React de 18 para 19 durante o desenvolvimento. O App Router e a estrutura de route groups permanece conforme projetado.
 
 ### Back-end
 
@@ -61,22 +66,28 @@ Para um time de 1–2 devs no MVP, manter um segundo app Next.js (`apps/landing/
 
 A separação em `apps/landing/` pode ser avaliada futuramente se o volume de conteúdo de marketing crescer o suficiente para justificar (blog, docs públicos, A/B testing de copy). Isso não é problema do MVP.
 
-### Convenção de pastas
+### Convenção de pastas (implementada)
 
 Os _route groups_ do App Router isolam layouts e contextos sem afetar as URLs:
 
 ```
 apps/web/src/app/
-├── (marketing)/            # Páginas públicas — layout limpo, sem auth
-│   ├── page.tsx            # Landing principal
+├── (marketing)/            # Páginas públicas — layout limpo, sem auth  ✅
+│   ├── layout.tsx          # MarketingHeader + MarketingFooter           ✅
+│   ├── page.tsx            # Landing principal (6 sections)              ✅
 │   ├── precos/
-│   │   └── page.tsx
+│   │   └── page.tsx        # PricingSection + FAQ + CTA                  ✅
 │   └── contato/
-│       └── page.tsx
-└── (app)/                  # Painel autenticado — layout com sidebar + auth guard
-    ├── dashboard/
-    ├── socios/
-    └── cobrancas/
+│       └── page.tsx        # ContactForm com rate-limit + Resend         ✅
+├── (app)/                  # Painel autenticado — sidebar + auth guard   ✅
+│   ├── layout.tsx          # Auth guard + AppShell                       ✅
+│   ├── dashboard/page.tsx  # DashboardClient com SSE                     ✅
+│   ├── members/page.tsx    # MembersPage                                 ✅
+│   └── plans/page.tsx      # PlansPage                                   ✅
+├── (auth)/
+│   └── login/page.tsx      # LoginForm                                   ✅
+└── (onboarding)/
+    └── onboarding/page.tsx # OnboardingWizard (3 steps)                  ✅
 ```
 
 ### Regras de convivência
@@ -85,13 +96,73 @@ apps/web/src/app/
 - O `(app)` tem um layout raiz com middleware de autenticação; o `(marketing)` tem um layout raiz independente e sem guard.
 - Componentes verdadeiramente compartilhados (ex.: botão, tipografia, tokens de cor) vivem em `packages/ui/` ou em `apps/web/src/components/` sem pertencer a nenhum dos dois grupos.
 
+### API Routes no Next.js
+
+O formulário de contato usa uma API Route em `apps/web/src/app/api/contact/route.ts` com:
+- Validação Zod do payload (nome, e-mail, mensagem)
+- Rate limiting em memória: 5 requisições/60s por IP (via `x-forwarded-for`)
+- Envio via Resend SDK (`noreply@clubos.com.br → CONTACT_EMAIL_TO`)
+
 ### Abordagem de Design e Componentização (Marketing)
 
 Para evitar a aparência de "template genérico" e focar na conversão, a Landing Page adota o princípio de **"Show, Don't Tell"**.
 
 - **Mockups baseados em código:** Em vez de importar imagens `.png` pesadas ou exportadas do Figma, os elementos demonstrativos (mensagens do bot, comprovativos de Pix) são componentes React construídos com Tailwind. Isso garante escalabilidade, facilidade de manutenção (se o texto mudar, mudamos no código) e performance (zero bytes de rede gastos em imagens).
 - **Grids Assimétricos (Bento Grids):** A secção de funcionalidades utilizará CSS Grid para criar composições variadas, prendendo a atenção do utilizador muito melhor do que listas ou cards simétricos tradicionais.
-- **Micro-interações de Storytelling:** Componentes de marketing podem usar Tailwind Animate para revelar informações em scroll, ajudando a guiar o olhar do "lead" pelo fluxo de valor da aplicação.
+- **Micro-interações de Storytelling:** Componentes de marketing usam Tailwind Animate para revelar informações em scroll, ajudando a guiar o olhar do "lead" pelo fluxo de valor da aplicação.
+
+---
+
+## Autenticação — Implementação
+
+A autenticação segue o modelo JWT com refresh token rotativo em httpOnly cookie.
+
+### Fluxo implementado
+
+```
+Login (POST /api/auth/login)
+  → accessToken (15min, em memória) + refreshToken (7d, httpOnly cookie)
+
+Bootstrap (mount do AuthProvider)
+  → POST /api/auth/refresh com cookie
+  → Decodifica JWT no cliente (sem verificar assinatura — responsabilidade do servidor)
+  → Extrai { sub, clubId, role, email, type } do payload
+
+getAccessToken()
+  → Retorna token em memória se disponível
+  → Senão, chama refresh (deduplica concorrência via refreshPromiseRef)
+
+Logout (POST /api/auth/logout)
+  → Invalida cookie no servidor + limpa estado local
+```
+
+### Controle de acesso por papel
+
+```typescript
+const isAdmin = user?.role === "ADMIN";
+// Tesoureiro: visão de leitura, sem ações destrutivas
+// Admin: CRUD completo em sócios, planos; acesso a todas as ações
+```
+
+O campo `role` é lido do JWT — nunca do estado local mutável. Componentes verificam `isAdmin` para exibir/ocultar botões de ação (ex: "Novo sócio", "Excluir plano").
+
+---
+
+## Dashboard em Tempo Real — SSE
+
+O dashboard usa Server-Sent Events para invalidar o cache React Query sem polling.
+
+```
+GET /api/events?token=<accessToken>   (EventSource, credenciais incluídas)
+         |
+         | Evento: PAYMENT_CONFIRMED
+         ▼
+queryClient.invalidateQueries(DASHBOARD_QUERY_KEY)
+queryClient.invalidateQueries(CHARGES_HISTORY_QUERY_KEY)
+queryClient.invalidateQueries(OVERDUE_MEMBERS_QUERY_KEY)
+```
+
+**Estratégia de token:** EventSource não suporta headers customizados, então o token é passado como query param `?token=`. O servidor faz o strip desse parâmetro nos logs (pino redact). O auto-reconnect nativo do EventSource reexecuta `connect()`, que chama `getAccessToken()` — transparentemente renovando o token via cookie quando necessário.
 
 ---
 
@@ -163,6 +234,7 @@ Nenhum outro arquivo precisa mudar.
 | Templates padrão | D-3, D-0, D+3                        | Lembrete pré-vencimento, aviso no vencimento, cobrança de inadimplência |
 | Rate limiting    | Máx. 30 mensagens/minuto por clube   | Evitar bloqueio do número pelo WhatsApp                                 |
 | Fallback         | E-mail via Resend                    | Acionado se WhatsApp falhar após 2 tentativas                           |
+| On-demand        | POST /api/members/:id/remind         | Botão no dashboard "Sócios Inadimplentes" — rate limit protege o número |
 
 ---
 
@@ -239,7 +311,7 @@ O campo `gatewayMeta` (JSONB) em `Charge` absorve dados específicos de cada com
 Cria registro em payments
 Atualiza charge.status = PAID
 Atualiza member.status = ACTIVE
-Dispara evento para dashboard (Redis pub/sub)
+Dispara evento para dashboard (Redis pub/sub → SSE → React Query invalidation)
 ```
 
 ---
@@ -249,10 +321,13 @@ Dispara evento para dashboard (Redis pub/sub)
 ```
 clubos/
 ├── apps/
-│   ├── web/                        # Next.js (browser/desktop)
+│   ├── web/                        # Next.js 16 + React 19 (browser/desktop)
 │   │   └── src/app/
-│   │       ├── (marketing)/        # Landing, preços, contato — layout público
-│   │       └── (app)/              # Painel autenticado — layout com sidebar + auth guard
+│   │       ├── (marketing)/        # Landing, preços, contato — layout público  ✅
+│   │       ├── (app)/              # Painel autenticado — sidebar + auth guard   ✅
+│   │       ├── (auth)/             # Login                                       ✅
+│   │       ├── (onboarding)/       # Wizard de cadastro de clube                 ✅
+│   │       └── api/contact/        # API Route: formulário de contato            ✅
 │   └── api/                        # Fastify (backend)
 │       ├── src/
 │       │   ├── modules/

@@ -6,10 +6,30 @@ import { TestimonialsSection } from "@/components/marketing/sections/Testimonial
 import { ValuePropositionSection } from "@/components/marketing/sections/ValuePropositionSection";
 import type { Metadata } from "next";
 
+const TITLE = "ClubOS — Gestão financeira para clubes de futebol";
+const DESCRIPTION =
+  "Reduza a inadimplência do seu clube em até 25% com cobranças Pix automáticas e régua de cobrança via WhatsApp.";
+const BASE_URL = "https://clubos.com.br";
+
 export const metadata: Metadata = {
-  title: "ClubOS — Gestão financeira para clubes de futebol",
-  description:
-    "Reduza a inadimplência do seu clube em até 25% com cobranças Pix automáticas e régua de cobrança via WhatsApp.",
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: BASE_URL,
+    siteName: "ClubOS",
+    locale: "pt_BR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  alternates: {
+    canonical: BASE_URL,
+  },
 };
 
 export default function LandingPage() {

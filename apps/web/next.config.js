@@ -1,4 +1,16 @@
-/** @type {import('next').NextConfig} */
+/**
+ * @type {import('next').NextConfig}
+ *
+ * IMPORTANT — Module format note:
+ * This file intentionally uses CommonJS (`module.exports`) even though the
+ * rest of the project uses ESM (`import`/`export`). Next.js requires the
+ * config file to be CJS because it is loaded by the Node.js build process
+ * before any ESM transforms are applied. Do NOT convert this to ESM or add
+ * `"type": "module"` to apps/web/package.json — it will break the build.
+ *
+ * Companion files that use ESM (tailwind.config.ts, postcss.config.js) are
+ * handled by their own loaders and are unaffected by this constraint.
+ */
 const nextConfig = {
   async headers() {
     const isProduction = process.env.NODE_ENV === "production";

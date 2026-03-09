@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { z } from "zod";
 
@@ -6,14 +6,58 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const contactSchema = z.object({
   name: z.string().min(2, "Informe seu nome completo").max(100),
-  email: z.string().email("Informe um e-mail válido"),
+  email: z.email("Informe um e-mail válido"),
   message: z
     .string()
     .min(10, "A mensagem deve ter ao menos 10 caracteres")
     .max(2000),
 });
 
-export async function POST(request: Request) {
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown"
+  );
+}
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitStore.get(ip);
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitStore.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return true;
+  }
+
+  entry.count += 1;
+  return false;
+}
+
+export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde um momento e tente novamente." },
+      { status: 429 },
+    );
+  }
+
   try {
     const body = await request.json();
     const parsed = contactSchema.safeParse(body);
@@ -43,8 +87,7 @@ export async function POST(request: Request) {
     console.error("[contact-route]", err);
     return NextResponse.json(
       {
-        error:
-          "Não foi possível enviar sua mensagem. Tente novamente.",
+        error: "Não foi possível enviar sua mensagem. Tente novamente.",
       },
       { status: 500 },
     );

@@ -12,14 +12,14 @@ O ClubOS é uma plataforma modular — um sistema operacional para clubes de fut
 
 A lógica central do roadmap: **primeiro organize o dinheiro, depois o treino, depois a saúde, depois o estádio, depois o talento, depois o campeonato.** Cada camada torna a anterior mais valiosa e aumenta o custo de saída para o cliente.
 
-| Versão | Codinome         | Módulos              | Período    | Meta de Validação                               |
-| ------ | ---------------- | -------------------- | ---------- | ----------------------------------------------- |
-| v1.0   | O Cofre do Clube | ClubOS (financeiro)  | Sem. 1–6   | 10 clubes pagantes; inadimplência ↓25%          |
-| v1.5   | O Campo          | TreinoOS + BaseForte | Sem. 7–12  | 60% dos clubes v1.0 ativam módulo de treino     |
-| v2.0   | O Vestiário      | FisioBase            | Sem. 13–20 | Redução documentada de recidiva em 3+ clubes    |
-| v2.5   | A Arquibancada   | ArenaPass            | Sem. 21–26 | Clube aumenta receita/jogo em 40%+              |
-| v3.0   | A Vitrine        | ScoutLink            | Mês 7–9    | 1º contato scout–escola mediado pela plataforma |
-| v3.5   | A Liga           | CampeonatOS          | Mês 10–12  | 1 campeonato completo gerenciado end-to-end     |
+| Versão | Codinome         | Módulos              | Período    | Meta de Validação                               | Status Frontend |
+| ------ | ---------------- | -------------------- | ---------- | ----------------------------------------------- | --------------- |
+| v1.0   | O Cofre do Clube | ClubOS (financeiro)  | Sem. 1–6   | 10 clubes pagantes; inadimplência ↓25%          | 🟡 Em andamento |
+| v1.5   | O Campo          | TreinoOS + BaseForte | Sem. 7–12  | 60% dos clubes v1.0 ativam módulo de treino     | ⬜ Não iniciado |
+| v2.0   | O Vestiário      | FisioBase            | Sem. 13–20 | Redução documentada de recidiva em 3+ clubes    | ⬜ Não iniciado |
+| v2.5   | A Arquibancada   | ArenaPass            | Sem. 21–26 | Clube aumenta receita/jogo em 40%+              | ⬜ Não iniciado |
+| v3.0   | A Vitrine        | ScoutLink            | Mês 7–9    | 1º contato scout–escola mediado pela plataforma | ⬜ Não iniciado |
+| v3.5   | A Liga           | CampeonatOS          | Mês 10–12  | 1 campeonato completo gerenciado end-to-end     | ⬜ Não iniciado |
 
 ---
 
@@ -30,6 +30,23 @@ A lógica central do roadmap: **primeiro organize o dinheiro, depois o treino, d
 ### Justificativa
 
 A v1.0 não é apenas o MVP — é a fundação de dados de todo o ecossistema. O cadastro de sócios criado aqui é reutilizado por TreinoOS, BaseForte, ArenaPass e ScoutLink. A dor financeira (inadimplência de 40%) é o argumento de venda mais rápido: o clube vê ROI no primeiro mês.
+
+### Status de implementação (apps/web)
+
+| Feature                                  | Status | Notas                                                                          |
+| ---------------------------------------- | ------ | ------------------------------------------------------------------------------ |
+| Onboarding do clube (wizard 3 etapas)    | ✅     | `/onboarding` — StepClubData, StepLogo, StepConfirmation                       |
+| Cadastro manual de sócios                | ✅     | MembersPage + MemberFormModal com validação Zod                                |
+| Importação via CSV                       | ⬜     | Pendente — bulk insert não exposto no frontend ainda                           |
+| Tela de cobranças Pix                    | ⬜     | Sidebar mostra "Em breve" — depende do backend Asaas                           |
+| SSE para evento PAYMENT_CONFIRMED        | ✅     | `useRealTimeEvents` — invalida cache React Query automaticamente               |
+| Dashboard KPIs + gráfico + inadimplentes | ✅     | DashboardKpis, DelinquencyChart (Recharts), OverdueMembersTable                |
+| Envio on-demand de lembrete WhatsApp     | ✅     | `useRemindMember` → POST /api/members/:id/remind — com tratamento de erro 429  |
+| Autenticação JWT + refresh token         | ✅     | AuthProvider, bootstrap transparente, deduplicação de refresh concorrente      |
+| Controle de acesso Admin/Tesoureiro      | ✅     | `isAdmin` verificado em Sócios e Planos; leitura para Tesoureiro               |
+| Gestão de planos (CRUD completo)         | ✅     | PlansPage + PlanFormModal + DeletePlanDialog                                   |
+| Stub de atletas (M9)                     | ⬜     | Sem rota, componente ou entrada de nav — a ser iniciado                        |
+| Site de marketing (S6)                   | ✅     | Landing, preços, contato — route group `(marketing)` completo                 |
 
 ### Features Must Have
 
@@ -48,7 +65,7 @@ A v1.0 não é apenas o MVP — é a fundação de dados de todo o ecossistema. 
 
 ### Features Should Have (entram se o tempo permitir)
 
-- **Site de marketing público** (landing page, preços, contato) dentro de `apps/web/` usando route groups do Next.js App Router — necessário para atingir a meta de 10 clubes pagantes além do piloto de 3. Custo estimado de ~2.5d justifica entrada no Sprint 1. Ver decisão arquitetural em `design-docs.md`.
+- **Site de marketing público** ✅ implementado — landing page, preços, contato dentro de `apps/web/` usando route groups do Next.js App Router. Ver decisão arquitetural em `design-docs.md`.
 - Carteirinha digital do sócio com QR Code (PWA)
 - Relatório financeiro mensal exportável em PDF
 - Registro de despesas do clube (P&L simplificado)
@@ -266,7 +283,7 @@ Com time de 1–2 devs, o risco de 7 módulos em 12 meses é de **foco**, não d
 | CampeonatOS lança sem massa crítica de clubes na liga                           | Alto    | Iniciar com ligas onde ClubOS tem ≥70% de penetração. Liga parcial não é produto.                                                                                                                        |
 | LGPD: dados de atletas menores sem consentimento documentado                    | Alto    | Consentimento dos responsáveis no onboarding da escola (v1.5). Não deixar para resolver no lançamento.                                                                                                   |
 | Time fragmenta atenção antes de v1.0 estar validado                             | Alto    | Regra de go/no-go inviolável. Um módulo por vez.                                                                                                                                                         |
-| Site de marketing negligenciado: piloto de 3 clubes não escala para 10 pagantes | Médio   | Landing page entra como SHOULD HAVE no Sprint 1 (~2.5d). Se o tempo apertar, priorizar landing + preços e deixar página de contato para S2. Canal direto (WhatsApp/indicação) supre no curtíssimo prazo. |
+| Site de marketing negligenciado: piloto de 3 clubes não escala para 10 pagantes | Médio   | ✅ Resolvido — landing page, preços e contato entregues no Sprint 1.                                                                                                                                     |
 
 ### Riscos Técnicos
 
@@ -275,8 +292,8 @@ Com time de 1–2 devs, o risco de 7 módulos em 12 meses é de **foco**, não d
 | Schema-per-tenant escala até ~500–1.000 clubes                   | Médio   | Planejar análise de migração para RLS ao atingir 300 clubes ativos.                                                                                  |
 | BaseForte hardware (ESP32) exige pipeline de dados em tempo real | Médio   | Hardware fica na Fase 2. MVP usa RPE manual. Avaliar WebSocket antes de lançar hardware.                                                             |
 | ScoutLink: upload de vídeo exige storage de objeto e CDN         | Baixo   | Cloudflare R2 + Stream. Limite de 60s por vídeo no MVP. Sem infraestrutura proprietária.                                                             |
-| WhatsApp bloqueia número por envio massivo                       | Médio   | Rate limit 30 msg/min por clube (já previsto em v1.0). Fallback Resend ativo.                                                                        |
-| Bundle leak entre `(marketing)` e `(app)` no Next.js             | Baixo   | Regra de convivência documentada em `design-docs.md`: `(marketing)` nunca importa de `(app)`. Validar com bundle analyzer antes de ir para produção. |
+| WhatsApp bloqueia número por envio massivo                       | Médio   | Rate limit 30 msg/min por clube (já previsto em v1.0). Fallback Resend ativo. Envio on-demand também protegido (retorna 429 ao frontend).            |
+| Bundle leak entre `(marketing)` e `(app)` no Next.js             | Baixo   | ✅ Regra aplicada — `(marketing)/layout.tsx` não importa nenhum hook ou componente de `(app)`. Validar com bundle analyzer antes de ir para produção. |
 
 ---
 

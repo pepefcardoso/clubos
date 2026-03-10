@@ -14,12 +14,11 @@
 | **Sprint 1 (Sem 3–4)**   | Fundação: Autenticação, Onboarding, Segurança base, CI/CD e Landing Page                 | T-001 a T-019 + T-044 a T-047 + T-049 a T-056 | ~14d dev | ✅ Feito    | O Clube consegue logar e cadastrar sócios/atletas; site no ar.                            |
 | **Sprint 2 (Sem 5–6)**   | Core Financeiro: Cobranças via Pix, Webhooks e Régua WhatsApp (D-3/D0)                   | T-020 a T-035 + T-037 a T-041                 | ~12d dev | ✅ Feito    | Primeira cobrança Pix gerada e confirmada de ponta a ponta.                               |
 | **Sprint 3 (Sem 7–8)**   | Polimento e Confiabilidade: SSE, Testes E2E e Contingência de E-mail                     | T-036 + T-042 + T-043 + T-048                 | ~5d dev  | ⚠️ Parcial  | Sistema rodando 1 semana em produção sem incidentes críticos.                             |
-| **Sprint 4 (Sem 9–10)**  | Fechamento v1.0: Stub atletas + Contratos/BID + Multi-Acquiring + Telas MUST             | T-054 a T-060 + T-076 a T-084                 | ~12d dev | ⬜ Pendente | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
+| **Sprint 4 (Sem 9–10)**  | Fechamento v1.0: Stub atletas + Contratos/BID + Multi-Acquiring + Telas MUST             | T-054 a T-060 + T-076 a T-084                 | ~12d dev | ⚠️ Parcial  | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
 | **Sprint 5 (Sem 11–12)** | Hardening de Segurança: Correção de lacunas críticas e médias (`security-guidelines.md`) | T-061 a T-075                                 | ~8d dev  | ⬜ Pendente | Checklist de deploy (`security-guidelines.md §13`) 100% aprovado; zero falhas 🔴 abertas. |
 
 > **Nota Sprint 3:** T-036 ✅ (fallback e-mail) e T-042 ✅ (SSE) entregues. T-043 (Sentry) e T-048 (E2E) permanecem ⬜.
-> **Nota Sprint 4:** T-054 a T-056 (stub de atletas) permanecem ⬜ — status ✅ anterior era incorreto, contradito por `moscow.md` e `roadmap.md`. Sprint expandida para incluir M10 (Contratos/BID) e M11 (Multi-Acquiring), ambos MUST incompletos. Esforço atualizado de ~4d para ~12d para refletir escopo real.
-> **Nota Sprint 5:** Derivado diretamente das lacunas de `security-guidelines.md §1`. Tarefas 🔴 **Alta** são pré-requisitos inegociáveis para o deploy final em produção.
+> **Nota Sprint 4:** T-054 ✅ (schema athletes), T-055 ✅ (CRUD /api/athletes + AuditLog) e T-056 ✅ (frontend atletas + sidebar) entregues. Tarefas T-057 a T-060 e T-076 a T-084 permanecem ⬜.
 
 ---
 
@@ -180,9 +179,9 @@
 
 | ID        | Tarefa Técnica                                                                                                                  | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-054** | Schema `athletes` no DDL tenant: ID, Clube, Nome, CPF (BYTEA), Nascimento, Posição, Status + `provisionTenantSchema` atualizado | 0.5d    | S4     | ⬜     |
-| **T-055** | CRUD `GET/POST/PUT /api/athletes` com AuditLog em operações de escrita                                                          | 0.5d    | S4     | ⬜     |
-| **T-056** | Frontend: Telas de listagem e cadastro de atletas + entrada na sidebar (reuso de componentes de sócios)                         | 0.5d    | S4     | ⬜     |
+| **T-054** | Schema `athletes` no DDL tenant: ID, Clube, Nome, CPF (BYTEA), Nascimento, Posição, Status + `provisionTenantSchema` atualizado | 0.5d    | S4     | ✅     |
+| **T-055** | CRUD `GET/POST/PUT /api/athletes` com AuditLog em operações de escrita                                                          | 0.5d    | S4     | ✅     |
+| **T-056** | Frontend: Telas de listagem e cadastro de atletas + entrada na sidebar (reuso de componentes de sócios)                         | 0.5d    | S4     | ✅     |
 
 ---
 
@@ -290,8 +289,8 @@
 
 **Bloco 1 — Backend MUSTs (sequência crítica)**
 
-1. **T-054:** Schema `athletes` no DDL tenant (base para T-055, T-056 e toda a v1.5).
-2. **T-055:** CRUD `/api/athletes` + AuditLog.
+1. ~~**T-054:** Schema `athletes` no DDL tenant~~ ✅
+2. ~~**T-055:** CRUD `/api/athletes` + AuditLog~~ ✅
 3. **T-076:** Schema `contracts` no DDL tenant (depende de `athletes` existir).
 4. **T-077:** CRUD `/api/contracts` + AuditLog.
 5. **T-078:** Motor de Regras Esportivas (`RulesValidator` + `rules_config` JSONB).
@@ -305,7 +304,7 @@
 10. **T-057:** Fluxo CSV na `MembersPage` (endpoint já disponível).
 11. **T-058:** Página `/charges` com QR Code (backend Asaas plenamente disponível).
 12. **T-059:** Editor de templates (endpoints já disponíveis).
-13. **T-056:** Tela de atletas + entrada sidebar.
+13. ~~**T-056:** Tela de atletas + entrada sidebar~~ ✅
 14. **T-080:** Tela de contratos + entrada sidebar.
 
 **Bloco 3 — Qualidade (fechar Sprint 3 pendente)**

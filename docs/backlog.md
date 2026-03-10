@@ -181,7 +181,7 @@
 | --------- | ----------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-054** | Schema `athletes`: ID, Clube, Nome, CPF, Nascimento, Posição e Status   | 0.5d    | S4     | ✅     |
 | **T-055** | CRUD de atletas com AuditLog em operações de escrita                    | 0.5d    | S4     | ✅     |
-| **T-056** | Frontend: Telas de listagem e cadastro (reuso de componentes de sócios) | 0.5d    | S4     | ⬜     |
+| **T-056** | Frontend: Telas de listagem e cadastro (reuso de componentes de sócios) | 0.5d    | S4     | ✅     |
 
 ---
 
@@ -239,10 +239,9 @@
 
 ### Sprint 4 (Foco em Funcionalidades)
 
-1. **T-054 → T-056:** Fundação de Atletas (Stub).
-2. **T-060:** Endpoint de histórico (Backend limpo).
-3. **T-057 → T-059:** Camada de Frontend (Importação, Cobranças e Templates).
-4. **T-043 & T-048:** Monitoramento e Testes E2E para fechar a v1.0.
+1. **T-060:** Endpoint de histórico (Backend limpo).
+2. **T-057 → T-059:** Camada de Frontend (Importação, Cobranças e Templates).
+3. **T-043 & T-048:** Monitoramento e Testes E2E para fechar a v1.0.
 
 ### Sprint 5 (Foco em Segurança - Hardening)
 

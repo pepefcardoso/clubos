@@ -28,7 +28,8 @@ export function getEncryptionKey(): string {
  * Returns the ciphertext as a Uint8Array<ArrayBuffer> — the exact type Prisma 6
  * expects for `Bytes` fields. Each call produces different ciphertext for the
  * same input (pgcrypto uses a random session key prefix), which is why @unique
- * cannot be used on these columns — use findMemberByCpf() instead.
+ * cannot be used on these columns — use findMemberByCpf() / findAthleteByCpf()
+ * instead.
  *
  * Why Uint8Array and not Buffer?
  *   Prisma 6 types Bytes fields as Uint8Array<ArrayBuffer>. Node's Buffer is
@@ -55,8 +56,7 @@ export async function encryptField(
       "pgp_sym_encrypt returned no result — check pgcrypto extension",
     );
   }
-  // Buffer<ArrayBufferLike> → Uint8Array<ArrayBuffer>: copy into a strict
-  // ArrayBuffer so TypeScript accepts the value as a Prisma Bytes field.
+
   return new Uint8Array(row.encrypted);
 }
 
@@ -74,7 +74,6 @@ export async function decryptField(
   ciphertext: Uint8Array,
 ): Promise<string> {
   const key = getEncryptionKey();
-  // Prisma passes Uint8Array as a bytea parameter correctly — no cast needed.
   const result = await prisma.$queryRaw<[{ decrypted: string }]>`
     SELECT pgp_sym_decrypt(${ciphertext}::bytea, ${key}::text) AS decrypted
   `;
@@ -109,6 +108,39 @@ export async function findMemberByCpf(
   const result = await prisma.$queryRaw<Array<{ id: string }>>`
     SELECT id
     FROM members
+    WHERE pgp_sym_decrypt(cpf::bytea, ${key}::text) = ${cpf}
+    LIMIT 1
+  `;
+  return result[0] ?? null;
+}
+
+/**
+ * Looks up an athlete by their plaintext CPF using an in-database decrypt scan.
+ *
+ * Mirrors findMemberByCpf — replaces the missing @unique constraint on
+ * Athlete.cpf. Because pgcrypto uses a random session key prefix, each
+ * encryption of the same plaintext produces different ciphertext; bytea
+ * equality checks are therefore meaningless at the DB level.
+ *
+ * Performance note: full-table decrypt scan is acceptable for v1 club sizes
+ * (hundreds of athletes). If performance degrades, add a deterministic HMAC
+ * index: hmac(cpf_plaintext, secret, 'sha256') stored alongside the ciphertext
+ * for fast exact-match lookups without exposing plaintext — same approach
+ * documented for findMemberByCpf.
+ *
+ * @param prisma - A Prisma client or transaction client with search_path set
+ *                 to the correct tenant schema (clube_{clubId}).
+ * @param cpf    - 11-digit plaintext CPF (no mask, no punctuation).
+ * @returns      The matching athlete's id, or null if not found.
+ */
+export async function findAthleteByCpf(
+  prisma: PrismaClient,
+  cpf: string,
+): Promise<{ id: string } | null> {
+  const key = getEncryptionKey();
+  const result = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM athletes
     WHERE pgp_sym_decrypt(cpf::bytea, ${key}::text) = ${cpf}
     LIMIT 1
   `;

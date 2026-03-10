@@ -40,6 +40,11 @@ const PGCRYPTO_DDL = `
  * PostgreSQL enums are database-level objects, not schema-scoped.
  * The DO/EXCEPTION block is the standard idempotent pattern since
  * CREATE TYPE does not support IF NOT EXISTS before PG 14.
+ *
+ * IMPORTANT: ALTER TYPE ... ADD VALUE IF NOT EXISTS cannot be executed inside
+ * an open transaction block (PostgreSQL restriction). These statements are
+ * therefore applied OUTSIDE the transaction in provisionTenantSchema — see
+ * the execution order comments there.
  */
 const TENANT_ENUMS_DDL = `
   DO $$ BEGIN
@@ -78,6 +83,18 @@ const TENANT_ENUMS_DDL = `
       'MESSAGE_SENT'
     );
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  DO $$ BEGIN
+    CREATE TYPE "AthleteStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  -- Extend AuditAction with athlete actions.
+  -- ALTER TYPE ADD VALUE cannot run inside a transaction; provisionTenantSchema
+  -- executes this entire block OUTSIDE the transaction (Step 3 below).
+  -- ADD VALUE IF NOT EXISTS is available from PostgreSQL 9.6+ and is idempotent.
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'ATHLETE_CREATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'ATHLETE_UPDATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'ATHLETE_DELETED';
 `;
 
 /**
@@ -86,8 +103,12 @@ const TENANT_ENUMS_DDL = `
  * Critical notes:
  * - members.cpf and members.phone are BYTEA (not TEXT) — encrypted via pgcrypto.
  * - members.cpf has NO unique constraint — enforced at app layer via findMemberByCpf().
+ * - athletes.cpf is BYTEA — encrypted via pgcrypto.
+ * - athletes.cpf has NO unique constraint — enforced at app layer via findAthleteByCpf().
+ * - athletes.position is TEXT (nullable) to support multiple sport modalities.
  * - charges.gatewayMeta is JSONB to store provider-specific data without schema changes.
  * - audit_log.memberId is nullable (actions may not be tied to a specific member).
+ * - Athlete audit entries use entityId / entityType = "Athlete" — no athleteId FK.
  */
 const TENANT_TABLES_DDL = `
   -- plans (no FK dependencies)
@@ -196,6 +217,8 @@ const TENANT_TABLES_DDL = `
   );
 
   -- audit_log (FK → members, nullable)
+  -- Athlete audit entries reference athletes via entityId / entityType = "Athlete"
+  -- rather than a dedicated athleteId FK column, keeping the audit model generic.
   CREATE TABLE IF NOT EXISTS "audit_log" (
     "id"         TEXT          NOT NULL,
     "memberId"   TEXT,
@@ -207,6 +230,24 @@ const TENANT_TABLES_DDL = `
     "createdAt"  TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "audit_log_pkey" PRIMARY KEY ("id")
+  );
+
+  -- athletes (no FK dependencies)
+  -- cpf is BYTEA: encrypted via pgp_sym_encrypt (pgcrypto AES-256).
+  -- cpf has NO unique index — uniqueness enforced by findAthleteByCpf() in src/lib/crypto.ts.
+  -- position is free-text to support multiple sport modalities (futebol, vôlei, etc.).
+  -- birthDate is DATE (time component always midnight UTC).
+  CREATE TABLE IF NOT EXISTS "athletes" (
+    "id"        TEXT             NOT NULL,
+    "name"      TEXT             NOT NULL,
+    "cpf"       BYTEA            NOT NULL,
+    "birthDate" DATE             NOT NULL,
+    "position"  TEXT,
+    "status"    "AthleteStatus"  NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMP(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3)     NOT NULL,
+
+    CONSTRAINT "athletes_pkey" PRIMARY KEY ("id")
   );
 `;
 
@@ -259,6 +300,10 @@ const TENANT_INDEXES_DDL = `
     ON "audit_log" ("memberId");
   CREATE INDEX IF NOT EXISTS "audit_log_createdAt_idx"
     ON "audit_log" ("createdAt");
+
+  -- athletes
+  CREATE INDEX IF NOT EXISTS "athletes_status_idx"
+    ON "athletes" ("status");
 `;
 
 /**
@@ -266,6 +311,9 @@ const TENANT_INDEXES_DDL = `
  *
  * ALTER TABLE ... ADD CONSTRAINT ... IF NOT EXISTS requires PG 9.6+.
  * All constraints are named to allow idempotent re-application.
+ *
+ * Note: athletes has no FK dependencies in the v1 stub. FKs will be added
+ * in later tickets when athlete-charge or athlete-plan relations are introduced.
  */
 const TENANT_FOREIGN_KEYS_DDL = `
   -- member_plans → members
@@ -309,10 +357,20 @@ const TENANT_FOREIGN_KEYS_DDL = `
  * Provisions a complete PostgreSQL tenant schema for a new club.
  *
  * Creates the schema `clube_{clubId}` and applies the full tenant DDL
- * (enums, tables, indexes, foreign keys) inside a single transaction.
+ * (enums, tables, indexes, foreign keys) in the correct execution order.
  *
  * **Idempotent** — safe to call multiple times for the same `clubId`.
  * All DDL statements use `IF NOT EXISTS` or equivalent guards.
+ *
+ * **Execution order rationale:**
+ *   Steps 1–3 run outside any transaction because `ALTER TYPE ... ADD VALUE`
+ *   (used to extend `AuditAction` with athlete values) cannot be executed
+ *   inside an open transaction block in PostgreSQL. This is a PostgreSQL
+ *   restriction, not a Prisma limitation.
+ *
+ *   Step 4 runs inside a transaction to keep table/index/FK creation atomic.
+ *   A failure there leaves enums created but tables absent — re-running
+ *   `provisionTenantSchema` is the safe recovery path (all DDL is idempotent).
  *
  * Called once during club onboarding by `POST /api/clubs` (T-002).
  * Must NOT be called for every request — only at club creation time.
@@ -338,25 +396,18 @@ export async function provisionTenantSchema(
 
   const schemaName = `clube_${clubId}`;
 
-  // Step 1 — Ensure pgcrypto is available.
-  // Runs in the public schema (no search_path override needed).
-  // Required before any tenant table creation because members.cpf/phone
-  // use pgp_sym_encrypt which depends on this extension.
   await prisma.$executeRawUnsafe(PGCRYPTO_DDL);
 
-  // Step 2 — Create the tenant schema (idempotent).
   await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
 
-  // Step 3 — Apply all tenant DDL inside a single transaction.
-  // The transaction ensures atomicity: either the schema is fully provisioned
-  // or nothing is committed. The SET search_path scopes all subsequent DDL
-  // to the new tenant schema for the duration of the transaction.
+  await prisma.$executeRawUnsafe(`SET search_path TO "${schemaName}", public`);
+  await prisma.$executeRawUnsafe(TENANT_ENUMS_DDL);
+
   await prisma.$transaction(async (tx) => {
     const p = tx as unknown as PrismaClient;
 
     await p.$executeRawUnsafe(`SET search_path TO "${schemaName}", public`);
 
-    await p.$executeRawUnsafe(TENANT_ENUMS_DDL);
     await p.$executeRawUnsafe(TENANT_TABLES_DDL);
     await p.$executeRawUnsafe(TENANT_INDEXES_DDL);
     await p.$executeRawUnsafe(TENANT_FOREIGN_KEYS_DDL);

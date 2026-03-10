@@ -5,7 +5,8 @@
 //     These are the tenant registry and global auth tables.
 //
 //   [TENANT MODELS] — models that represent the structure of each tenant schema
-//     (clube_{id}): Member, Plan, MemberPlan, Charge, Payment, Message, AuditLog
+//     (clube_{id}): Member, Plan, MemberPlan, Charge, Payment, Message, AuditLog,
+//                   Athlete
 //
 //     At runtime, before any tenant query the API MUST execute:
 //       SET search_path TO "clube_{clubId}", public
@@ -28,14 +29,16 @@
 //
 // ENCRYPTION
 //
-//   Member.cpf and Member.phone are encrypted at rest using PostgreSQL's
-//   pgcrypto extension (pgp_sym_encrypt / pgp_sym_decrypt, AES-256).
-//   The symmetric key is provided via the MEMBER_ENCRYPTION_KEY env var.
+//   Member.cpf, Member.phone, Athlete.cpf are encrypted at rest using
+//   PostgreSQL's pgcrypto extension (pgp_sym_encrypt / pgp_sym_decrypt,
+//   AES-256). The symmetric key is provided via the MEMBER_ENCRYPTION_KEY
+//   env var.
 //
 //   Consequences:
 //   - cpf and phone are stored as Bytes (bytea) — never as plaintext.
 //   - The @unique constraint on cpf is removed; uniqueness is enforced at
-//     the application layer via findMemberByCpf() in src/lib/crypto.ts.
+//     the application layer via findMemberByCpf() / findAthleteByCpf() in
+//     src/lib/crypto.ts.
 //   - All reads/writes of cpf and phone go through encryptField() /
 //     decryptField() in src/lib/crypto.ts — never via raw Prisma field access.
 // =============================================================================
@@ -59,6 +62,12 @@ enum MemberStatus {
   ACTIVE
   INACTIVE
   OVERDUE
+}
+
+enum AthleteStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
 
 enum PlanInterval {
@@ -106,6 +115,9 @@ enum AuditAction {
   PLAN_UPDATED
   PLAN_DELETED
   MESSAGE_SENT
+  ATHLETE_CREATED
+  ATHLETE_UPDATED
+  ATHLETE_DELETED
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
@@ -294,4 +306,18 @@ model AuditLog {
   @@index([memberId])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+model Athlete {
+  id        String        @id @default(cuid())
+  name      String
+  cpf       Bytes
+  birthDate DateTime      @db.Date
+  position  String?
+  status    AthleteStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([status])
+  @@map("athletes")
 }

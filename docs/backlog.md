@@ -14,10 +14,11 @@
 | **Sprint 1 (Sem 3–4)**   | Fundação: Autenticação, Onboarding, Segurança base, CI/CD e Landing Page                 | T-001 a T-019 + T-044 a T-047 + T-049 a T-056 | ~14d dev | ✅ Feito    | O Clube consegue logar e cadastrar sócios/atletas; site no ar.                            |
 | **Sprint 2 (Sem 5–6)**   | Core Financeiro: Cobranças via Pix, Webhooks e Régua WhatsApp (D-3/D0)                   | T-020 a T-035 + T-037 a T-041                 | ~12d dev | ✅ Feito    | Primeira cobrança Pix gerada e confirmada de ponta a ponta.                               |
 | **Sprint 3 (Sem 7–8)**   | Polimento e Confiabilidade: SSE, Testes E2E e Contingência de E-mail                     | T-036 + T-042 + T-043 + T-048                 | ~5d dev  | ⚠️ Parcial  | Sistema rodando 1 semana em produção sem incidentes críticos.                             |
-| **Sprint 4 (Sem 9)**     | Fechamento v1.0: Stub de atletas + Telas pendentes (Prioridade MUST)                     | T-054 a T-060                                 | ~4d dev  | ⬜ Pendente | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
-| **Sprint 5 (Sem 10–11)** | Hardening de Segurança: Correção de lacunas críticas e médias (`security-guidelines.md`) | T-061 a T-075                                 | ~8d dev  | ⬜ Pendente | Checklist de deploy (`security-guidelines.md §13`) 100% aprovado; zero falhas 🔴 abertas. |
+| **Sprint 4 (Sem 9–10)**  | Fechamento v1.0: Stub atletas + Contratos/BID + Multi-Acquiring + Telas MUST             | T-054 a T-060 + T-076 a T-084                 | ~12d dev | ⬜ Pendente | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
+| **Sprint 5 (Sem 11–12)** | Hardening de Segurança: Correção de lacunas críticas e médias (`security-guidelines.md`) | T-061 a T-075                                 | ~8d dev  | ⬜ Pendente | Checklist de deploy (`security-guidelines.md §13`) 100% aprovado; zero falhas 🔴 abertas. |
 
-> **Nota Sprint 4:** As tarefas T-054 a T-056 (stub de atletas) foram movidas da Sprint 1 para a Sprint 4 como prioridade máxima, junto com o frontend obrigatório (MUST).
+> **Nota Sprint 3:** T-036 ✅ (fallback e-mail) e T-042 ✅ (SSE) entregues. T-043 (Sentry) e T-048 (E2E) permanecem ⬜.
+> **Nota Sprint 4:** T-054 a T-056 (stub de atletas) permanecem ⬜ — status ✅ anterior era incorreto, contradito por `moscow.md` e `roadmap.md`. Sprint expandida para incluir M10 (Contratos/BID) e M11 (Multi-Acquiring), ambos MUST incompletos. Esforço atualizado de ~4d para ~12d para refletir escopo real.
 > **Nota Sprint 5:** Derivado diretamente das lacunas de `security-guidelines.md §1`. Tarefas 🔴 **Alta** são pré-requisitos inegociáveis para o deploy final em produção.
 
 ---
@@ -171,17 +172,17 @@
 
 ## Épico 8 — Cadastro de Atletas (Stub v1.0)
 
-> **Contexto:** Criação da entidade base para evitar migrações complexas no futuro. O stub foca em identidade e vínculo, sem lógica de saúde ou treino ainda.
+> **Contexto:** Criação da entidade base para evitar migrações complexas no futuro. O stub foca em identidade e vínculo, sem lógica de saúde ou treino ainda. Entidade `athlete` é dependência central de TreinoOS (v1.5), BaseForte, FisioBase, ScoutLink e CampeonatOS.
 
 ### US-10 — Stub de Atletas
 
 **Como** admin, **quero** cadastrar atletas básicos, **para** que módulos futuros já encontrem a base pronta.
 
-| ID        | Tarefa Técnica                                                          | Esforço | Sprint | Status |
-| --------- | ----------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-054** | Schema `athletes`: ID, Clube, Nome, CPF, Nascimento, Posição e Status   | 0.5d    | S4     | ✅     |
-| **T-055** | CRUD de atletas com AuditLog em operações de escrita                    | 0.5d    | S4     | ✅     |
-| **T-056** | Frontend: Telas de listagem e cadastro (reuso de componentes de sócios) | 0.5d    | S4     | ✅     |
+| ID        | Tarefa Técnica                                                                                                                  | Esforço | Sprint | Status |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
+| **T-054** | Schema `athletes` no DDL tenant: ID, Clube, Nome, CPF (BYTEA), Nascimento, Posição, Status + `provisionTenantSchema` atualizado | 0.5d    | S4     | ⬜     |
+| **T-055** | CRUD `GET/POST/PUT /api/athletes` com AuditLog em operações de escrita                                                          | 0.5d    | S4     | ⬜     |
+| **T-056** | Frontend: Telas de listagem e cadastro de atletas + entrada na sidebar (reuso de componentes de sócios)                         | 0.5d    | S4     | ⬜     |
 
 ---
 
@@ -189,9 +190,9 @@
 
 ### US-11 — Importação via CSV (Frontend)
 
-| ID        | Tarefa Técnica                                                   | Esforço | Sprint | Status |
-| --------- | ---------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-057** | Fluxo de upload: Dropzone, preview de erros por linha e feedback | 0.5d    | S4     | ⬜     |
+| ID        | Tarefa Técnica                                                                                                                               | Esforço | Sprint | Status |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
+| **T-057** | Fluxo de upload: Dropzone, preview de erros por linha e feedback visual na `MembersPage` (endpoint `POST /api/members/import` já disponível) | 0.5d    | S4     | ⬜     |
 
 ### US-12 — Tela de Cobranças Pix
 
@@ -201,15 +202,15 @@
 
 ### US-13 — Configuração de Templates
 
-| ID        | Tarefa Técnica                                                             | Esforço | Sprint | Status |
-| --------- | -------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-059** | Editor de templates: Personalização de mensagens e preview de placeholders | 0.5d    | S4     | ⬜     |
+| ID        | Tarefa Técnica                                                                                                                                             | Esforço | Sprint | Status |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
+| **T-059** | Editor de templates: Personalização de mensagens WhatsApp/e-mail e preview de placeholders (endpoints `GET/PUT/DELETE /api/templates/:key` já disponíveis) | 0.5d    | S4     | ⬜     |
 
 ### US-14 — Histórico de Pagamentos (Backend)
 
-| ID        | Tarefa Técnica                                                 | Esforço | Sprint | Status |
-| --------- | -------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-060** | Endpoint `GET /api/members/:id/payments` com join em cobranças | 0.5d    | S4     | ⬜     |
+| ID        | Tarefa Técnica                                                                                                   | Esforço | Sprint | Status |
+| --------- | ---------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
+| **T-060** | Endpoint `GET /api/members/:id/payments` com join em cobranças (`payments` + `charges`; dado já existe no banco) | 0.5d    | S4     | ⬜     |
 
 ---
 
@@ -235,18 +236,86 @@
 
 ---
 
+## Épico 11 — Contratos e Alertas BID/CBF (M10 — MUST)
+
+> **Contexto:** A escalação irregular de jogadores sem registro no BID da CBF resulta em perda automática de pontos e pode excluir o clube do campeonato. É o risco jurídico-esportivo de maior impacto imediato — comparable à multa da ANPD em gravidade. Regras CBF/FPF são parametrizadas em motor desacoplado, gerenciável via Backoffice sem deploy.
+
+### US-23 — Vínculos Trabalhistas e Elegibilidade
+
+**Como** admin, **quero** registrar contratos de atletas e receber alertas de BID/CBF, **para** evitar escalação irregular e perda de pontos.
+
+| ID        | Tarefa Técnica                                                                                                                                   | Esforço | Sprint | Status |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
+| **T-076** | Schema `contracts` no DDL tenant: tipo de vínculo, `startDate`, `endDate`, `status`, `bidRegistered` (bool) + `provisionTenantSchema` atualizado | 0.5d    | S4     | ⬜     |
+| **T-077** | CRUD `GET/POST/PUT /api/contracts` com AuditLog em escrita; validação Zod                                                                        | 0.5d    | S4     | ⬜     |
+| **T-078** | Motor de Regras Esportivas: `rules_config` (JSONB por temporada/liga), `RulesValidator.check(athlete, ruleSet)` — parametrizável sem deploy      | 1d      | S4     | ⬜     |
+| **T-079** | Service de alertas: vencimento de contrato (D-7 e D-1) + BID pendente antes de escalação — WhatsApp/e-mail via régua existente                   | 0.5d    | S4     | ⬜     |
+| **T-080** | Frontend: telas de listagem e cadastro de contratos + entrada na sidebar (`/contracts`) — reuso de componentes existentes                        | 0.5d    | S4     | ⬜     |
+
+---
+
+## Épico 12 — Multi-Acquiring PIX (M11 — MUST)
+
+> **Contexto:** Gateways de pagamento caem na data de vencimento. Para um clube que depende da receita de sócios para pagar salários, uma cobrança perdida é dinheiro real que não volta. O fallback é silencioso para o sócio; o clube recebe notificação apenas no fallback final (PIX estático manual).
+
+### US-24 — Resiliência de Gateway de Pagamento
+
+**Como** sistema, **quero** ter fallback automático de gateway de pagamento, **para** que indisponibilidade do Asaas não interrompa as cobranças.
+
+| ID        | Tarefa Técnica                                                                                                                                                  | Esforço | Sprint | Status |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
+| **T-081** | Implementar `PagarmeGateway` seguindo a interface `PaymentGateway` (PIX com QR Code, mapeamento de webhooks)                                                    | 1d      | S4     | ⬜     |
+| **T-082** | Lógica de fallback silencioso em `GatewayRegistry.forMethod('PIX')`: Asaas → Pagarme → PIX estático do clube; campo `pixKeyFallback` no schema `clubs` e no DDL | 0.5d    | S4     | ⬜     |
+| **T-083** | Notificação ao clube quando fallback é acionado (WhatsApp/e-mail via régua existente) + campo `pixKeyFallback` no wizard de onboarding                          | 0.5d    | S4     | ⬜     |
+
+---
+
+## Épico 13 — Job D-0 (Régua Completa — SHOULD S9)
+
+> **Contexto:** Único marco da régua de cobrança sem automação. O on-demand (`POST /api/members/:id/remind`) cobre parcialmente, mas não escala para clubes com centenas de sócios no vencimento.
+
+### US-25 — Aviso Automático no Dia do Vencimento
+
+**Como** tesoureiro, **quero** que o sistema avise automaticamente os sócios no dia do vencimento, **para** fechar a régua sem intervenção manual.
+
+| ID        | Tarefa Técnica                                                                                                                                   | Esforço | Sprint | Status |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
+| **T-084** | Job D-0: dispatch + worker BullMQ (cron `0 8 * * *`, fila `due-today-notices`, `sendDueTodayNoticesForClub`) — mesmo padrão fan-out de D-3 e D+3 | 0.5d    | S4     | ⬜     |
+
+---
+
 ## Ordem de Execução Recomendada (Sprint 4 e 5)
 
-### Sprint 4 (Foco em Funcionalidades)
+### Sprint 4 — Fechamento v1.0 (Foco em Funcionalidades MUST)
 
-1. **T-060:** Endpoint de histórico (Backend limpo).
-2. **T-057 → T-059:** Camada de Frontend (Importação, Cobranças e Templates).
-3. **T-043 & T-048:** Monitoramento e Testes E2E para fechar a v1.0.
+**Bloco 1 — Backend MUSTs (sequência crítica)**
 
-### Sprint 5 (Foco em Segurança - Hardening)
+1. **T-054:** Schema `athletes` no DDL tenant (base para T-055, T-056 e toda a v1.5).
+2. **T-055:** CRUD `/api/athletes` + AuditLog.
+3. **T-076:** Schema `contracts` no DDL tenant (depende de `athletes` existir).
+4. **T-077:** CRUD `/api/contracts` + AuditLog.
+5. **T-078:** Motor de Regras Esportivas (`RulesValidator` + `rules_config` JSONB).
+6. **T-079:** Alertas de vencimento de contrato + BID pendente.
+7. **T-081 → T-082 → T-083:** Multi-Acquiring PIX (Pagarme + fallback + onboarding).
+8. **T-060:** Endpoint histórico de pagamentos (backend isolado, ~0.5d).
+9. **T-084:** Job D-0 (último job da régua, fecha M6).
+
+**Bloco 2 — Frontend MUSTs + SHOULD**
+
+10. **T-057:** Fluxo CSV na `MembersPage` (endpoint já disponível).
+11. **T-058:** Página `/charges` com QR Code (backend Asaas plenamente disponível).
+12. **T-059:** Editor de templates (endpoints já disponíveis).
+13. **T-056:** Tela de atletas + entrada sidebar.
+14. **T-080:** Tela de contratos + entrada sidebar.
+
+**Bloco 3 — Qualidade (fechar Sprint 3 pendente)**
+
+15. **T-043:** Setup Sentry.
+16. **T-048:** Testes E2E Playwright (fluxos de login e cobrança).
+
+### Sprint 5 — Hardening de Segurança
 
 1. **Infra Primeiro (T-068, T-069):** Garantir que o banco e o Redis estão seguros.
-2. **Boot (T-070):** Validar variáveis de ambiente.
-3. **Acesso (T-061, T-063, T-065):** Fechar as portas de entrada da API.
-4. **Isolamento (T-066):** Garantir que um clube não veja dados de outro (IDOR).
-5. **Paralelos (T-071 a T-075):** Reforços contra ataques específicos (Replay, CSV Injection, etc).
+2. **Acesso (T-061, T-063, T-065):** Fechar as portas de entrada da API.
+3. **Isolamento (T-066):** Garantir que um clube não veja dados de outro (IDOR).
+4. **Paralelos (T-071 a T-075):** Reforços contra ataques específicos (Replay, CSV Injection, CSRF, auditoria de deps).

@@ -1,46 +1,46 @@
-# Security Guidelines — ClubOS v1.0
+# Diretrizes de Segurança — ClubOS v1.0
 
-> **Classificação:** Documento de segurança obrigatório.  
-> Qualquer desvio das regras marcadas como **[OBRIGATÓRIO]** requer RFC aprovado com justificativa de risco explícita.  
-> Revisão recomendada a cada nova versão maior do produto.
+> **Classificação:** Documento de segurança obrigatório.
+> Qualquer desvio das regras marcadas como **[OBRIGATÓRIO]** requer uma RFC aprovada com justificativa de risco explícita.
+> Revisão recomendada a cada nova versão major do produto.
 
 ---
 
 ## Índice
 
-1. [Postura Atual vs. Lacunas Identificadas](#1-postura-atual-vs-lacunas-identificadas)
-2. [Autenticação e Gestão de Sessão](#2-autenticação-e-gestão-de-sessão)
-3. [Autorização e Controlo de Acesso](#3-autorização-e-controlo-de-acesso)
-4. [Proteção de Dados em Repouso e Trânsito](#4-proteção-de-dados-em-repouso-e-trânsito)
-5. [Segurança de API e Validação de Input](#5-segurança-de-api-e-validação-de-input)
-6. [Segurança de Webhooks](#6-segurança-de-webhooks)
-7. [Multi-Tenancy — Isolamento de Dados](#7-multi-tenancy--isolamento-de-dados)
-8. [Segurança de Upload de Ficheiros](#8-segurança-de-upload-de-ficheiros)
-9. [Segurança de Infraestrutura e Dependências](#9-segurança-de-infraestrutura-e-dependências)
-10. [Headers HTTP e Configuração do Next.js](#10-headers-http-e-configuração-do-nextjs)
-11. [Logging, Auditoria e Resposta a Incidentes](#11-logging-auditoria-e-resposta-a-incidentes)
-12. [Segurança em Jobs Assíncronos (BullMQ)](#12-segurança-em-jobs-assíncronos-bullmq)
-13. [Checklist de Deploy para Produção](#13-checklist-de-deploy-para-produção)
+1. [Postura Atual vs. Lacunas Identificadas](https://www.google.com/search?q=%231-postura-atual-vs-lacunas-identificadas)
+2. [Autenticação e Gestão de Sessão](https://www.google.com/search?q=%232-autentica%C3%A7%C3%A3o-e-gest%C3%A3o-de-sess%C3%A3o)
+3. [Autorização e Controle de Acesso](https://www.google.com/search?q=%233-autoriza%C3%A7%C3%A3o-e-controle-de-acesso)
+4. [Proteção de Dados em Repouso e Trânsito](https://www.google.com/search?q=%234-prote%C3%A7%C3%A3o-de-dados-em-repouso-e-tr%C3%A2nsito)
+5. [Segurança de API e Validação de Entrada (Input)](https://www.google.com/search?q=%235-seguran%C3%A7a-de-api-e-valida%C3%A7%C3%A3o-de-entrada-input)
+6. [Segurança de Webhooks](https://www.google.com/search?q=%236-seguran%C3%A7a-de-webhooks)
+7. [Multi-Tenancy — Isolamento de Dados](https://www.google.com/search?q=%237-multi-tenancy--isolamento-de-dados)
+8. [Segurança de Upload de Arquivos](https://www.google.com/search?q=%238-seguran%C3%A7a-de-upload-de-arquivos)
+9. [Segurança de Infraestrutura e Dependências](https://www.google.com/search?q=%239-seguran%C3%A7a-de-infraestrutura-e-depend%C3%AAncias)
+10. [Headers HTTP e Configuração do Next.js](https://www.google.com/search?q=%2310-headers-http-e-configura%C3%A7%C3%A3o-do-nextjs)
+11. [Logging, Auditoria e Resposta a Incidentes](https://www.google.com/search?q=%2311-logging-auditoria-e-resposta-a-incidentes)
+12. [Segurança em Jobs Assíncronos (BullMQ)](https://www.google.com/search?q=%2312-seguran%C3%A7a-em-jobs-ass%C3%ADncronos-bullmq)
+13. [Checklist de Deploy para Produção](https://www.google.com/search?q=%2313-checklist-de-deploy-para-produ%C3%A7%C3%A3o)
 
 ---
 
 ## 1. Postura Atual vs. Lacunas Identificadas
 
-### ✅ Controlos Já Implementados
+### ✅ Controles Já Implementados
 
-| Área | Controlo |
-|------|----------|
+| Área | Controle |
+| --- | --- |
 | Auth | JWT access (15min) + refresh rotativo httpOnly cookie + Redis single-use |
-| Auth | bcrypt com constant-time dummy hash (previne user enumeration) |
+| Auth | bcrypt com constant-time dummy hash (previne enumeração de usuários) |
 | Auth | `timingSafeEqual` para comparação de tokens e HMAC |
 | Dados | CPF e telefone: AES-256 pgcrypto em repouso |
 | Dados | `audit_log` imutável para operações financeiras |
-| Multi-tenancy | Schema-per-tenant + `assertValidClubId` (previne SQL injection via schema name) |
+| Multi-tenancy | Schema-per-tenant + `assertValidClubId` (previne SQL injection via nome do schema) |
 | API | Rate limiting global 100 req/min por IP (Redis) |
 | API | Rate limiting WhatsApp 30 msg/min por clube (Lua atômica, TOCTOU-safe) |
 | Webhooks | HMAC-SHA256 via `parseWebhook()`, rejeita 401 em assinatura inválida |
 | Webhooks | Processamento assíncrono (BullMQ); resposta 200 imediata |
-| Webhooks | Idempotência por `gateway_txid` (dupla: aplicação + constraint DB) |
+| Webhooks | Idempotência por `gateway_txid` (dupla: aplicação + constraint no DB) |
 | Transport | HTTPS obrigatório, HSTS em produção, CSP básico no Next.js |
 | RBAC | Roles `ADMIN` e `TREASURER` com guards por rota |
 | Jobs | JobId estável para deduplicação (previne dupla cobrança em crash/restart) |
@@ -48,7 +48,7 @@
 ### ⚠️ Lacunas Críticas a Corrigir
 
 | # | Área | Lacuna | Prioridade |
-|---|------|--------|------------|
+| --- | --- | --- | --- |
 | L-01 | Auth | Sem brute-force protection no endpoint `POST /api/auth/login` | 🔴 Alta |
 | L-02 | Auth | Sem validação de força de senha no cadastro/reset | 🟡 Média |
 | L-03 | API | CORS não documentado — pode estar em wildcard (`*`) | 🔴 Alta |
@@ -58,7 +58,7 @@
 | L-07 | CSV | Sem sanitização de CSV Injection (fórmulas `=CMD`, `@SUM`) | 🟡 Média |
 | L-08 | Infra | Redis sem autenticação e TLS documentados | 🔴 Alta |
 | L-09 | Infra | Sem validação de variáveis de ambiente no startup | 🟡 Média |
-| L-10 | Infra | Sem scanning de dependências no CI pipeline | 🟡 Média |
+| L-10 | Infra | Sem scanning de dependências no pipeline de CI | 🟡 Média |
 | L-11 | Webhooks | Sem validação de timestamp (proteção contra replay attacks) | 🟡 Média |
 | L-12 | Erros | Stack traces podem vazar em respostas de erro em produção | 🔴 Alta |
 | L-13 | SSE | Token de acesso exposto em query param nos logs do servidor | 🟡 Média |
@@ -71,7 +71,7 @@
 
 ### 2.1 Brute-Force Protection no Login **[OBRIGATÓRIO — L-01]**
 
-O endpoint `POST /api/auth/login` não tem proteção específica contra ataques de força bruta além do rate limiting global de 100 req/min por IP, que é insuficiente.
+O endpoint `POST /api/auth/login` não possui proteção específica contra ataques de força bruta além do rate limiting global de 100 req/min por IP, o que é insuficiente.
 
 **Implementação obrigatória:**
 
@@ -103,20 +103,22 @@ export async function recordFailedAttempt(redis: Redis, email: string): Promise<
 export async function clearLoginAttempts(redis: Redis, email: string): Promise<void> {
   await redis.del(LOGIN_ATTEMPT_KEY(email));
 }
+
 ```
 
 ```typescript
 // Fluxo no handler de login
-await checkLoginAttempts(redis, body.email);   // lança 429 se bloqueado
+await checkLoginAttempts(redis, body.email);   // lança 429 se estiver bloqueado
 const user = await findUser(body.email);
 const valid = user && await bcrypt.compare(body.password, user.passwordHash);
 
 if (!valid) {
   await recordFailedAttempt(redis, body.email);
-  // IMPORTANTE: sempre lançar o mesmo erro (user enumeration prevention)
+  // IMPORTANTE: sempre lançar o mesmo erro (prevenção de enumeração de usuário)
   throw new UnauthorizedError('Credenciais inválidas.');
 }
 await clearLoginAttempts(redis, body.email);
+
 ```
 
 > **Nota de design:** A contagem por e-mail (não por IP) previne que um atacante use múltiplos IPs para contornar o bloqueio de conta. O bloqueio por IP já é coberto pelo rate limiting global.
@@ -130,23 +132,25 @@ Adicionar validação Zod na criação e reset de senhas:
 export const PasswordSchema = z
   .string()
   .min(12, 'Mínimo de 12 caracteres')
-  .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
-  .regex(/[a-z]/, 'Deve conter ao menos uma letra minúscula')
-  .regex(/[0-9]/, 'Deve conter ao menos um número')
-  .regex(/[^A-Za-z0-9]/, 'Deve conter ao menos um caractere especial');
+  .regex(/[A-Z]/, 'Deve conter pelo menos uma letra maiúscula')
+  .regex(/[a-z]/, 'Deve conter pelo menos uma letra minúscula')
+  .regex(/[0-9]/, 'Deve conter pelo menos um número')
+  .regex(/[^A-Za-z0-9]/, 'Deve conter pelo menos um caractere especial');
+
 ```
 
 Configurar o custo do bcrypt explicitamente:
 
 ```typescript
 // Nunca deixar no padrão — definir explicitamente
-const BCRYPT_ROUNDS = 12; // ~250ms em hardware moderno; balanceia segurança e UX
+const BCRYPT_ROUNDS = 12; // ~250ms em hardware moderno; equilibra segurança e UX
 const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
 ```
 
 ### 2.3 Segurança do Access Token em Memória
 
-O access token não deve nunca ser armazenado em `localStorage` ou `sessionStorage`. O padrão atual (memória do `AuthProvider`) está correto. Documentar como restrição explícita:
+O access token nunca deve ser armazenado em `localStorage` ou `sessionStorage`. O padrão atual (memória do `AuthProvider`) está correto. Documentar como restrição explícita:
 
 ```typescript
 // ✅ CORRETO — token apenas em memória do AuthProvider
@@ -155,6 +159,7 @@ localStorage.setItem('access_token', token);
 sessionStorage.setItem('access_token', token);
 // ❌ PROIBIDO — nunca em cookie não-httpOnly
 document.cookie = `token=${token}`;
+
 ```
 
 ### 2.4 Renovação Segura do Refresh Token
@@ -170,6 +175,7 @@ fastify.addHook('onRequest', async (request) => {
     request.log = request.log.child({ url: '/api/events?token=[REDACTED]' });
   }
 });
+
 ```
 
 Confirmar que o `pino-redact` está configurado:
@@ -185,15 +191,16 @@ const app = fastify({
     }
   }
 });
+
 ```
 
 ---
 
-## 3. Autorização e Controlo de Acesso
+## 3. Autorização e Controle de Acesso
 
 ### 3.1 Object-Level Authorization (IDOR) **[OBRIGATÓRIO — L-04]**
 
-Este é o vetor mais crítico em sistemas multi-tenant. Um tesoureiro autenticado no clube A não deve conseguir aceder recursos do clube B simplesmente adivinhando um UUID.
+Este é o vetor mais crítico em sistemas multi-tenant. Um tesoureiro autenticado no clube A não deve conseguir acessar recursos do clube B simplesmente adivinhando um UUID.
 
 **Regra:** Todo handler que aceita um ID de recurso (`memberId`, `chargeId`, `planId`) deve verificar explicitamente que o recurso pertence ao `clubId` extraído do JWT — nunca confiar apenas no ID.
 
@@ -201,7 +208,7 @@ Este é o vetor mais crítico em sistemas multi-tenant. Um tesoureiro autenticad
 // apps/api/src/lib/assert-tenant-ownership.ts
 
 /**
- * Lança 404 (não 403) intencionalmente — não confirmar a existência
+ * Lança 404 (não 403) intencionalmente — não confirma a existência
  * de recursos de outros tenants.
  */
 export async function assertMemberBelongsToClub(
@@ -230,7 +237,8 @@ export async function assertChargeBelongsToClub(
   if (!charge) throw new NotFoundError(`Cobrança não encontrada.`);
 }
 
-// Padrão análogo para: plans, payments, athletes, templates, messages
+// Padrão análogo para: planos, pagamentos, atletas, templates, mensagens
+
 ```
 
 ```typescript
@@ -243,14 +251,15 @@ fastify.get('/api/members/:memberId', async (request, reply) => {
   const member = await getMemberById(prisma, clubId, memberId);
   return reply.send(member);
 });
+
 ```
 
 ### 3.2 Regras de RBAC por Recurso
 
-Documentar e enforçar a matriz completa:
+Documentar e aplicar a matriz completa:
 
-| Endpoint | ADMIN | TREASURER |
-|----------|-------|-----------|
+| Endpoint | ADMIN | TREASURER (Tesoureiro) |
+| --- | --- | --- |
 | `POST /api/members` | ✅ | ✅ |
 | `PUT /api/members/:id` | ✅ | ✅ |
 | `DELETE /api/members/:id` | ✅ | ❌ 403 |
@@ -278,6 +287,7 @@ Documentar e enforçar a matriz completa:
 ```
 # apps/api/.env.example
 DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=require&sslrootcert=/etc/ssl/certs/ca-certificates.crt"
+
 ```
 
 No Prisma:
@@ -287,8 +297,9 @@ No Prisma:
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // Supabase já inclui SSL por padrão, mas reforçar no connection string
+  // Supabase já inclui SSL por padrão, mas reforçar na connection string
 }
+
 ```
 
 ### 4.2 Redis com Autenticação e TLS **[OBRIGATÓRIO — L-08]**
@@ -297,6 +308,7 @@ datasource db {
 # apps/api/.env.example
 REDIS_URL="rediss://:STRONG_PASSWORD@host:6380"
 #          ^^^^ rediss:// = TLS obrigatório
+
 ```
 
 ```typescript
@@ -307,16 +319,17 @@ export const redis = new Redis(process.env.REDIS_URL!, {
   tls: process.env.NODE_ENV === 'production' ? {} : undefined,
   maxRetriesPerRequest: 3,
   connectTimeout: 5000,
-  lazyConnect: true,       // falha explicitamente no startup se Redis indisponível
+  lazyConnect: true,       // falha explicitamente no startup se o Redis estiver indisponível
 });
 
-// Falha no startup se Redis não conectar
+// Falha no startup se o Redis não conectar
 redis.on('error', (err) => {
   if (err.message.includes('NOAUTH') || err.message.includes('ERR AUTH')) {
-    console.error('[FATAL] Redis authentication failed. Check REDIS_URL.');
+    console.error('[FATAL] Erro de autenticação no Redis. Verifique REDIS_URL.');
     process.exit(1);
   }
 });
+
 ```
 
 ### 4.3 Validação de Variáveis de Ambiente no Startup **[OBRIGATÓRIO — L-09]**
@@ -349,12 +362,14 @@ export function validateEnv() {
   }
   return result.data;
 }
+
 ```
 
 ```typescript
 // apps/api/src/server.ts — primeira linha do bootstrap
 import { validateEnv } from './lib/env';
-const env = validateEnv(); // falha fast se config incompleta
+const env = validateEnv(); // falha rápido (fail fast) se a config estiver incompleta
+
 ```
 
 ### 4.4 Rotação de Chaves de Criptografia
@@ -383,13 +398,14 @@ export async function decryptField(prisma: PrismaClient, ciphertext: Buffer): Pr
       return await tryDecrypt(prisma, ciphertext, key);
     } catch { continue; }
   }
-  throw new Error('Não foi possível desencriptar o campo.');
+  throw new Error('Não foi possível descriptografar o campo.');
 }
+
 ```
 
 ---
 
-## 5. Segurança de API e Validação de Input
+## 5. Segurança de API e Validação de Entrada (Input)
 
 ### 5.1 Configuração de CORS **[OBRIGATÓRIO — L-03]**
 
@@ -416,6 +432,7 @@ await app.register(cors, {
   exposedHeaders: ['X-Total-Count'],  // para paginação
   maxAge: 86400,           // pre-flight cache: 24h
 });
+
 ```
 
 > **Proibido:** `origin: '*'` em qualquer ambiente que use cookies httpOnly — a combinação não funciona e pode mascarar problemas de segurança.
@@ -427,7 +444,7 @@ await app.register(cors, {
 await app.register(import('@fastify/multipart'), {
   limits: {
     fileSize: 2 * 1024 * 1024,  // 2MB máximo para uploads de logo
-    files: 1,                    // apenas 1 arquivo por request
+    files: 1,                    // apenas 1 arquivo por requisição
     fieldSize: 100 * 1024,       // 100KB para campos de formulário
   },
 });
@@ -442,9 +459,10 @@ app.addContentTypeParser(
   }
 );
 
-// Limite específico para import CSV
+// Limite específico para importação de CSV
 // POST /api/members/import — até 5.000 linhas (~5MB)
 // Registrar com bodyLimit sobrescrito na rota específica
+
 ```
 
 ### 5.3 Proteção contra CSV Injection **[OBRIGATÓRIO — L-07]**
@@ -462,7 +480,7 @@ const CSV_INJECTION_PREFIXES = ['=', '+', '-', '@', '\t', '\r'];
 export function sanitizeCsvField(value: string): string {
   const trimmed = value.trim();
   if (CSV_INJECTION_PREFIXES.some((prefix) => trimmed.startsWith(prefix))) {
-    return `'${trimmed}`; // prefixo de apóstrofe força Excel a tratar como texto
+    return `'${trimmed}`; // prefixo de apóstrofo força o Excel a tratar como texto
   }
   return trimmed;
 }
@@ -476,11 +494,12 @@ export function validateCsvImportField(value: string, fieldName: string): string
   }
   return value.trim();
 }
+
 ```
 
 ### 5.4 Prevenção de Mass Assignment
 
-O Zod já previne mass assignment ao selecionar apenas os campos declarados no schema. Garantir que **nenhuma rota** passe `request.body` diretamente para uma query sem parsing Zod:
+O Zod já previne mass assignment ao selecionar apenas os campos declarados no schema. Garantir que **nenhuma rota** passe o `request.body` diretamente para uma query sem parsing do Zod:
 
 ```typescript
 // ❌ PROIBIDO
@@ -489,6 +508,7 @@ await prisma.member.create({ data: request.body as any });
 // ✅ CORRETO
 const parsed = CreateMemberSchema.parse(request.body);
 await prisma.member.create({ data: parsed });
+
 ```
 
 ### 5.5 Tratamento de Erros sem Vazamento **[OBRIGATÓRIO — L-12]**
@@ -503,7 +523,7 @@ export function errorHandler(
   reply: FastifyReply
 ): void {
   // Log interno completo (Sentry + pino)
-  request.log.error({ err: error, reqId: request.id }, 'Unhandled error');
+  request.log.error({ err: error, reqId: request.id }, 'Erro não tratado');
 
   // Em produção: nunca expor stack trace ou mensagens internas
   if (process.env.NODE_ENV === 'production') {
@@ -520,7 +540,7 @@ export function errorHandler(
     }
   }
 
-  // Erros de cliente (4xx): retornar message do erro de negócio
+  // Erros de cliente (4xx): retornar a mensagem do erro de negócio
   reply.status(error.statusCode ?? 500).send({
     statusCode: error.statusCode ?? 500,
     error: error.name,
@@ -528,6 +548,7 @@ export function errorHandler(
     // NUNCA incluir: error.stack, error.cause, detalhes de query
   });
 }
+
 ```
 
 ---
@@ -536,7 +557,7 @@ export function errorHandler(
 
 ### 6.1 Proteção contra Replay Attacks **[OBRIGATÓRIO — L-11]**
 
-A validação de HMAC atual confirma autenticidade, mas não previne replay de um payload válido capturado anteriormente.
+A validação de HMAC atual confirma autenticidade, mas não previne o replay de um payload válido capturado anteriormente.
 
 ```typescript
 // apps/api/src/modules/payments/gateway.interface.ts
@@ -559,6 +580,7 @@ export function assertWebhookTimestamp(timestampHeader: string | undefined): voi
     );
   }
 }
+
 ```
 
 ```typescript
@@ -574,6 +596,7 @@ parseWebhook(rawBody: Buffer, headers: Record<string, string>): WebhookEvent {
   // 3. Verificar idempotência no Redis para deduplicação rápida
   // (antes de enfileirar no BullMQ)
 }
+
 ```
 
 Adicionar deduplicação por `gatewayTxId` no Redis com TTL de 24h (camada rápida antes do DB):
@@ -589,6 +612,7 @@ export async function isWebhookDuplicate(redis: Redis, txId: string): Promise<bo
   const result = await redis.set(key, '1', 'EX', DEDUP_TTL_SECONDS, 'NX');
   return result === null; // null = já existia = duplicata
 }
+
 ```
 
 ### 6.2 Rota de Webhook Sem Autenticação JWT
@@ -604,6 +628,7 @@ const PUBLIC_ROUTES = [
   '/webhooks/',          // autenticação própria via HMAC
   '/api/events',         // autenticação própria via query param
 ];
+
 ```
 
 ---
@@ -622,6 +647,7 @@ return withTenantSchema(prisma, clubId, async (tx) => {
 
 // ❌ PROIBIDO — query sem contexto de tenant
 return prisma.member.findMany(); // acessa o schema errado ou falha
+
 ```
 
 ### 7.2 Testes de Isolamento de Tenant
@@ -656,15 +682,16 @@ describe('Tenant Isolation Security', () => {
     expect(data.data.every((m: any) => m.clubId === clubBId)).toBe(true);
   });
 });
+
 ```
 
 ---
 
-## 8. Segurança de Upload de Ficheiros
+## 8. Segurança de Upload de Arquivos
 
 ### 8.1 Validação de MIME Type Real (Magic Bytes) **[OBRIGATÓRIO — L-05]**
 
-Validar o Content-Type declarado é insuficiente — um atacante pode enviar um executável com `Content-Type: image/png`. Verificar os magic bytes do ficheiro:
+Validar o Content-Type declarado é insuficiente — um atacante pode enviar um executável com `Content-Type: image/png`. É necessário verificar os magic bytes do arquivo:
 
 ```typescript
 // apps/api/src/lib/file-validation.ts
@@ -676,14 +703,14 @@ const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
 export async function validateImageUpload(buffer: Buffer, filename: string): Promise<void> {
   // 1. Verificar tamanho
   if (buffer.length > MAX_LOGO_SIZE_BYTES) {
-    throw new ValidationError('Ficheiro muito grande. Máximo permitido: 2MB.');
+    throw new ValidationError('Arquivo muito grande. Máximo permitido: 2MB.');
   }
 
-  // 2. Verificar magic bytes (tipo real do ficheiro)
+  // 2. Verificar magic bytes (tipo real do arquivo)
   const detected = await fileTypeFromBuffer(buffer);
   if (!detected || !ALLOWED_IMAGE_MIME_TYPES.includes(detected.mime)) {
     throw new ValidationError(
-      `Tipo de ficheiro não permitido: ${detected?.mime ?? 'desconhecido'}. ` +
+      `Tipo de arquivo não permitido: ${detected?.mime ?? 'desconhecido'}. ` +
       `Use PNG, JPEG, WebP ou GIF.`
     );
   }
@@ -691,12 +718,13 @@ export async function validateImageUpload(buffer: Buffer, filename: string): Pro
   // 3. Verificar extensão (defense-in-depth)
   const ext = filename.split('.').pop()?.toLowerCase();
   if (!['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext ?? '')) {
-    throw new ValidationError('Extensão de ficheiro não permitida.');
+    throw new ValidationError('Extensão de arquivo não permitida.');
   }
 }
+
 ```
 
-### 8.2 Armazenamento Seguro de Ficheiros
+### 8.2 Armazenamento Seguro de Arquivos
 
 ```typescript
 // apps/api/src/modules/clubs/logo.service.ts
@@ -705,19 +733,20 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 export function generateSafeLogoPath(clubId: string): string {
-  // NUNCA usar o nome original do ficheiro (path traversal)
+  // NUNCA usar o nome original do arquivo (path traversal)
   const safeFilename = `${clubId}-${randomUUID()}.webp`;
 
-  // Validar que o path final não sai do directório de uploads
+  // Validar que o path final não sai do diretório de uploads
   const uploadsDir = path.resolve(process.env.UPLOADS_DIR ?? './uploads');
   const filePath = path.resolve(uploadsDir, safeFilename);
 
   if (!filePath.startsWith(uploadsDir)) {
-    throw new Error('Path traversal detectado.'); // nunca deve acontecer, mas defensive
+    throw new Error('Path traversal detectado.'); // nunca deve acontecer, mas por defesa
   }
 
   return filePath;
 }
+
 ```
 
 ---
@@ -753,6 +782,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high
+
 ```
 
 ### 9.2 Secrets no CI/CD
@@ -760,20 +790,22 @@ jobs:
 ```yaml
 # NUNCA fazer isto:
 # env:
-#   DATABASE_URL: postgresql://user:password@host/db   ← exposto no log
+#    DATABASE_URL: postgresql://user:password@host/db   ← exposto no log
 
 # CORRETO — usar secrets do GitHub Actions:
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
 ```
 
 Regras para secrets:
-- Secrets com comprimento mínimo de 32 bytes para todas as chaves criptográficas
-- Gerar com `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-- Rotação semestral de JWT_SECRET, JWT_REFRESH_SECRET e ASAAS_WEBHOOK_SECRET
-- Rotação imediata em caso de suspeita de comprometimento
-- Nunca reutilizar secrets entre ambientes (dev/staging/prod usam chaves diferentes)
+
+* Secrets com comprimento mínimo de 32 bytes para todas as chaves criptográficas.
+* Gerar com `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+* Rotação semestral de JWT_SECRET, JWT_REFRESH_SECRET e ASAAS_WEBHOOK_SECRET.
+* Rotação imediata em caso de suspeita de comprometimento.
+* Nunca reutilizar secrets entre ambientes (dev/staging/prod usam chaves diferentes).
 
 ### 9.3 Headers de Segurança Completos
 
@@ -791,10 +823,10 @@ export const securityHeadersPlugin = fp(async (fastify) => {
     // Previne MIME sniffing
     reply.header('X-Content-Type-Options', 'nosniff');
 
-    // Controla referrer em requests cross-origin
+    // Controla referrer em requisições cross-origin
     reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-    // Desativa features de browser não usadas
+    // Desativa recursos de navegador não usados
     reply.header(
       'Permissions-Policy',
       'camera=(), microphone=(), geolocation=(), payment=()'
@@ -805,6 +837,7 @@ export const securityHeadersPlugin = fp(async (fastify) => {
     reply.removeHeader('Server');
   });
 });
+
 ```
 
 ```typescript
@@ -832,15 +865,16 @@ const securityHeaders = [
     value: 'max-age=63072000; includeSubDomains; preload',
   },
 ];
+
 ```
 
 ### 9.4 Dockerfile Seguro (para deploy em container)
 
 ```dockerfile
-# Usar imagem minimal e fixar versão exata
+# Usar imagem minimalista e fixar versão exata
 FROM node:20.18.0-alpine3.20 AS base
 
-# Não correr como root
+# Não executar como root
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 apiuser
 
@@ -850,11 +884,12 @@ FROM base AS runner
 USER apiuser
 
 # Variáveis de ambiente de runtime são injetadas pelo orquestrador
-# NUNCA copiar .env para a imagem
+# NUNCA copiar o arquivo .env para a imagem
 COPY --chown=apiuser:nodejs --from=builder /app/dist ./dist
 
 EXPOSE 3001
 CMD ["node", "dist/server.js"]
+
 ```
 
 ---
@@ -872,7 +907,7 @@ import { headers } from 'next/headers';
 export async function POST(request: Request) {
   const headersList = headers();
 
-  // Verificar que o request vem do próprio domínio
+  // Verificar que a requisição vem do próprio domínio
   const origin = headersList.get('origin');
   const allowedOrigins = [
     'https://clubos.com.br',
@@ -891,6 +926,7 @@ export async function POST(request: Request) {
 
   // ... resto do handler
 }
+
 ```
 
 ### 10.2 Middleware de Auth no Next.js
@@ -910,7 +946,7 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute = AUTH_PATHS.some((p) => pathname.startsWith(p));
   if (!isProtectedRoute) return NextResponse.next();
 
-  // O accessToken é in-memory; verificação real feita pelo AuthProvider no cliente.
+  // O accessToken é in-memory; a verificação real é feita pelo AuthProvider no cliente.
   // O middleware verifica apenas a presença do refresh cookie para redirecionamento rápido.
   const hasRefreshCookie = request.cookies.has('refresh_token');
 
@@ -926,6 +962,7 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
 };
+
 ```
 
 ---
@@ -956,9 +993,10 @@ export enum AuditAction {
   MEMBER_DELETED       = 'MEMBER_DELETED',
   UNAUTHORIZED_ACCESS  = 'UNAUTHORIZED_ACCESS', // tentativa de acesso cross-tenant
 }
+
 ```
 
-### 11.2 O Que NUNCA Registar em Logs
+### 11.2 O Que NUNCA Registrar em Logs
 
 ```typescript
 // Campos proibidos em qualquer log (pino redact obrigatório):
@@ -968,16 +1006,17 @@ const SENSITIVE_LOG_FIELDS = [
   'req.body.password',
   'req.headers.authorization',
   'req.headers.cookie',
-  'req.query.token',        // SSE token
-  'cpf',                    // plaintext antes de encriptar
-  'phone',                  // plaintext antes de encriptar
+  'req.query.token',         // token SSE
+  'cpf',                    // texto puro antes de criptografar
+  'phone',                  // texto puro antes de criptografar
   'asaas-access-token',     // webhook secret
   'pixCopyPaste',           // dado financeiro sensível
   'qrCodeBase64',           // pode ser grande e sensível
 ];
+
 ```
 
-### 11.3 Setup do Sentry (T-043) — Configuração Segura
+### 11.3 Configuração do Sentry (T-043) — Configuração Segura
 
 ```typescript
 // apps/api/src/lib/sentry.ts
@@ -1010,19 +1049,20 @@ Sentry.init({
     'TooManyRequestsError',
   ],
 });
+
 ```
 
 ### 11.4 Plano de Resposta a Incidentes
 
-| Tipo de Incidente | Tempo de Resposta | Acções Imediatas |
-|---|---|---|
-| Credencial vazada (JWT_SECRET) | < 1h | Rotacionar secret → invalida todos os tokens ativos. Forçar re-login geral. |
-| Acesso cross-tenant detectado | < 30min | Revogar sessão do utilizador. Audit log do acesso. Notificar clubes afectados. |
-| Duplicidade de cobrança | < 2h | Pausar job de cobranças. Identificar `chargeId` duplicados. Cancelar cobranças extras via Asaas API. |
-| Chave de API Asaas comprometida | < 1h | Revogar chave no painel Asaas. Gerar nova chave. Actualizar env var em produção. |
-| Injecção de SQL detectada | < 30min | Bloquear IP. Audit log completo. Verificar integridade de dados do tenant. |
+| Tipo de Incidente | Tempo de Resposta | Ações Imediatas |
+| --- | --- | --- |
+| Credencial vazada (JWT_SECRET) | < 1h | Rotacionar secret → invalida todos os tokens ativos. Forçar novo login geral. |
+| Acesso cross-tenant detectado | < 30min | Revogar sessão do usuário. Log de auditoria do acesso. Notificar clubes afetados. |
+| Duplicidade de cobrança | < 2h | Pausar job de cobranças. Identificar `chargeId` duplicados. Cancelar cobranças extras via API do Asaas. |
+| Chave de API Asaas comprometida | < 1h | Revogar chave no painel do Asaas. Gerar nova chave. Atualizar variável de ambiente em produção. |
+| Injeção de SQL detectada | < 30min | Bloquear IP. Log de auditoria completo. Verificar integridade de dados do tenant. |
 
-Post-mortem escrito em Notion em até 24h após resolução, com: timeline, causa-raiz, impacto e acções preventivas.
+Post-mortem escrito no Notion em até 24h após a resolução, contendo: cronologia, causa-raiz, impacto e ações preventivas.
 
 ---
 
@@ -1034,10 +1074,10 @@ Post-mortem escrito em Notion em até 24h após resolução, com: timeline, caus
 // apps/api/src/lib/queue.ts
 import { Queue, Worker } from 'bullmq';
 
-// Usar Redis com auth (já coberto na secção 4.2)
+// Usar Redis com autenticação (já coberto na seção 4.2)
 const connection = { url: process.env.REDIS_URL };
 
-// Prefixo de fila com nome do ambiente para isolar staging de prod
+// Prefixo da fila com nome do ambiente para isolar staging de produção
 const QUEUE_PREFIX = `{clubos:${process.env.NODE_ENV}}`;
 
 export const chargeGenerationQueue = new Queue('charge-generation', {
@@ -1049,11 +1089,12 @@ export const chargeGenerationQueue = new Queue('charge-generation', {
     attempts: 3,
   },
 });
+
 ```
 
 ### 12.2 Sanitização de Dados em Payloads de Jobs
 
-Nunca incluir dados sensíveis no payload de jobs — usar apenas IDs:
+Nunca incluir dados sensíveis no payload de jobs — use apenas IDs:
 
 ```typescript
 // ❌ PROIBIDO — dados sensíveis no payload do job
@@ -1064,13 +1105,14 @@ chargeQueue.add('generate', {
   amount: 14900,
 });
 
-// ✅ CORRETO — apenas IDs; buscar dados frescos no worker
+// ✅ CORRETO — apenas IDs; buscar dados atualizados no worker
 chargeQueue.add('generate', {
   clubId: 'abc123',
   memberId: 'xyz456',
   period: '2025-01',
   // jobId estável para deduplicação
 }, { jobId: `generate-${clubId}-${period}` });
+
 ```
 
 ---
@@ -1081,45 +1123,45 @@ Execute esta checklist antes de cada deploy em produção:
 
 ### Configuração de Ambiente
 
-- [ ] Todas as variáveis do `.env.example` estão configuradas no painel do serviço de hospedagem
-- [ ] `NODE_ENV=production` está definido
-- [ ] `DATABASE_URL` inclui `?sslmode=require`
-- [ ] `REDIS_URL` usa `rediss://` (TLS) e inclui senha forte
-- [ ] `JWT_SECRET` e `JWT_REFRESH_SECRET` têm ≥ 32 caracteres e são únicos para produção
-- [ ] `ASAAS_WEBHOOK_SECRET` tem ≥ 32 caracteres
-- [ ] `ENCRYPTION_KEY` tem ≥ 32 caracteres
+* [ ] Todas as variáveis do `.env.example` estão configuradas no painel do serviço de hospedagem.
+* [ ] `NODE_ENV=production` está definido.
+* [ ] `DATABASE_URL` inclui `?sslmode=require`.
+* [ ] `REDIS_URL` usa `rediss://` (TLS) e inclui senha forte.
+* [ ] `JWT_SECRET` e `JWT_REFRESH_SECRET` possuem ≥ 32 caracteres e são únicos para produção.
+* [ ] `ASAAS_WEBHOOK_SECRET` possui ≥ 32 caracteres.
+* [ ] `ENCRYPTION_KEY` possui ≥ 32 caracteres.
 
 ### Código
 
-- [ ] `npm audit --audit-level=high` passa nos dois apps sem vulnerabilidades
-- [ ] Nenhum `console.log` com dados sensíveis em código de produção
-- [ ] Nenhum `any` explícito em módulos financeiros (charges, payments, webhooks, jobs)
-- [ ] Error handler está configurado para não expor stack traces
-- [ ] CORS está configurado com lista de origens explícita (sem wildcard)
-- [ ] Todos os endpoints de recursos usam `assertMemberBelongsToClub` ou equivalente
+* [ ] `npm audit --audit-level=high` passa nos dois apps sem vulnerabilidades.
+* [ ] Nenhum `console.log` com dados sensíveis no código de produção.
+* [ ] Nenhum `any` explícito em módulos financeiros (charges, payments, webhooks, jobs).
+* [ ] Error handler configurado para não expor stack traces.
+* [ ] CORS configurado com lista de origens explícita (sem wildcard).
+* [ ] Todos os endpoints de recursos usam `assertMemberBelongsToClub` ou equivalente.
 
 ### Infraestrutura
 
-- [ ] HSTS header está activo (`Strict-Transport-Security: max-age=63072000`)
-- [ ] CSP header está configurado no Next.js
-- [ ] `X-Frame-Options: DENY` está activo
-- [ ] `X-Content-Type-Options: nosniff` está activo
-- [ ] Logs do servidor não contêm tokens, senhas ou CPFs em plaintext
-- [ ] Backups automáticos do PostgreSQL estão activos e foram testados
+* [ ] Header HSTS está ativo (`Strict-Transport-Security: max-age=63072000`).
+* [ ] Header CSP configurado no Next.js.
+* [ ] `X-Frame-Options: DENY` está ativo.
+* [ ] `X-Content-Type-Options: nosniff` está ativo.
+* [ ] Logs do servidor não contêm tokens, senhas ou CPFs em texto puro.
+* [ ] Backups automáticos do PostgreSQL estão ativos e foram testados.
 
 ### Fluxo Financeiro
 
-- [ ] Webhook Asaas configurado com URL de produção e secret correcto
-- [ ] Idempotência testada: simular payload duplicado e verificar que não cria `Payment` duplo
-- [ ] Job de cobranças testado com data de execução manual antes de ligar o cron
-- [ ] Rate limiting de WhatsApp validado com envio em lote pequeno (< 10 membros)
+* [ ] Webhook do Asaas configurado com URL de produção e secret correto.
+* [ ] Idempotência testada: simular payload duplicado e verificar que não cria `Payment` duplo.
+* [ ] Job de cobranças testado com data de execução manual antes de ativar o cron.
+* [ ] Rate limiting de WhatsApp validado com envio em lote pequeno (< 10 membros).
 
 ### Monitoramento
 
-- [ ] Sentry DSN configurado para ambos apps (front e back)
-- [ ] Alertas de erro configurados no Sentry (threshold: > 5 erros 5xx em 5 minutos)
-- [ ] Logtail (ou equivalente) recebendo logs estruturados da API
-- [ ] Endpoint de health check (`GET /health`) retorna 200 e é monitorado
+* [ ] Sentry DSN configurado para ambos os apps (front e back).
+* [ ] Alertas de erro configurados no Sentry (limite: > 5 erros 5xx em 5 minutos).
+* [ ] Logtail (ou equivalente) recebendo logs estruturados da API.
+* [ ] Endpoint de health check (`GET /health`) retorna 200 e é monitorado.
 
 ---
 
@@ -1127,15 +1169,15 @@ Execute esta checklist antes de cada deploy em produção:
 
 Complementando a tabela de `architecture-rules.md`:
 
-| Proibido | Alternativa Correcta |
-|----------|---------------------|
+| Proibido | Alternativa Correta |
+| --- | --- |
 | `origin: '*'` no CORS com cookies httpOnly | Lista explícita de origens permitidas |
-| Logar CPF, telefone ou tokens em plaintext | `pino-redact` com campos sensíveis configurados |
-| Usar `req.body` directamente em queries sem Zod parse | `Schema.parse(request.body)` antes de qualquer operação |
-| Usar o nome original do ficheiro em uploads | `randomUUID()` + extensão validada |
-| Validar MIME type apenas pelo `Content-Type` do request | Verificar magic bytes com `file-type` |
+| Logar CPF, telefone ou tokens em texto puro | `pino-redact` com campos sensíveis configurados |
+| Usar `req.body` diretamente em queries sem Zod parse | `Schema.parse(request.body)` antes de qualquer operação |
+| Usar o nome original do arquivo em uploads | `randomUUID()` + extensão validada |
+| Validar MIME type apenas pelo `Content-Type` da requisição | Verificar magic bytes com `file-type` |
 | Stack traces em respostas de erro em produção | Error handler centralizado com mensagem genérica para 5xx |
-| Dados pessoais em payloads de jobs BullMQ | Apenas IDs; dados buscados frescos no worker |
+| Dados pessoais em payloads de jobs BullMQ | Apenas IDs; dados buscados atualizados no worker |
 | `npm audit` com vulnerabilidades HIGH/CRITICAL no CI | Corrigir ou documentar exceção com justificativa |
 | Mesmas chaves JWT em staging e produção | Chaves únicas por ambiente |
 | `localStorage` ou `sessionStorage` para tokens | Apenas memória do AuthProvider (access) e httpOnly cookie (refresh) |

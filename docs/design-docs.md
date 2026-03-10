@@ -38,21 +38,24 @@ O ClubOS v1.0 é um SaaS multi-tenant voltado exclusivamente para clubes de fute
 
 ### Back-end
 
-| Tecnologia           | Versão                    | Justificativa                                                             |
-| -------------------- | ------------------------- | ------------------------------------------------------------------------- |
-| Node.js + Fastify    | Node 20 LTS / Fastify 5.x | Performance superior ao Express; schema validation nativo via JSON Schema |
-| TypeScript           | 5.x                       | Consistência full-stack; tipos compartilhados entre front e back          |
-| Prisma ORM           | 7.x                       | Migrations versionadas, type-safe queries, multi-tenant via search_path   |
-| Zod                  | 4.x                       | Validação de payloads na entrada da API; compartilhado com front-end      |
-| BullMQ + Redis       | latest                    | Filas de jobs assíncronos para cobranças recorrentes e WhatsApp           |
-| JWT + Refresh Tokens | —                         | Auth stateless; refresh token rotativo em httpOnly cookie                 |
+| Tecnologia                  | Versão                    | Justificativa                                                             | Status          |
+| --------------------------- | ------------------------- | ------------------------------------------------------------------------- | --------------- |
+| Node.js + Fastify           | Node 20 LTS / Fastify 5.x | Performance superior ao Express; schema validation nativo via JSON Schema | ✅ Implementado  |
+| TypeScript                  | 5.x                       | Consistência full-stack; tipos compartilhados entre front e back          | ✅ Implementado  |
+| Prisma ORM                  | 6.x                       | Migrations versionadas, type-safe queries, multi-tenant via search_path   | ✅ Implementado  |
+| Zod                         | 4.x                       | Validação de payloads na entrada da API; compartilhado com front-end      | ✅ Implementado  |
+| BullMQ + Redis              | latest                    | Filas de jobs assíncronos para cobranças recorrentes e WhatsApp           | ✅ Implementado  |
+| JWT + Refresh Tokens        | —                         | Auth stateless; refresh token rotativo em httpOnly cookie                 | ✅ Implementado  |
+| PapaParse                   | 5.x                       | Parse de CSV para importação de sócios (até 5.000 linhas, batches 500)   | ✅ Implementado  |
+| Sharp                       | 0.33.x                    | Resize/conversão de logo para WebP 200×200px                              | ✅ Implementado  |
+| Resend SDK                  | 6.x                       | E-mail transacional (boas-vindas ao clube, fallback de cobrança)          | ✅ Implementado  |
 
 ### Banco de Dados
 
 | Tecnologia    | Justificativa                                                                                                                      |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | PostgreSQL 15 | Banco principal. ACID completo para transações financeiras. JSONB para metadados de gateway. Schema-per-tenant para multi-tenancy. |
-| Redis 7       | Cache de sessão, filas BullMQ, rate limiting por clube, pub/sub de notificações em tempo real.                                     |
+| Redis 7       | Cache de sessão, filas BullMQ, rate limiting por clube (WhatsApp 30 msg/min), pub/sub de notificações em tempo real.               |
 
 ---
 
@@ -122,6 +125,8 @@ A autenticação segue o modelo JWT com refresh token rotativo em httpOnly cooki
 ```
 Login (POST /api/auth/login)
   → accessToken (15min, em memória) + refreshToken (7d, httpOnly cookie)
+  → Bcrypt compare com constant-time dummy hash (previne user enumeration)
+  → Refresh token armazenado no Redis (TTL 7d); invalidado no uso (single-use)
 
 Bootstrap (mount do AuthProvider)
   → POST /api/auth/refresh com cookie
@@ -133,8 +138,12 @@ getAccessToken()
   → Senão, chama refresh (deduplica concorrência via refreshPromiseRef)
 
 Logout (POST /api/auth/logout)
-  → Invalida cookie no servidor + limpa estado local
+  → Invalida cookie no servidor + revoga refresh token no Redis + limpa estado local
 ```
+
+### Implementação do refresh JWT (API)
+
+O refresh token usa HS256 implementado com `node:crypto` nativo (sem `@fastify/jwt` duplicado, que causava problemas de registro em Fastify v5). O signer/verifier (`createRefreshJwt`) é decorado em `fastify.refresh` pelo plugin `auth.plugin.ts`. A validação de assinatura usa `timingSafeEqual` para resistência a timing attacks.
 
 ### Controle de acesso por papel
 
@@ -144,7 +153,7 @@ const isAdmin = user?.role === "ADMIN";
 // Admin: CRUD completo em sócios, planos; acesso a todas as ações
 ```
 
-O campo `role` é lido do JWT — nunca do estado local mutável. Componentes verificam `isAdmin` para exibir/ocultar botões de ação (ex: "Novo sócio", "Excluir plano").
+O campo `role` é lido do JWT — nunca do estado local mutável. Componentes verificam `isAdmin` para exibir/ocultar botões de ação (ex: "Novo sócio", "Excluir plano"). No backend, o decorator `requireRole('ADMIN')` aplica a hierarquia `ADMIN > TREASURER` por rota.
 
 ---
 
@@ -164,6 +173,13 @@ queryClient.invalidateQueries(OVERDUE_MEMBERS_QUERY_KEY)
 
 **Estratégia de token:** EventSource não suporta headers customizados, então o token é passado como query param `?token=`. O servidor faz o strip desse parâmetro nos logs (pino redact). O auto-reconnect nativo do EventSource reexecuta `connect()`, que chama `getAccessToken()` — transparentemente renovando o token via cookie quando necessário.
 
+**Implementação (API):**
+- Rota registrada **fora** de `protectedRoutes` para gerenciar autenticação manualmente (padrão EventSource não suporta header `Authorization`).
+- Heartbeat de `:keepalive\n\n` a cada 25s previne timeout de proxies.
+- `sseBus` é um `EventEmitter` in-process com namespace `club:{clubId}` — isolamento por tenant estrutural (sem vazamento cross-club).
+- O worker de webhook chama `emitPaymentConfirmed(clubId, payload)` após `handlePaymentReceived` bem-sucedido.
+- **Scaling note:** para múltiplos processos, substituir o corpo de `emitPaymentConfirmed` por `redis.publish("club:{clubId}", json)` e `sseBus.on` por `redis.subscribe`. Interface idêntica — apenas `sse-bus.ts` e `events.routes.ts` mudam.
+
 ---
 
 ## Integrações de Pagamento — Gateway Abstraction
@@ -181,30 +197,30 @@ interface PaymentGateway {
 
   createCharge(input: CreateChargeInput): Promise<ChargeResult>;
   cancelCharge(externalId: string): Promise<void>;
-  parseWebhook(payload: unknown, signature: string): Promise<WebhookEvent>;
+  parseWebhook(rawBody: Buffer, headers: Record<string, ...>): WebhookEvent;
 }
 ```
 
 ### Métodos de pagamento suportados
 
-| Método            | Enum            | Gateway atual | Observação                        |
-| ----------------- | --------------- | ------------- | --------------------------------- |
-| Pix               | `PIX`           | Asaas         | Principal no MVP                  |
-| Cartão de crédito | `CREDIT_CARD`   | Asaas         | Disponível, não priorizado no MVP |
-| Cartão de débito  | `DEBIT_CARD`    | Asaas         | Disponível, não priorizado no MVP |
-| Boleto            | `BOLETO`        | Asaas         | SHOULD HAVE — Fase 2              |
-| Dinheiro          | `CASH`          | — (offline)   | Sem gateway; registro manual      |
-| Transferência     | `BANK_TRANSFER` | — (offline)   | Sem gateway; registro manual      |
+| Método            | Enum            | Gateway atual | Status         |
+| ----------------- | --------------- | ------------- | -------------- |
+| Pix               | `PIX`           | Asaas         | ✅ Implementado |
+| Cartão de crédito | `CREDIT_CARD`   | Asaas         | ✅ Implementado |
+| Cartão de débito  | `DEBIT_CARD`    | Asaas         | ✅ Implementado |
+| Boleto            | `BOLETO`        | Asaas         | ✅ Implementado |
+| Dinheiro          | `CASH`          | — (offline)   | ✅ Implementado (short-circuit, sem gateway) |
+| Transferência     | `BANK_TRANSFER` | — (offline)   | ✅ Implementado (short-circuit, sem gateway) |
 
-### Estrutura de arquivos
+### Estrutura de arquivos (implementada)
 
 ```
 apps/api/src/modules/payments/
-├── gateway.interface.ts       # Interface PaymentGateway + tipos (CreateChargeInput, etc.)
-├── gateway.registry.ts        # GatewayRegistry — registra e resolve gateways por nome/método
+├── gateway.interface.ts       # Interface PaymentGateway + tipos (WebhookSignatureError, WebhookEvent, etc.)
+├── gateway.registry.ts        # GatewayRegistry — register, get(name), forMethod(method), list(), _reset()
 └── gateways/
-    ├── index.ts               # Bootstrap: instancia e registra os gateways no startup
-    ├── asaas.gateway.ts       # Implementação Asaas (PIX, cartão, boleto)
+    ├── index.ts               # Bootstrap: registerGateways() — instancia e registra no startup
+    ├── asaas.gateway.ts       # AsaasGateway (PIX, cartão, boleto; HMAC timingSafeEqual; sandbox flag)
     ├── pagarme.gateway.ts     # (futuro)
     └── stripe.gateway.ts      # (futuro)
 ```
@@ -217,24 +233,28 @@ apps/api/src/modules/payments/
 
 Nenhum outro arquivo precisa mudar.
 
-### Asaas (gateway primário do MVP)
+### Asaas (gateway primário do MVP) — Implementado
 
-| Aspecto             | Decisão                       | Detalhe                                                     |
-| ------------------- | ----------------------------- | ----------------------------------------------------------- |
-| PSP principal       | Asaas                         | Suporte a Pix com webhook; ambiente sandbox disponível      |
-| Modelo de cobrança  | Pix com vencimento + QR Code  | Webhook de confirmação em < 5s                              |
-| Tratamento de falha | Retry com backoff exponencial | 3 tentativas em 24h; após exaustão → status `PENDING_RETRY` |
-| Conformidade        | HMAC-SHA256                   | Validar header `X-Asaas-Signature` em todo webhook recebido |
+| Aspecto                   | Decisão                       | Detalhe                                                                     |
+| ------------------------- | ----------------------------- | --------------------------------------------------------------------------- |
+| PSP principal             | Asaas                         | Suporte a Pix com webhook; sandbox via flag `sandbox: NODE_ENV !== 'production'` |
+| Modelo de cobrança        | Pix com vencimento + QR Code  | Retorna `qrCodeBase64` + `pixCopyPaste` salvos em `gatewayMeta`             |
+| Idempotência              | `externalReference = chargeId` | Re-submit do mesmo chargeId retorna a cobrança existente no Asaas           |
+| Tratamento de falha       | Erro capturado, job retentado  | Gateway errors → `gatewayErrors[]`; backoff 1h/6h/24h; PENDING_RETRY após 3x |
+| Webhook signature         | Header `asaas-access-token`   | Comparação via `timingSafeEqual` (timing-safe)                              |
+| Mapeamento de eventos     | `PAYMENT_RECEIVED` + `PAYMENT_CONFIRMED` → `PAYMENT_RECEIVED` | Ambos eventos do Asaas resultam no mesmo handler |
 
-### WhatsApp — Régua de Cobrança
+### WhatsApp — Régua de Cobrança (Implementada)
 
-| Aspecto          | Decisão                              | Detalhe                                                                 |
-| ---------------- | ------------------------------------ | ----------------------------------------------------------------------- |
-| Provider         | Z-API ou Evolution API (self-hosted) | Custo menor que Meta Business API para o volume do MVP                  |
-| Templates padrão | D-3, D-0, D+3                        | Lembrete pré-vencimento, aviso no vencimento, cobrança de inadimplência |
-| Rate limiting    | Máx. 30 mensagens/minuto por clube   | Evitar bloqueio do número pelo WhatsApp                                 |
-| Fallback         | E-mail via Resend                    | Acionado se WhatsApp falhar após 2 tentativas                           |
-| On-demand        | POST /api/members/:id/remind         | Botão no dashboard "Sócios Inadimplentes" — rate limit protege o número |
+| Aspecto              | Decisão                              | Detalhe                                                                                  |
+| -------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Providers            | Z-API + Evolution API (self-hosted)  | Selecionado via `WHATSAPP_PROVIDER` env var; `WhatsAppRegistry` abstrai o provider ativo |
+| Templates            | D-3, D+3, on-demand                  | `TEMPLATE_KEYS` enum; customizáveis por clube via `message_templates` tenant table       |
+| D-0 (vencimento hoje)| Não implementado como job automático | Aguarda próxima sprint; on-demand cobre parcialmente                                     |
+| Rate limiting        | 30 mensagens/minuto por clube        | Lua atômica no Redis (`CHECK_AND_CONSUME_LUA`), ZSET sliding window, `timingSafeEqual` não aplicável aqui |
+| Idempotência         | Janela de 20h por (memberId, template) | `hasRecentMessage` — ignora apenas FAILED; previne duplicate sends em retry de job     |
+| Fallback e-mail      | Resend, ativado após ≥1 falha em 48h | `countRecentFailedWhatsAppMessages ≥ 1` → `sendEmailFallbackMessage` → SENT/FAILED registrado |
+| On-demand            | `POST /api/members/:id/remind`       | Cooldown 4h, consome rate limit do clube, cobrança OVERDUE mais antiga                  |
 
 ---
 
@@ -242,32 +262,52 @@ Nenhum outro arquivo precisa mudar.
 
 Cada clube é um tenant isolado. A estratégia adotada é **schema-per-tenant** no PostgreSQL: cada clube tem seu próprio schema (`clube_{id}`). Isso garante isolamento total de dados sem complexidade de Row-Level Security no código da aplicação.
 
-O schema correto é selecionado em cada request via `SET search_path TO "clube_{clubId}", public`, executado pelo helper `withTenantSchema` em `src/lib/prisma.ts`.
+O schema correto é selecionado em cada request via `SET search_path TO "clube_{clubId}", public`, executado pelo helper `withTenantSchema` em `src/lib/prisma.ts`. A função encapsula a transação Prisma e o `$executeRawUnsafe` para configuração do search_path.
+
+### Provisionamento de Schema Tenant (Implementado)
+
+`provisionTenantSchema(prisma, clubId)` em `src/lib/tenant-schema.ts`:
+
+1. `CREATE EXTENSION IF NOT EXISTS pgcrypto` (schema public)
+2. `CREATE SCHEMA IF NOT EXISTS "clube_{clubId}"`
+3. Transação: `SET search_path` → enums DDL → tabelas DDL → índices DDL → FKs DDL
+
+Todos os blocos DDL são idempotentes (`IF NOT EXISTS`, `DO $$ EXCEPTION duplicate_object`). Pode ser re-executado com segurança.
 
 ```
 public.clubs          -- cadastro master de clubes (tenant registry)
 public.users          -- usuários globais (auth)
 
-clube_{id}.members    -- sócios do clube
+clube_{id}.members    -- sócios do clube (CPF e telefone: BYTEA, pgcrypto AES-256)
 clube_{id}.plans      -- planos de sócio configuráveis
-clube_{id}.charges    -- cobranças geradas (agnósticas ao gateway)
-clube_{id}.payments   -- pagamentos confirmados
-clube_{id}.messages   -- log de WhatsApp/e-mail
-clube_{id}.audit_log  -- histórico de ações (compliance)
+clube_{id}.member_plans -- vínculo sócio-plano com histórico (startedAt/endedAt)
+clube_{id}.charges    -- cobranças geradas (agnósticas ao gateway; gatewayMeta JSONB)
+clube_{id}.payments   -- pagamentos confirmados (imutáveis; só cancelados com motivo)
+clube_{id}.messages   -- log de WhatsApp/e-mail (audit trail da régua de cobrança)
+clube_{id}.message_templates -- overrides de template por clube (fallback para DEFAULT_TEMPLATES)
+clube_{id}.audit_log  -- histórico de ações financeiras e de sócios (compliance; nunca deletado)
 ```
+
+### Segurança de ClubId
+
+`assertValidClubId(clubId)` valida que o clubId segue o padrão cuid2 (`/^[a-z0-9]{20,30}$/`) antes de interpolá-lo no nome do schema — prevenindo SQL injection via schema name mesmo em casos extremos.
 
 ---
 
 ## Modelo de Dados — Entidades Principais
 
-| Entidade   | Campos-chave                                                                                                   | Relacionamentos      | Observação                                                                                 |
-| ---------- | -------------------------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------ |
-| `clubs`    | id, slug, name, plan_tier, created_at                                                                          | 1:N members, plans   | Tenant root; slug usado na URL e no schema PG                                              |
-| `members`  | id, name, cpf, phone, email, status, joined_at                                                                 | N:1 clubs, N:M plans | CPF usado para idempotência de cobrança                                                    |
-| `plans`    | id, name, price_cents, interval, benefits                                                                      | N:M members          | interval: `monthly \| quarterly \| annual`                                                 |
-| `charges`  | id, member_id, amount_cents, due_date, status, **method**, **gateway_name**, **external_id**, **gateway_meta** | N:1 members          | Agnóstica ao gateway. `gateway_meta` (JSONB) armazena dados específicos do provider/método |
-| `payments` | id, charge_id, paid_at, **method**, gateway_txid                                                               | 1:1 charges          | Criado via webhook; imutável. `method` usa o mesmo enum de `charges`                       |
-| `messages` | id, member_id, channel, template, sent_at, status                                                              | N:1 members          | Auditoria de toda régua de cobrança                                                        |
+| Entidade          | Campos-chave                                                                                                   | Relacionamentos      | Observação                                                                                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------ |
+| `clubs`           | id, slug, name, plan_tier, created_at                                                                          | 1:N members, plans   | Tenant root; slug usado na URL e no schema PG                                              |
+| `users`           | id, email, password (bcrypt), role, clubId                                                                     | N:1 clubs            | Auth global; role: ADMIN \| TREASURER                                                      |
+| `members`         | id, name, cpf (BYTEA), phone (BYTEA), email, status, joined_at                                                 | N:M plans via member_plans | CPF/phone: AES-256 pgcrypto; uniqueness por scan in-DB                            |
+| `plans`           | id, name, price_cents, interval, benefits[], isActive                                                          | N:M members          | interval: `monthly \| quarterly \| annual`; soft delete via isActive                       |
+| `member_plans`    | id, memberId, planId, startedAt, endedAt                                                                       | N:1 members, plans   | endedAt=null = plano ativo; histórico preservado                                           |
+| `charges`         | id, member_id, amount_cents, due_date, status, **method**, **gateway_name**, **external_id**, **gateway_meta** | N:1 members          | Agnóstica ao gateway. `gateway_meta` (JSONB) armazena dados específicos do provider/método |
+| `payments`        | id, charge_id, paid_at, **method**, gateway_txid, cancelledAt, cancelReason                                    | 1:1 charges          | Criado via webhook; imutável. `gatewayTxid` @unique — idempotência DB-level                |
+| `messages`        | id, member_id, channel, template, status, sentAt, failReason                                                   | N:1 members          | Auditoria de toda régua de cobrança; inclui fallback e-mail                                |
+| `message_templates` | id, key, channel, body, isActive                                                                             | —                    | Override de template por clube; @unique(key, channel); fallback para DEFAULT_TEMPLATES     |
+| `audit_log`       | id, memberId?, actorId?, action, entityId, entityType, metadata, createdAt                                     | N:1 members (nullable) | Imutável; ações financeiras obrigatórias                                                 |
 
 ### Sobre o campo `gatewayMeta`
 
@@ -280,39 +320,116 @@ O campo `gatewayMeta` (JSONB) em `Charge` absorve dados específicos de cada com
 | `CREDIT_CARD` / `DEBIT_CARD` | `{ invoiceUrl: string }`                         |
 | `CASH` / `BANK_TRANSFER`     | `{}` (sem dados externos)                        |
 
+### Criptografia de CPF e Telefone
+
+CPF e telefone são armazenados como `BYTEA` (coluna Prisma `Bytes`). O fluxo:
+
+```
+Escrita: encryptField(prisma, plaintext)
+  → pgp_sym_encrypt(text, key) via $queryRaw
+  → retorna Uint8Array<ArrayBuffer> (compatível com Prisma 6 Bytes)
+
+Leitura: decryptField(prisma, ciphertext)
+  → pgp_sym_decrypt(bytea, key) via $queryRaw
+  → retorna string plaintext
+
+Busca: findMemberByCpf(prisma, cpf)
+  → WHERE pgp_sym_decrypt(cpf::bytea, key) = $cpf (full-table scan)
+  → aceitável para v1 (~centenas de sócios por clube)
+```
+
+A constraint `@unique` no CPF foi removida (ciphertexts diferentes para mesmo plaintext). A unicidade é garantida em nível de aplicação via `findMemberByCpf`.
+
 ---
 
-## Fluxo de Cobrança — Ciclo Completo
+## Fluxo de Cobrança — Ciclo Completo (Implementado)
 
 ```
-[Job Scheduler — BullMQ / Cron]
+[Job Scheduler — BullMQ cron "0 8 1 * *"]
          |
-         | Dia 1 de cada mês, 08h
+         | Dia 1 de cada mês, 08h UTC
          ▼
-[ChargeService.generateMonthly()]
+[startChargeDispatchWorker] → busca todos os clubes → enfileira
+  generate-{clubId}-{YYYY-MM} (jobId estável, deduplicação BullMQ)
          |
-         | GatewayRegistry.forMethod(member.preferredMethod)
          ▼
-[PaymentGateway.createCharge()]      ← interface, não importa qual gateway
-         |
-         |── Sucesso ──▶  Salva charge: status PENDING + externalId + gatewayMeta
-         |                Envia WhatsApp template 'lembrete' (D-3)
-         |
-         |── Falha ────▶  Retry fila (3x, backoff 1h / 6h / 24h)
-                           Se falhar 3x → status PENDING_RETRY + alerta no dashboard
+[startChargeGenerationWorker] (concurrency=5)
+  → generateMonthlyCharges(prisma, clubId, actorId)
+  → Para cada MemberPlan ativo (member.status=ACTIVE, plan.isActive=true):
+      1. hasExistingCharge() — skip se já cobrado no período
+      2. tx.charge.create(status=PENDING, method=PIX)
+      3. tx.auditLog.create(CHARGE_GENERATED)
+      4. dispatchChargeToGateway() — fora da transação
+         → GatewayRegistry.forMethod('PIX') → AsaasGateway.createCharge()
+         → atualiza charge com externalId + gatewayMeta
+  → Falha: backoff 1h/6h/24h; exaustão → markChargesPendingRetry()
 
-[POST /webhooks/:gateway]            ← rota paramétrica por gateway
+[Régua D-3 — BullMQ cron "0 9 * * *"]
+  → startBillingReminderDispatchWorker → enfileira d3-{clubId}-{date}
+  → startBillingReminderWorker (concurrency=5)
+  → sendDailyRemindersForClub: cobranças PENDING com dueDate em D+3
+      → checkAndConsumeWhatsAppRateLimit (Lua Redis, 30/min)
+      → hasRecentMessage (idempotência 20h)
+      → buildRenderedMessage (template resolvido + vars substituídas)
+      → sendWhatsAppMessage → WhatsAppRegistry.get() → ZApiProvider/EvolutionProvider
+      → fallback email se ≥1 falha WA em 48h
+
+[Régua D+3 (overdue) — BullMQ cron "0 10 * * *"]
+  → startOverdueNoticeDispatchWorker → enfileira overdue-{clubId}-{date}
+  → startOverdueNoticeWorker (concurrency=5)
+  → sendOverdueNoticesForClub: cobranças PENDING/OVERDUE com dueDate em D-3
+  → (mesmo fluxo de rate limiting + idempotência + fallback e-mail)
+
+[POST /webhooks/asaas]
          |
-         | GatewayRegistry.get(params.gateway)
+         | AsaasGateway.parseWebhook() — HMAC timingSafeEqual
          ▼
-[PaymentGateway.parseWebhook()]      ← valida HMAC + normaliza evento
-         |
-         ▼ (job assíncrono BullMQ)
-Cria registro em payments
-Atualiza charge.status = PAID
-Atualiza member.status = ACTIVE
-Dispara evento para dashboard (Redis pub/sub → SSE → React Query invalidation)
+  enqueueWebhookEvent(queue, "asaas", event)
+  → jobId: "webhook:asaas:{gatewayTxId}" (deduplicação)
+  → responde 200 imediatamente
+
+[startWebhookWorker] (concurrency=5)
+  → resolveClubIdFromChargeId(externalReference) — scan multi-tenant
+  → hasExistingPayment(gatewayTxid) — idempotência DB-level
+  → handlePaymentReceived(prisma, clubId, event):
+      tx: charge.findUnique → payment.create → charge → PAID
+          → member.status → ACTIVE se era OVERDUE
+          → auditLog.create(PAYMENT_CONFIRMED)
+  → emitPaymentConfirmed(clubId, payload) → sseBus → SSE → React Query invalidation
 ```
+
+---
+
+## Jobs Assíncronos — Arquitetura de Filas
+
+### Três filas independentes
+
+| Fila                | Propósito                              | Retry          | Concorrência |
+| ------------------- | -------------------------------------- | -------------- | ------------ |
+| `charge-generation` | Geração mensal de cobranças            | 3x backoff custom (1h/6h/24h) | 5 |
+| `billing-reminders` | Lembretes D-3 por WhatsApp             | 2x exponential (5s base) | 5 |
+| `overdue-notices`   | Avisos D+3 por WhatsApp                | 2x exponential (5s base) | 5 |
+| `webhook-events`    | Processamento de webhooks de gateways  | 3x exponential (1s base) | 5 |
+
+### Padrão fan-out (dispatch + worker)
+
+Todas as filas de billing seguem o mesmo padrão:
+1. **Cron** dispara um job de dispatch (concurrency=1)
+2. **Dispatch worker** busca todos os clubes e enfileira um job por clube com **jobId estável** (`d3-{clubId}-{date}`, `overdue-{clubId}-{date}`, `generate-{clubId}-{YYYY-MM}`)
+3. **Worker per-clube** (concurrency=5) processa cada clube independentemente
+
+JobId estável = idempotência no nível da fila. Se o cron disparar duas vezes no mesmo dia (crash/restart), BullMQ não enfileira duplicatas.
+
+### Rate limiting WhatsApp (Lua atômica)
+
+```lua
+-- KEYS[1] = "whatsapp_rate_limit:{clubId}"  (ZSET)
+-- Expira entradas fora da janela de 60s
+-- Se count >= 30: retorna [0, count, oldest_score]
+-- Senão: ZADD, EXPIRE, retorna [1, count+1, 0]
+```
+
+A lógica em Lua é executada atomicamente pelo Redis — previne race condition em workers concorrentes (TOCTOU). Padrão idêntico ao `@fastify/rate-limit`.
 
 ---
 
@@ -326,31 +443,32 @@ clubos/
 │   │       ├── (marketing)/        # Landing, preços, contato — layout público  ✅
 │   │       ├── (app)/              # Painel autenticado — sidebar + auth guard   ✅
 │   │       ├── (auth)/             # Login                                       ✅
-│   │       ├── (onboarding)/       # Wizard de cadastro de clube                 ✅
-│   │       └── api/contact/        # API Route: formulário de contato            ✅
-│   └── api/                        # Fastify (backend)
-│       ├── src/
-│       │   ├── modules/
-│       │   │   ├── charges/
-│       │   │   │   ├── charges.routes.ts
-│       │   │   │   ├── charges.service.ts  # depende de PaymentGateway, nunca de Asaas
-│       │   │   │   ├── charges.schema.ts
-│       │   │   │   └── charges.test.ts
-│       │   │   └── payments/
-│       │   │       ├── gateway.interface.ts
-│       │   │       ├── gateway.registry.ts
-│       │   │       └── gateways/
-│       │   │           ├── index.ts
-│       │   │           ├── asaas.gateway.ts
-│       │   │           ├── pagarme.gateway.ts  # (futuro)
-│       │   │           └── stripe.gateway.ts   # (futuro)
-│       │   ├── jobs/               # BullMQ workers
-│       │   ├── webhooks/           # handlers de PSP e WhatsApp
-│       │   ├── plugins/            # Fastify plugins (auth, sensible, etc.)
-│       │   └── lib/                # prisma, redis, tokens
-│       └── prisma/                 # schema.prisma + migrations
+│   │       └── (onboarding)/       # Wizard de cadastro de clube                 ✅
+│   └── api/                        # Fastify (backend)                           ✅
+│       └── src/
+│           ├── modules/
+│           │   ├── auth/           # login, refresh, logout, me                  ✅
+│           │   ├── clubs/          # create, upload logo                         ✅
+│           │   ├── members/        # CRUD, CSV import, remind                    ✅
+│           │   ├── plans/          # CRUD                                        ✅
+│           │   ├── charges/        # generate (manual + cron)                    ✅
+│           │   ├── dashboard/      # summary, charges-history, overdue-members   ✅
+│           │   ├── templates/      # list, upsert, reset                         ✅
+│           │   ├── messages/       # list (audit trail)                          ✅
+│           │   ├── events/         # SSE PAYMENT_CONFIRMED                       ✅
+│           │   ├── webhooks/       # receive + BullMQ worker                     ✅
+│           │   ├── payments/       # GatewayRegistry + AsaasGateway             ✅
+│           │   ├── whatsapp/       # WhatsAppRegistry + ZApi + Evolution         ✅
+│           │   ├── email/          # email-fallback.service                      ✅
+│           │   └── athletes/       # stub — NÃO IMPLEMENTADO                    ⬜
+│           ├── jobs/
+│           │   ├── charge-generation/  # dispatch + generation workers           ✅
+│           │   ├── billing-reminders/  # dispatch + reminder workers             ✅
+│           │   └── overdue-notices/    # dispatch + notice workers               ✅
+│           ├── plugins/            # auth, sensible, security-headers            ✅
+│           └── lib/                # prisma, redis, crypto, tokens, storage      ✅
 └── packages/
     ├── shared-types/               # tipos TypeScript compartilhados
-    ├── ui/                         # componentes compartilhados entre (marketing) e (app)
+    ├── ui/                         # componentes compartilhados
     └── config/                     # tsconfig, eslint, prettier bases
 ```

@@ -245,7 +245,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                   | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
-| **T-076** | Schema `contracts` no DDL tenant: tipo de vínculo, `startDate`, `endDate`, `status`, `bidRegistered` (bool) + `provisionTenantSchema` atualizado | 0.5d    | S4     | ⬜     |
+| **T-076** | Schema `contracts` no DDL tenant: tipo de vínculo, `startDate`, `endDate`, `status`, `bidRegistered` (bool) + `provisionTenantSchema` atualizado | 0.5d    | S4     | ✅     |
 | **T-077** | CRUD `GET/POST/PUT /api/contracts` com AuditLog em escrita; validação Zod                                                                        | 0.5d    | S4     | ⬜     |
 | **T-078** | Motor de Regras Esportivas: `rules_config` (JSONB por temporada/liga), `RulesValidator.check(athlete, ruleSet)` — parametrizável sem deploy      | 1d      | S4     | ⬜     |
 | **T-079** | Service de alertas: vencimento de contrato (D-7 e D-1) + BID pendente antes de escalação — WhatsApp/e-mail via régua existente                   | 0.5d    | S4     | ⬜     |
@@ -289,9 +289,6 @@
 
 **Bloco 1 — Backend MUSTs (sequência crítica)**
 
-1. ~~**T-054:** Schema `athletes` no DDL tenant~~ ✅
-2. ~~**T-055:** CRUD `/api/athletes` + AuditLog~~ ✅
-3. **T-076:** Schema `contracts` no DDL tenant (depende de `athletes` existir).
 4. **T-077:** CRUD `/api/contracts` + AuditLog.
 5. **T-078:** Motor de Regras Esportivas (`RulesValidator` + `rules_config` JSONB).
 6. **T-079:** Alertas de vencimento de contrato + BID pendente.

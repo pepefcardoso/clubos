@@ -6,7 +6,7 @@
 //
 //   [TENANT MODELS] — models that represent the structure of each tenant schema
 //     (clube_{id}): Member, Plan, MemberPlan, Charge, Payment, Message, AuditLog,
-//                   Athlete
+//                   Athlete, Contract
 //
 //     At runtime, before any tenant query the API MUST execute:
 //       SET search_path TO "clube_{clubId}", public
@@ -69,6 +69,20 @@ enum AthleteStatus {
   SUSPENDED
 }
 
+enum ContractType {
+  PROFESSIONAL
+  AMATEUR
+  FORMATIVE
+  LOAN
+}
+
+enum ContractStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  SUSPENDED
+}
+
 enum PlanInterval {
   monthly
   quarterly
@@ -117,6 +131,9 @@ enum AuditAction {
   ATHLETE_CREATED
   ATHLETE_UPDATED
   ATHLETE_DELETED
+  CONTRACT_CREATED
+  CONTRACT_UPDATED
+  CONTRACT_TERMINATED
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
@@ -317,6 +334,29 @@ model Athlete {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
+  contracts Contract[]
+
   @@index([status])
   @@map("athletes")
+}
+
+model Contract {
+  id             String         @id @default(cuid())
+  athleteId      String
+  type           ContractType
+  status         ContractStatus @default(ACTIVE)
+  startDate      DateTime       @db.Date
+  endDate        DateTime?      @db.Date
+  bidRegistered  Boolean        @default(false)
+  federationCode String?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+
+  @@index([athleteId])
+  @@index([status])
+  @@index([endDate])
+  @@map("contracts")
 }

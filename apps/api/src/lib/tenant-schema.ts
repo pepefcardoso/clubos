@@ -88,6 +88,18 @@ const TENANT_ENUMS_DDL = `
     CREATE TYPE "AthleteStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED');
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+  DO $$ BEGIN
+    CREATE TYPE "ContractType" AS ENUM (
+      'PROFESSIONAL', 'AMATEUR', 'FORMATIVE', 'LOAN'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  DO $$ BEGIN
+    CREATE TYPE "ContractStatus" AS ENUM (
+      'ACTIVE', 'EXPIRED', 'TERMINATED', 'SUSPENDED'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
   -- Extend AuditAction with athlete actions.
   -- ALTER TYPE ADD VALUE cannot run inside a transaction; provisionTenantSchema
   -- executes this entire block OUTSIDE the transaction (Step 3 below).
@@ -95,6 +107,12 @@ const TENANT_ENUMS_DDL = `
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'ATHLETE_CREATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'ATHLETE_UPDATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'ATHLETE_DELETED';
+
+  -- Extend AuditAction with contract actions (T-076).
+  -- Same rationale as above — must run outside a transaction block.
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CONTRACT_CREATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CONTRACT_UPDATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CONTRACT_TERMINATED';
 `;
 
 /**
@@ -109,6 +127,12 @@ const TENANT_ENUMS_DDL = `
  * - charges.gatewayMeta is JSONB to store provider-specific data without schema changes.
  * - audit_log.memberId is nullable (actions may not be tied to a specific member).
  * - Athlete audit entries use entityId / entityType = "Athlete" — no athleteId FK.
+ * - contracts.endDate is nullable — open-ended contracts are valid.
+ * - contracts.bidRegistered defaults to false — explicit opt-in after CBF/FPF registration.
+ * - contracts have NO unique constraint on athleteId — historical records accumulate;
+ *   at-most-one ACTIVE contract per athlete is enforced at the service layer (T-077).
+ * - Contract audit entries use entityId / entityType = "Contract" — no dedicated FK.
+ * - Contracts are never deleted — only transitioned to TERMINATED (immutability).
  */
 const TENANT_TABLES_DDL = `
   -- plans (no FK dependencies)
@@ -219,6 +243,7 @@ const TENANT_TABLES_DDL = `
   -- audit_log (FK → members, nullable)
   -- Athlete audit entries reference athletes via entityId / entityType = "Athlete"
   -- rather than a dedicated athleteId FK column, keeping the audit model generic.
+  -- Contract audit entries use entityId / entityType = "Contract" — same pattern.
   CREATE TABLE IF NOT EXISTS "audit_log" (
     "id"         TEXT          NOT NULL,
     "memberId"   TEXT,
@@ -248,6 +273,30 @@ const TENANT_TABLES_DDL = `
     "updatedAt" TIMESTAMP(3)     NOT NULL,
 
     CONSTRAINT "athletes_pkey" PRIMARY KEY ("id")
+  );
+
+  -- contracts (FK → athletes)
+  -- endDate is nullable: open-ended contracts are valid (e.g. ongoing formative contracts).
+  -- bidRegistered defaults to false; set true after CBF/FPF BID confirmation.
+  -- federationCode is nullable: populated only after BID registration is confirmed.
+  -- No unique constraint on athleteId: historical records accumulate across an athlete's
+  -- career (original contract, renewals, loan stints). At-most-one ACTIVE contract per
+  -- athlete is enforced at the service layer (T-077) to allow concurrent transitions.
+  -- Contracts are never deleted — only transitioned to TERMINATED (immutability principle).
+  CREATE TABLE IF NOT EXISTS "contracts" (
+    "id"             TEXT              NOT NULL,
+    "athleteId"      TEXT              NOT NULL,
+    "type"           "ContractType"    NOT NULL,
+    "status"         "ContractStatus"  NOT NULL DEFAULT 'ACTIVE',
+    "startDate"      DATE              NOT NULL,
+    "endDate"        DATE,
+    "bidRegistered"  BOOLEAN           NOT NULL DEFAULT false,
+    "federationCode" TEXT,
+    "notes"          TEXT,
+    "createdAt"      TIMESTAMP(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"      TIMESTAMP(3)      NOT NULL,
+
+    CONSTRAINT "contracts_pkey" PRIMARY KEY ("id")
   );
 `;
 
@@ -304,6 +353,17 @@ const TENANT_INDEXES_DDL = `
   -- athletes
   CREATE INDEX IF NOT EXISTS "athletes_status_idx"
     ON "athletes" ("status");
+
+  -- contracts
+  -- contracts_athleteId_idx: supports athlete-scoped contract lookups (GET /api/athletes/:id/contracts)
+  -- contracts_status_idx: supports filtering active contracts (T-077 list endpoint, T-079 alert job)
+  -- contracts_endDate_idx: supports T-079 alert query (WHERE endDate <= NOW() + interval '7 days')
+  CREATE INDEX IF NOT EXISTS "contracts_athleteId_idx"
+    ON "contracts" ("athleteId");
+  CREATE INDEX IF NOT EXISTS "contracts_status_idx"
+    ON "contracts" ("status");
+  CREATE INDEX IF NOT EXISTS "contracts_endDate_idx"
+    ON "contracts" ("endDate");
 `;
 
 /**
@@ -312,8 +372,8 @@ const TENANT_INDEXES_DDL = `
  * ALTER TABLE ... ADD CONSTRAINT ... IF NOT EXISTS requires PG 9.6+.
  * All constraints are named to allow idempotent re-application.
  *
- * Note: athletes has no FK dependencies in the v1 stub. FKs will be added
- * in later tickets when athlete-charge or athlete-plan relations are introduced.
+ * Note: contracts → athletes uses ON DELETE RESTRICT to prevent accidental deletion
+ * of athletes that have legal/compliance contract records.
  */
 const TENANT_FOREIGN_KEYS_DDL = `
   -- member_plans → members
@@ -351,6 +411,14 @@ const TENANT_FOREIGN_KEYS_DDL = `
     ADD CONSTRAINT IF NOT EXISTS "audit_log_memberId_fkey"
     FOREIGN KEY ("memberId") REFERENCES "members" ("id")
     ON DELETE SET NULL ON UPDATE CASCADE;
+
+  -- contracts → athletes
+  -- ON DELETE RESTRICT: prevents deleting an athlete that has contract records,
+  -- preserving legal and CBF/FPF compliance history.
+  ALTER TABLE "contracts"
+    ADD CONSTRAINT IF NOT EXISTS "contracts_athleteId_fkey"
+    FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
 `;
 
 /**
@@ -364,8 +432,8 @@ const TENANT_FOREIGN_KEYS_DDL = `
  *
  * **Execution order rationale:**
  *   Steps 1–3 run outside any transaction because `ALTER TYPE ... ADD VALUE`
- *   (used to extend `AuditAction` with athlete values) cannot be executed
- *   inside an open transaction block in PostgreSQL. This is a PostgreSQL
+ *   (used to extend `AuditAction` with athlete and contract values) cannot be
+ *   executed inside an open transaction block in PostgreSQL. This is a PostgreSQL
  *   restriction, not a Prisma limitation.
  *
  *   Step 4 runs inside a transaction to keep table/index/FK creation atomic.

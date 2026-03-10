@@ -179,7 +179,7 @@
 
 | ID        | Tarefa Técnica                                                          | Esforço | Sprint | Status |
 | --------- | ----------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-054** | Schema `athletes`: ID, Clube, Nome, CPF, Nascimento, Posição e Status   | 0.5d    | S4     | ⬜     |
+| **T-054** | Schema `athletes`: ID, Clube, Nome, CPF, Nascimento, Posição e Status   | 0.5d    | S4     | ✅     |
 | **T-055** | CRUD de atletas com AuditLog em operações de escrita                    | 0.5d    | S4     | ⬜     |
 | **T-056** | Frontend: Telas de listagem e cadastro (reuso de componentes de sócios) | 0.5d    | S4     | ⬜     |
 

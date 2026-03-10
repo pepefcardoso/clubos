@@ -12,14 +12,14 @@ O ClubOS é uma plataforma modular — um sistema operacional para clubes de fut
 
 A lógica central do roadmap: **primeiro organize o dinheiro, depois o treino, depois a saúde, depois o estádio, depois o talento, depois o campeonato.** Cada camada torna a anterior mais valiosa e aumenta o custo de saída para o cliente.
 
-| Versão | Codinome         | Módulos              | Período    | Meta de Validação                               | Status Frontend |
-| ------ | ---------------- | -------------------- | ---------- | ----------------------------------------------- | --------------- |
-| v1.0   | O Cofre do Clube | ClubOS (financeiro)  | Sem. 1–6   | 10 clubes pagantes; inadimplência ↓25%          | 🟡 Em andamento |
-| v1.5   | O Campo          | TreinoOS + BaseForte | Sem. 7–12  | 60% dos clubes v1.0 ativam módulo de treino     | ⬜ Não iniciado |
-| v2.0   | O Vestiário      | FisioBase            | Sem. 13–20 | Redução documentada de recidiva em 3+ clubes    | ⬜ Não iniciado |
-| v2.5   | A Arquibancada   | ArenaPass            | Sem. 21–26 | Clube aumenta receita/jogo em 40%+              | ⬜ Não iniciado |
-| v3.0   | A Vitrine        | ScoutLink            | Mês 7–9    | 1º contato scout–escola mediado pela plataforma | ⬜ Não iniciado |
-| v3.5   | A Liga           | CampeonatOS          | Mês 10–12  | 1 campeonato completo gerenciado end-to-end     | ⬜ Não iniciado |
+| Versão | Codinome         | Módulos              | Período    | Meta de Validação                               | Status API      | Status Web      |
+| ------ | ---------------- | -------------------- | ---------- | ----------------------------------------------- | --------------- | --------------- |
+| v1.0   | O Cofre do Clube | ClubOS (financeiro)  | Sem. 1–6   | 10 clubes pagantes; inadimplência ↓25%          | 🟡 Quase pronto | 🟡 Em andamento |
+| v1.5   | O Campo          | TreinoOS + BaseForte | Sem. 7–12  | 60% dos clubes v1.0 ativam módulo de treino     | ⬜ Não iniciado | ⬜ Não iniciado |
+| v2.0   | O Vestiário      | FisioBase            | Sem. 13–20 | Redução documentada de recidiva em 3+ clubes    | ⬜ Não iniciado | ⬜ Não iniciado |
+| v2.5   | A Arquibancada   | ArenaPass            | Sem. 21–26 | Clube aumenta receita/jogo em 40%+              | ⬜ Não iniciado | ⬜ Não iniciado |
+| v3.0   | A Vitrine        | ScoutLink            | Mês 7–9    | 1º contato scout–escola mediado pela plataforma | ⬜ Não iniciado | ⬜ Não iniciado |
+| v3.5   | A Liga           | CampeonatOS          | Mês 10–12  | 1 campeonato completo gerenciado end-to-end     | ⬜ Não iniciado | ⬜ Não iniciado |
 
 ---
 
@@ -31,22 +31,58 @@ A lógica central do roadmap: **primeiro organize o dinheiro, depois o treino, d
 
 A v1.0 não é apenas o MVP — é a fundação de dados de todo o ecossistema. O cadastro de sócios criado aqui é reutilizado por TreinoOS, BaseForte, ArenaPass e ScoutLink. A dor financeira (inadimplência de 40%) é o argumento de venda mais rápido: o clube vê ROI no primeiro mês.
 
+### Status de implementação (apps/api)
+
+| Feature                                                   | Status | Detalhe de implementação                                                                                                    |
+| --------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| Autenticação JWT + refresh token rotativo                 | ✅     | `POST /api/auth/{login,refresh,logout,me}`, httpOnly cookie, Redis single-use, bcrypt, `node:crypto` HS256                 |
+| RBAC Admin / Tesoureiro                                   | ✅     | Decorator `requireRole` com hierarquia `ADMIN > TREASURER`; guardas por rota                                                |
+| Cadastro de clube + provisionamento de schema tenant      | ✅     | `POST /api/clubs`, DDL idempotente via `provisionTenantSchema` (enums, tabelas, índices, FKs, pgcrypto)                     |
+| Upload de logo do clube                                   | ✅     | `POST /api/clubs/:id/logo`, sharp 200×200px WebP, storage local                                                            |
+| Cadastro manual de sócios                                 | ✅     | `POST /api/members`, encrypt CPF/phone (AES-256), dedup por CPF via scan pgcrypto                                          |
+| Listagem de sócios com busca e filtro                     | ✅     | `GET /api/members`, paginação, busca por nome/CPF descriptografado in-DB, filtro por status                                 |
+| Detalhe e atualização de sócio                            | ✅     | `GET /api/members/:id`, `PUT /api/members/:id` (CPF imutável), audit log                                                   |
+| Importação em massa via CSV                               | ✅     | `POST /api/members/import` (PapaParse, 5.000 linhas, batches de 500, upsert por CPF, erros por linha)                      |
+| Template de CSV para download                             | ✅     | `GET /api/members/import/template`                                                                                          |
+| CRUD de planos                                            | ✅     | `GET/POST /api/plans`, `PUT/DELETE /api/plans/:id` (soft delete, guard de sócios ativos), audit log                        |
+| Geração de cobranças mensais (manual + cron)              | ✅     | `POST /api/charges/generate`; cron BullMQ `0 8 1 * *`; idempotência por período; `PENDING_RETRY` em exaustão               |
+| Gateway Asaas (PIX, cartão, boleto)                       | ✅     | `AsaasGateway` implementa `PaymentGateway`; `GatewayRegistry` abstrai o provider; `gatewayMeta` JSONB salvo na cobrança    |
+| Webhook de confirmação de pagamento                       | ✅     | `POST /webhooks/:gateway`; HMAC `timingSafeEqual`; BullMQ async; `handlePaymentReceived` transacional; idempotência dupla  |
+| Atualização de status de sócio via pagamento              | ✅     | `Member.status → ACTIVE` quando OVERDUE ao confirmar pagamento; audit log `PAYMENT_CONFIRMED`                              |
+| Dashboard KPIs                                            | ✅     | `GET /api/dashboard/summary` (sócios por status, cobranças, pagamentos do mês)                                             |
+| Histórico de cobranças por mês                            | ✅     | `GET /api/dashboard/charges-history` (últimos N meses, raw SQL `TO_CHAR + GROUP BY`)                                       |
+| Lista de inadimplentes                                    | ✅     | `GET /api/dashboard/overdue-members` (paginado, `DISTINCT ON`, cobrança mais antiga, `daysPastDue`)                        |
+| SSE de pagamento confirmado em tempo real                 | ✅     | `GET /api/events` (Bearer via query param), `sseBus` EventEmitter, keepalive 25s                                           |
+| Jobs D-3 (lembrete 3 dias antes do vencimento)            | ✅     | Cron `0 9 * * *`, dispatch fan-out por clube, `sendDailyRemindersForClub`, idempotência 20h, rate limit Redis              |
+| Jobs D+3 (aviso de inadimplência)                         | ✅     | Cron `0 10 * * *`, dispatch fan-out por clube, `sendOverdueNoticesForClub`, idempotência 20h, rate limit Redis             |
+| Envio on-demand de lembrete WhatsApp                      | ✅     | `POST /api/members/:id/remind`, cooldown 4h, rate limit por clube                                                          |
+| Provedores WhatsApp (Z-API + Evolution API)               | ✅     | `WhatsAppRegistry` + `ZApiProvider` + `EvolutionProvider`; selecionado via `WHATSAPP_PROVIDER`                             |
+| Rate limiting WhatsApp (30 msg/min por clube)             | ✅     | Lua atômica no Redis, sliding window ZSET, `checkAndConsumeWhatsAppRateLimit`                                              |
+| Fallback de e-mail (Resend) após 2 falhas WhatsApp        | ✅     | `sendEmailFallbackMessage`, verifica `countRecentFailedWhatsAppMessages ≥ 1` em 48h antes de escalar                       |
+| Templates de mensagem customizáveis por clube             | ✅     | `GET/PUT/DELETE /api/templates/:key` (WHATSAPP ou EMAIL); fallback para `DEFAULT_TEMPLATES`; placeholders `{nome}` etc.   |
+| Histórico de mensagens (audit trail)                      | ✅     | `GET /api/messages`, `GET /api/messages/member/:memberId`; filtros por canal, status, template, data                       |
+| Criptografia CPF/telefone em repouso                      | ✅     | `pgp_sym_encrypt/decrypt` (pgcrypto AES-256); `encryptField`/`decryptField`; `findMemberByCpf` por scan                    |
+| Audit log imutável                                        | ✅     | `AuditLog` em todas operações financeiras e de sócios; nunca deletado                                                      |
+| Rate limiting global (100 req/min por IP)                 | ✅     | `@fastify/rate-limit` + Redis                                                                                               |
+| Stub de atletas (M9)                                      | ⬜     | Módulo `src/modules/athletes/` não criado; schema Prisma não definido; DDL tenant não atualizado                            |
+
 ### Status de implementação (apps/web)
 
 | Feature                                  | Status | Notas                                                                          |
 | ---------------------------------------- | ------ | ------------------------------------------------------------------------------ |
 | Onboarding do clube (wizard 3 etapas)    | ✅     | `/onboarding` — StepClubData, StepLogo, StepConfirmation                       |
 | Cadastro manual de sócios                | ✅     | MembersPage + MemberFormModal com validação Zod                                |
-| Importação via CSV                       | ⬜     | Pendente — bulk insert não exposto no frontend ainda                           |
-| Tela de cobranças Pix                    | ⬜     | Sidebar mostra "Em breve" — depende do backend Asaas                           |
+| Importação via CSV                       | ⬜     | Pendente — endpoint disponível no backend; fluxo não exposto no frontend        |
+| Tela de cobranças Pix                    | ⬜     | Sidebar mostra "Em breve" — backend plenamente disponível                      |
 | SSE para evento PAYMENT_CONFIRMED        | ✅     | `useRealTimeEvents` — invalida cache React Query automaticamente               |
 | Dashboard KPIs + gráfico + inadimplentes | ✅     | DashboardKpis, DelinquencyChart (Recharts), OverdueMembersTable                |
 | Envio on-demand de lembrete WhatsApp     | ✅     | `useRemindMember` → POST /api/members/:id/remind — com tratamento de erro 429  |
 | Autenticação JWT + refresh token         | ✅     | AuthProvider, bootstrap transparente, deduplicação de refresh concorrente      |
 | Controle de acesso Admin/Tesoureiro      | ✅     | `isAdmin` verificado em Sócios e Planos; leitura para Tesoureiro               |
 | Gestão de planos (CRUD completo)         | ✅     | PlansPage + PlanFormModal + DeletePlanDialog                                   |
-| Stub de atletas (M9)                     | ⬜     | Sem rota, componente ou entrada de nav — a ser iniciado                        |
-| Site de marketing (S6)                   | ✅     | Landing, preços, contato — route group `(marketing)` completo                 |
+| Templates de mensagem (tela de config)  | ⬜     | Endpoints disponíveis no backend; tela não implementada no frontend            |
+| Stub de atletas (M9)                     | ⬜     | Sem rota, componente ou entrada de nav — aguarda backend                        |
+| Site de marketing (S6)                   | ✅     | Landing, preços, contato — route group `(marketing)` completo                  |
 
 ### Features Must Have
 
@@ -57,9 +93,9 @@ A v1.0 não é apenas o MVP — é a fundação de dados de todo o ecossistema. 
 - Geração de cobranças Pix com QR Code por sócio via Asaas
 - Webhook de confirmação de pagamento (HMAC-SHA256, async BullMQ, idempotência por `gateway_txid`)
 - Dashboard de inadimplência em tempo real (KPIs + gráfico 6 meses + SSE)
-- Régua de cobrança via WhatsApp (jobs D-3, D-0, D+3 — rate limit 30 msg/min — fallback e-mail Resend)
+- Régua de cobrança via WhatsApp (jobs D-3 ✅ e D+3 ✅; job D-0 automático ⬜ pendente — on-demand cobre parcialmente; rate limit 30 msg/min; fallback e-mail Resend)
 - Autenticação segura (JWT 15min + refresh httpOnly 7d — roles ADMIN e TREASURER)
-- **Stub de cadastro de atletas** — schema `athletes` + CRUD `/api/athletes` + tela básica. Apenas campos de identidade e vínculo (`name`, `cpf`, `birth_date`, `position`, `status`, `club_id`). Nenhuma lógica de treino, carga ou saúde. Ver T-054 a T-056 em `backlog.md` e M9 em `moscow.md`.
+- **Stub de cadastro de atletas** — schema `athletes` + CRUD `/api/athletes` + tela básica. Apenas campos de identidade e vínculo (`name`, `cpf`, `birth_date`, `position`, `status`, `club_id`). Nenhuma lógica de treino, carga ou saúde.
 
 > **Por que o stub de atleta entra na v1.0?** A entidade `athlete` é dependência central de TreinoOS, BaseForte, FisioBase, ScoutLink e CampeonatOS. Criar o schema agora (~1.5d) evita uma migração de dados ao iniciar a v1.5 e elimina a dependência circular que existia na justificativa original dessa versão. Criar a entidade não é implementar o módulo — toda a lógica esportiva permanece na v1.5 em diante.
 
@@ -69,8 +105,8 @@ A v1.0 não é apenas o MVP — é a fundação de dados de todo o ecossistema. 
 - Carteirinha digital do sócio com QR Code (PWA)
 - Relatório financeiro mensal exportável em PDF
 - Registro de despesas do clube (P&L simplificado)
-- Histórico de pagamentos por sócio
-- Notificações in-app para novos pagamentos
+- Histórico de pagamentos por sócio — ⚠️ dado disponível no banco; endpoint `GET /api/members/:memberId/payments` não implementado
+- Notificações em tempo real para novos pagamentos — ✅ implementado via SSE `GET /api/events`
 
 ### Critério de Go/No-Go
 
@@ -292,8 +328,9 @@ Com time de 1–2 devs, o risco de 7 módulos em 12 meses é de **foco**, não d
 | Schema-per-tenant escala até ~500–1.000 clubes                   | Médio   | Planejar análise de migração para RLS ao atingir 300 clubes ativos.                                                                                  |
 | BaseForte hardware (ESP32) exige pipeline de dados em tempo real | Médio   | Hardware fica na Fase 2. MVP usa RPE manual. Avaliar WebSocket antes de lançar hardware.                                                             |
 | ScoutLink: upload de vídeo exige storage de objeto e CDN         | Baixo   | Cloudflare R2 + Stream. Limite de 60s por vídeo no MVP. Sem infraestrutura proprietária.                                                             |
-| WhatsApp bloqueia número por envio massivo                       | Médio   | Rate limit 30 msg/min por clube (já previsto em v1.0). Fallback Resend ativo. Envio on-demand também protegido (retorna 429 ao frontend).            |
+| WhatsApp bloqueia número por envio massivo                       | Médio   | Rate limit 30 msg/min por clube (✅ implementado em v1.0). Fallback Resend ativo. Envio on-demand protegido (retorna 429 ao frontend).               |
 | Bundle leak entre `(marketing)` e `(app)` no Next.js             | Baixo   | ✅ Regra aplicada — `(marketing)/layout.tsx` não importa nenhum hook ou componente de `(app)`. Validar com bundle analyzer antes de ir para produção. |
+| SSE não escala em múltiplos processos                            | Médio   | `sseBus` usa EventEmitter in-process. Ao escalar para múltiplos workers, substituir `emitPaymentConfirmed` por Redis `PUBLISH` e `sseBus.on` por Redis `SUBSCRIBE`. A interface permanece idêntica — apenas `sse-bus.ts` e `events.routes.ts` mudam. |
 
 ---
 

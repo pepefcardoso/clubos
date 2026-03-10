@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../../generated/prisma/index.js";
+import type { PrismaClient, Prisma } from "../../../generated/prisma/index.js";
 import type {
   CreateAthleteInput,
   UpdateAthleteInput,
@@ -6,6 +6,13 @@ import type {
   AthleteResponse,
 } from "./athletes.schema.js";
 import type { PaginatedResponse } from "@clubos/shared-types";
+import { withTenantSchema } from "../../lib/prisma.js";
+import {
+  encryptField,
+  decryptField,
+  findAthleteByCpf,
+  getEncryptionKey,
+} from "../../lib/crypto.js";
 
 export class DuplicateAthleteCpfError extends Error {
   constructor() {
@@ -23,54 +30,204 @@ export class AthleteNotFoundError extends Error {
 
 /**
  * Creates a new athlete in the tenant schema.
- * TODO (T-055): implement full creation logic with CPF duplicate check,
- *               encryption, and audit log entry.
+ * Checks for duplicate CPF, encrypts the CPF field, persists the record,
+ * and writes an ATHLETE_CREATED audit log entry.
  */
 export async function createAthlete(
-  _prisma: PrismaClient,
-  _clubId: string,
-  _actorId: string,
-  _input: CreateAthleteInput,
+  prisma: PrismaClient,
+  clubId: string,
+  actorId: string,
+  input: CreateAthleteInput,
 ): Promise<AthleteResponse> {
-  throw new Error("Not implemented — see T-055");
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const existing = await findAthleteByCpf(tx, input.cpf);
+    if (existing) throw new DuplicateAthleteCpfError();
+
+    const encryptedCpf = await encryptField(tx, input.cpf);
+
+    const athlete = await tx.athlete.create({
+      data: {
+        name: input.name,
+        cpf: encryptedCpf,
+        birthDate: new Date(input.birthDate),
+        position: input.position ?? null,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId,
+        action: "ATHLETE_CREATED",
+        entityId: athlete.id,
+        entityType: "Athlete",
+        metadata: { name: athlete.name, position: athlete.position },
+      },
+    });
+
+    return {
+      id: athlete.id,
+      name: athlete.name,
+      cpf: input.cpf,
+      birthDate: athlete.birthDate,
+      position: athlete.position,
+      status: athlete.status,
+      createdAt: athlete.createdAt,
+    };
+  });
 }
 
 /**
- * Returns a single athlete by id.
- * TODO (T-055): implement lookup with CPF decryption.
+ * Returns a single athlete by id, with CPF decrypted for the response.
+ * Throws AthleteNotFoundError if no record exists in the tenant schema.
  */
 export async function getAthleteById(
-  _prisma: PrismaClient,
-  _clubId: string,
-  _athleteId: string,
+  prisma: PrismaClient,
+  clubId: string,
+  athleteId: string,
 ): Promise<AthleteResponse> {
-  throw new Error("Not implemented — see T-055");
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const athlete = await tx.athlete.findUnique({
+      where: { id: athleteId },
+    });
+    if (!athlete) throw new AthleteNotFoundError();
+
+    const cpf = await decryptField(tx, athlete.cpf);
+
+    return {
+      id: athlete.id,
+      name: athlete.name,
+      cpf,
+      birthDate: athlete.birthDate,
+      position: athlete.position,
+      status: athlete.status,
+      createdAt: athlete.createdAt,
+    };
+  });
 }
 
 /**
- * Partially updates an athlete.
- * TODO (T-055): implement update logic with optional phone re-encryption,
- *               audit log entry, and MemberNotFound guard.
+ * Partially updates an athlete (name, birthDate, position, status).
+ * CPF is intentionally immutable and absent from UpdateAthleteInput.
+ * Throws AthleteNotFoundError if no record exists.
+ * Writes an ATHLETE_UPDATED audit log entry recording the requested changes.
  */
 export async function updateAthlete(
-  _prisma: PrismaClient,
-  _clubId: string,
-  _actorId: string,
-  _athleteId: string,
-  _input: UpdateAthleteInput,
+  prisma: PrismaClient,
+  clubId: string,
+  actorId: string,
+  athleteId: string,
+  input: UpdateAthleteInput,
 ): Promise<AthleteResponse> {
-  throw new Error("Not implemented — see T-055");
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const existing = await tx.athlete.findUnique({ where: { id: athleteId } });
+    if (!existing) throw new AthleteNotFoundError();
+
+    const updateData: Prisma.AthleteUpdateInput = {};
+    if (input.name !== undefined) updateData.name = input.name;
+    if (input.birthDate !== undefined)
+      updateData.birthDate = new Date(input.birthDate);
+    if (input.status !== undefined) updateData.status = input.status;
+    if ("position" in input) updateData.position = input.position ?? null;
+
+    const updated = await tx.athlete.update({
+      where: { id: athleteId },
+      data: updateData,
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId,
+        action: "ATHLETE_UPDATED",
+        entityId: updated.id,
+        entityType: "Athlete",
+        metadata: { changes: input },
+      },
+    });
+
+    const cpf = await decryptField(tx, updated.cpf);
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      cpf,
+      birthDate: updated.birthDate,
+      position: updated.position,
+      status: updated.status,
+      createdAt: updated.createdAt,
+    };
+  });
 }
 
 /**
  * Returns a paginated, filterable list of athletes.
- * TODO (T-055): implement raw-SQL query with in-DB CPF decryption (same
- *               pattern as listMembers).
+ * CPF is decrypted inline via pgp_sym_decrypt in the raw SQL query,
+ * avoiding N+1 decryption round-trips.
+ * Supports optional `status` filter and `search` (name ILIKE) filter.
  */
 export async function listAthletes(
-  _prisma: PrismaClient,
-  _clubId: string,
-  _params: ListAthletesQuery,
+  prisma: PrismaClient,
+  clubId: string,
+  params: ListAthletesQuery,
 ): Promise<PaginatedResponse<AthleteResponse>> {
-  throw new Error("Not implemented — see T-055");
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const key = getEncryptionKey();
+    const offset = (params.page - 1) * params.limit;
+    const searchPattern = params.search ? `%${params.search}%` : null;
+
+    const countRows = await tx.$queryRaw<[{ total: bigint }]>`
+      SELECT COUNT(*)::bigint AS total
+      FROM athletes
+      WHERE
+        (${params.status ?? null}::text IS NULL OR status::text = ${params.status ?? null})
+        AND (${searchPattern}::text IS NULL OR name ILIKE ${searchPattern})
+    `;
+    const total = Number(countRows[0]?.total ?? 0);
+
+    if (total === 0) {
+      return { data: [], total: 0, page: params.page, limit: params.limit };
+    }
+
+    type RawRow = {
+      id: string;
+      name: string;
+      cpf: string;
+      birthDate: Date;
+      position: string | null;
+      status: string;
+      createdAt: Date;
+    };
+
+    const rows = await tx.$queryRaw<RawRow[]>`
+      SELECT
+        id,
+        name,
+        pgp_sym_decrypt(cpf::bytea, ${key}::text) AS cpf,
+        "birthDate",
+        position,
+        status::text AS status,
+        "createdAt"
+      FROM athletes
+      WHERE
+        (${params.status ?? null}::text IS NULL OR status::text = ${params.status ?? null})
+        AND (${searchPattern}::text IS NULL OR name ILIKE ${searchPattern})
+      ORDER BY name ASC
+      LIMIT ${params.limit}::int
+      OFFSET ${offset}::int
+    `;
+
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        cpf: r.cpf,
+        birthDate: r.birthDate,
+        position: r.position,
+        status: r.status,
+        createdAt: r.createdAt,
+      })),
+      total,
+      page: params.page,
+      limit: params.limit,
+    };
+  });
 }

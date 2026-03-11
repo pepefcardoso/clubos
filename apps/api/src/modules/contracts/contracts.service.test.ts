@@ -10,6 +10,7 @@ import {
 } from "./contracts.service.js";
 import { AthleteNotFoundError } from "../athletes/athletes.service.js";
 import type { PrismaClient } from "../../../generated/prisma/index.js";
+import type { ContractResponse } from "./contracts.schema.js";
 
 describe("ContractNotFoundError", () => {
   it("is an instance of Error", () => {
@@ -419,7 +420,9 @@ describe.skipIf(!hasDatabase)(
         });
 
         expect(result.total).toBeGreaterThanOrEqual(1);
-        expect(result.data.every((c) => c.athleteId === athleteId)).toBe(true);
+        expect(
+          result.data.every((c: ContractResponse) => c.athleteId === athleteId),
+        ).toBe(true);
       });
 
       it("respects the status filter", async () => {
@@ -440,14 +443,18 @@ describe.skipIf(!hasDatabase)(
           limit: 20,
           status: "ACTIVE",
         });
-        expect(active.data.every((c) => c.status === "ACTIVE")).toBe(true);
+        expect(
+          active.data.every((c: ContractResponse) => c.status === "ACTIVE"),
+        ).toBe(true);
 
         const terminated = await listContracts(prisma, clubId, {
           page: 1,
           limit: 20,
           status: "TERMINATED",
         });
-        expect(terminated.data.some((c) => c.id === created.id)).toBe(true);
+        expect(
+          terminated.data.some((c: ContractResponse) => c.id === created.id),
+        ).toBe(true);
       });
 
       it("returns empty result when no contracts match the filter", async () => {

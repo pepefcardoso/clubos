@@ -96,7 +96,7 @@ export async function listRulesConfigs(
 ): Promise<RulesConfigResponse[]> {
   return withTenantSchema(prisma, clubId, async (tx) => {
     const rows = await tx.rulesConfig.findMany({
-      where: onlyActive ? { isActive: true } : undefined,
+      ...(onlyActive ? { where: { isActive: true } } : {}),
       orderBy: [{ season: "desc" }, { league: "asc" }],
     });
     return rows.map(toResponse);

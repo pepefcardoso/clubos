@@ -27,6 +27,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@clubos/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       '@fastify/cookie':
         specifier: ^11.0.2
         version: 11.0.2

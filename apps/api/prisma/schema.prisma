@@ -360,3 +360,17 @@ model Contract {
   @@index([endDate])
   @@map("contracts")
 }
+
+model RulesConfig {
+  id        String   @id @default(cuid())
+  season    String
+  league    String
+  rules     Json
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([season, league])
+  @@index([isActive])
+  @@map("rules_config")
+}

@@ -298,6 +298,23 @@ const TENANT_TABLES_DDL = `
 
     CONSTRAINT "contracts_pkey" PRIMARY KEY ("id")
   );
+
+  -- rules_config
+  -- Stores per-season, per-league sports eligibility rule sets as JSONB.
+  -- Rules are parameterised and updatable via API without code deployment.
+  -- A club may have multiple active rule sets (e.g. CBF + FPF simultaneously).
+  -- season + league unique constraint is enforced in TENANT_INDEXES_DDL.
+  CREATE TABLE IF NOT EXISTS "rules_config" (
+    "id"        TEXT         NOT NULL,
+    "season"    TEXT         NOT NULL,
+    "league"    TEXT         NOT NULL,
+    "rules"     JSONB        NOT NULL,
+    "isActive"  BOOLEAN      NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "rules_config_pkey" PRIMARY KEY ("id")
+  );
 `;
 
 /**
@@ -364,6 +381,12 @@ const TENANT_INDEXES_DDL = `
     ON "contracts" ("status");
   CREATE INDEX IF NOT EXISTS "contracts_endDate_idx"
     ON "contracts" ("endDate");
+
+  -- rules_config
+  CREATE UNIQUE INDEX IF NOT EXISTS "rules_config_season_league_key"
+    ON "rules_config" ("season", "league");
+  CREATE INDEX IF NOT EXISTS "rules_config_isActive_idx"
+    ON "rules_config" ("isActive");
 `;
 
 /**

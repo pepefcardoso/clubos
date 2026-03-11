@@ -247,7 +247,7 @@
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
 | **T-076** | Schema `contracts` no DDL tenant: tipo de vínculo, `startDate`, `endDate`, `status`, `bidRegistered` (bool) + `provisionTenantSchema` atualizado | 0.5d    | S4     | ✅     |
 | **T-077** | CRUD `GET/POST/PUT /api/contracts` com AuditLog em escrita; validação Zod                                                                        | 0.5d    | S4     | ✅     |
-| **T-078** | Motor de Regras Esportivas: `rules_config` (JSONB por temporada/liga), `RulesValidator.check(athlete, ruleSet)` — parametrizável sem deploy      | 1d      | S4     | ⬜     |
+| **T-078** | Motor de Regras Esportivas: `rules_config` (JSONB por temporada/liga), `RulesValidator.check(athlete, ruleSet)` — parametrizável sem deploy      | 1d      | S4     | ✅     |
 | **T-079** | Service de alertas: vencimento de contrato (D-7 e D-1) + BID pendente antes de escalação — WhatsApp/e-mail via régua existente                   | 0.5d    | S4     | ⬜     |
 | **T-080** | Frontend: telas de listagem e cadastro de contratos + entrada na sidebar (`/contracts`) — reuso de componentes existentes                        | 0.5d    | S4     | ⬜     |
 
@@ -289,7 +289,6 @@
 
 **Bloco 1 — Backend MUSTs (sequência crítica)**
 
-5. **T-078:** Motor de Regras Esportivas (`RulesValidator` + `rules_config` JSONB).
 6. **T-079:** Alertas de vencimento de contrato + BID pendente.
 7. **T-081 → T-082 → T-083:** Multi-Acquiring PIX (Pagarme + fallback + onboarding).
 8. **T-060:** Endpoint histórico de pagamentos (backend isolado, ~0.5d).

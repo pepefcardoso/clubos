@@ -100,7 +100,7 @@ A tabela abaixo traz o status separado por camada: **API** (`apps/api`) e **Web*
 **M11 — Multi-Acquiring PIX** API ⬜ · Web —
 
 - `GatewayRegistry` atual não possui lógica de fallback; `PagarmeGateway` não existe; PIX estático do clube não é configurado no onboarding.
-- **O que implementar:** `PagarmeGateway` implementando `PaymentGateway`, lógica de fallback silencioso em `GatewayRegistry.forMethod()` (Asaas → Pagarme → PIX estático), campo `pixKeyFallback` no onboarding e no schema `clubs`, notificação ao clube quando fallback é acionado.
+- **O que implementar:** `PagarmeGateway` e `StripeGateway` implementando `PaymentGateway`, lógica de fallback silencioso em `GatewayRegistry.forMethod()` (Asaas → Pagarme → Stripe → PIX estático do clube), campo `pixKeyFallback` no onboarding e no schema `clubs`, notificar clube quando fallback é acionado. Stripe ativada via `STRIPE_ENABLED=true` — desabilitada por padrão.
 - **Por que é MUST:** gateways de pagamento caem na data de vencimento. Para um clube que depende da receita de sócios para pagar salários, uma cobrança perdida é dinheiro real que não volta. Indisponibilidade do gateway primário não pode ser um ponto único de falha de receita.
 
 **M12 — Criptografia em repouso** API ✅ · Web —

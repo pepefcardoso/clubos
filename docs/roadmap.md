@@ -161,15 +161,15 @@ O dinheiro é a dor universal. Inadimplência de sócios de 35–50% é a realid
 
 ### Itens pendentes (MUST incompletos no código atual)
 
-| Item                   | O que falta                                                  | Estimativa |
-| ---------------------- | ------------------------------------------------------------ | ---------- |
-| M3 — Tela de cobranças | Frontend: CRUD cobranças, exibição QR Code, status por sócio | 3d         |
-| M2 — CSV no frontend   | Fluxo de upload na MembersPage                               | 1d         |
-| M6 — Job D-0           | Worker automático "vencimento hoje"                          | 0.5d       |
-| M9 — Stub atletas      | Módulo `athletes/`, DDL tenant, rota, audit log              | 1.5d       |
-| M10 — Contratos/BID    | Schema contratos + Motor de Regras + alertas                 | 2d         |
-| M11 — Multi-Acquiring  | PagarmeGateway + fallback logic no GatewayRegistry           | 2d         |
-| S8 — Templates (UI)    | Tela de configuração de templates no frontend                | 1d         |
+| Item                   | O que falta                                                                               | Estimativa |
+| ---------------------- | ----------------------------------------------------------------------------------------- | ---------- |
+| M3 — Tela de cobranças | Frontend: CRUD cobranças, exibição QR Code, status por sócio                              | 3d         |
+| M2 — CSV no frontend   | Fluxo de upload na MembersPage                                                            | 1d         |
+| M6 — Job D-0           | Worker automático "vencimento hoje"                                                       | 0.5d       |
+| M9 — Stub atletas      | Módulo `athletes/`, DDL tenant, rota, audit log                                           | 1.5d       |
+| M10 — Contratos/BID    | Schema contratos + Motor de Regras + alertas                                              | 2d         |
+| M11 — Multi-Acquiring  | PagarmeGateway + StripeGateway + fallback logic no GatewayRegistry (`STRIPE_ENABLED` env) | 3d         |
+| S8 — Templates (UI)    | Tela de configuração de templates no frontend                                             | 1d         |
 
 > **Por que M10 é MUST HAVE?** A escalação irregular de jogadores sem registro no BID da CBF resulta em perda automática de pontos e pode excluir o clube do campeonato. É o risco jurídico-esportivo de maior impacto imediato — comparável à multa da ANPD em gravidade para o cliente.
 >
@@ -467,7 +467,7 @@ Duas métricas por módulo: produto (está sendo usado como ferramenta?) e negó
 
 1. **M9 — Stub de atletas:** criar módulo `src/modules/athletes/` com schema Prisma, rota `GET/POST/PUT /api/athletes`, campos mínimos (`name`, `cpf`, `birthDate`, `position`, `status`, `clubId`). Provisionar tabela `athletes` no DDL tenant em `lib/tenant-schema.ts`. Criar entrada de `AuditLog` nas operações de escrita. Estimativa: ~1.5 dias.
 2. **M10 — Contratos e BID/CBF:** schema `contracts` + Motor de Regras Esportivas (JSONB parametrizável) + alertas de vencimento + validação de escalação. Estimativa: ~2 dias.
-3. **M11 — Multi-Acquiring:** implementar `PagarmeGateway`, adicionar lógica de fallback no `GatewayRegistry.forMethod()`, configurar PIX estático do clube como último recurso. Estimativa: ~2 dias.
+3. **M11 — Multi-Acquiring:** implementar `PagarmeGateway` e `StripeGateway` (PIX Brasil + base para internacional), adicionar lógica de fallback em `GatewayRegistry.forMethod()` (Asaas → Pagarme → Stripe → PIX estático), configurar `STRIPE_ENABLED` como feature flag, adicionar `pixKeyFallback` no onboarding. Estimativa: ~3 dias.
 
 ### Frontend (apps/web) — itens pendentes do MUST
 

@@ -255,7 +255,7 @@
 
 ## Épico 12 — Multi-Acquiring PIX (M11 — MUST)
 
-> **Contexto:** Gateways de pagamento caem na data de vencimento. Para um clube que depende da receita de sócios para pagar salários, uma cobrança perdida é dinheiro real que não volta. O fallback é silencioso para o sócio; o clube recebe notificação apenas no fallback final (PIX estático manual).
+> **Contexto:** Gateways de pagamento caem na data de vencimento. Para um clube que depende da receita de sócios para pagar salários, uma cobrança perdida é dinheiro real que não volta. > O fallback é silencioso para o sócio; o clube recebe notificação apenas no fallback final (PIX estático manual). Stripe é incluída como gateway internacional, preparando a base para expansão futura sem nova migração.
 
 ### US-24 — Resiliência de Gateway de Pagamento
 
@@ -266,6 +266,7 @@
 | **T-081** | Implementar `PagarmeGateway` seguindo a interface `PaymentGateway` (PIX com QR Code, mapeamento de webhooks)                                                    | 1d      | S4     | ⬜     |
 | **T-082** | Lógica de fallback silencioso em `GatewayRegistry.forMethod('PIX')`: Asaas → Pagarme → PIX estático do clube; campo `pixKeyFallback` no schema `clubs` e no DDL | 0.5d    | S4     | ⬜     |
 | **T-083** | Notificação ao clube quando fallback é acionado (WhatsApp/e-mail via régua existente) + campo `pixKeyFallback` no wizard de onboarding                          | 0.5d    | S4     | ⬜     |
+| **T-085** | Implementar `StripeGateway` seguindo a interface `PaymentGateway` (PIX via Stripe Brazil, mapeamento de webhooks com `stripe-signature`); registrar no `GatewayRegistry` como provider opcional via env `STRIPE_ENABLED=true` | 1d | S4 | ⬜ |
 
 ---
 

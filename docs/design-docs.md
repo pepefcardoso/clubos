@@ -268,10 +268,11 @@ ChargeService.createCharge()
        ↓
 GatewayRegistry.forMethod('PIX')  →  [AsaasGateway]
        ↓ timeout / erro?
-                           →  [PagarmeGateway]   (fallback 1)
+                           →  [PagarmeGateway]      (fallback 1)
        ↓ timeout / erro?
-                           →  PIX estático do clube  (fallback 2)
-                              (configurado no onboarding via pixKeyFallback)
+                           →  [StripeGateway]        (fallback 2 — se STRIPE_ENABLED=true)
+       ↓ timeout / erro?
+                           →  PIX estático do clube  (fallback final)
        ↓
 Notificação ao clube: "Cobrança gerada via PIX manual — confirmar recebimento"
 ```
@@ -280,14 +281,14 @@ Notificação ao clube: "Cobrança gerada via PIX manual — confirmar recebimen
 
 ### Métodos de pagamento suportados
 
-| Método            | Enum            | Gateway atual                            | Status                                             |
-| ----------------- | --------------- | ---------------------------------------- | -------------------------------------------------- |
-| Pix               | `PIX`           | Asaas (fallback: Pagarme → PIX estático) | ✅ Asaas implementado · ⬜ fallback pendente (M11) |
-| Cartão de crédito | `CREDIT_CARD`   | Asaas                                    | ✅ Implementado                                    |
-| Cartão de débito  | `DEBIT_CARD`    | Asaas                                    | ✅ Implementado                                    |
-| Boleto            | `BOLETO`        | Asaas                                    | ✅ Implementado                                    |
-| Dinheiro          | `CASH`          | — (offline)                              | ✅ Implementado (short-circuit, sem gateway)       |
-| Transferência     | `BANK_TRANSFER` | — (offline)                              | ✅ Implementado (short-circuit, sem gateway)       |
+| Método           | Enum            | Gateway atual                           | Status                                       |
+| ---------------- | --------------- | --------------------------------------- | -------------------------------------------- |
+| Pix              | `PIX`           | Asaas → Pagarme → Stripe → PIX estático | ✅ Asaas · ⬜ Pagarme/Stripe/fallback (M11)  |
+| Cartão (Stripe)  | `CREDIT_CARD`   | Stripe (internacional)                  | ⬜ Pendente (M11 / expansão internacional)   |
+| Cartão de débito | `DEBIT_CARD`    | Asaas                                   | ✅ Implementado                              |
+| Boleto           | `BOLETO`        | Asaas                                   | ✅ Implementado                              |
+| Dinheiro         | `CASH`          | — (offline)                             | ✅ Implementado (short-circuit, sem gateway) |
+| Transferência    | `BANK_TRANSFER` | — (offline)                             | ✅ Implementado (short-circuit, sem gateway) |
 
 ### Estrutura de arquivos (implementada + planejada)
 
@@ -297,9 +298,9 @@ apps/api/src/modules/payments/
 ├── gateway.registry.ts        # GatewayRegistry — register, get(name), forMethod(method) com fallback
 └── gateways/
     ├── index.ts               # Bootstrap: registerGateways()
-    ├── asaas.gateway.ts       # AsaasGateway ✅ (PIX, cartão, boleto; HMAC timingSafeEqual)
+    ├── asaas.gateway.ts       # AsaasGateway ✅
     ├── pagarme.gateway.ts     # PagarmeGateway ⬜ (fallback PIX — M11)
-    └── stripe.gateway.ts      # (futuro — expansão internacional)
+    └── stripe.gateway.ts      # StripeGateway ⬜ (fallback PIX BR + expansão internacional — M11)
 ```
 
 ### Asaas (gateway primário do MVP)
@@ -312,6 +313,16 @@ apps/api/src/modules/payments/
 | Tratamento de falha   | Erro capturado, job retentado            | `gatewayErrors[]`; backoff 1h/6h/24h; `PENDING_RETRY` após 3x                    |
 | Webhook signature     | Header `asaas-access-token`              | Comparação via `timingSafeEqual` (timing-safe)                                   |
 | Mapeamento de eventos | `PAYMENT_RECEIVED` + `PAYMENT_CONFIRMED` | Ambos resultam no mesmo handler `handlePaymentReceived`                          |
+
+### Stripe (gateway internacional — M11)
+
+| Aspecto           | Decisão                                       | Detalhe                                                                               |
+| ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Ativação          | `STRIPE_ENABLED=true` (env)                   | Desabilitado por padrão; sem impacto em deploys que não configurem a variável         |
+| PIX Brasil        | Stripe Brazil (`payment_method_types: [pix]`) | Retorna `next_action.pix_display_qr_code`; mapeado para `qrCodeBase64 + pixCopyPaste` |
+| Webhook signature | Header `stripe-signature`                     | Verificação via `stripe.webhooks.constructEvent` (timing-safe nativo do SDK)          |
+| Idempotência      | `idempotencyKey = chargeId`                   | Passado no header `Idempotency-Key` da Stripe                                         |
+| Expansão futura   | Cartão internacional, Apple Pay, Google Pay   | Mesma interface `PaymentGateway`; sem alteração nos serviços de negócio               |
 
 ### WhatsApp — Régua de Cobrança
 

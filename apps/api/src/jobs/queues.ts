@@ -86,3 +86,35 @@ export const overdueNoticeQueue = new Queue("overdue-notices", {
     },
   },
 });
+
+/**
+ * Queue for contract expiry (D-7, D-1) and BID-pending alert jobs.
+ *
+ * Separate from `billingReminderQueue` and `overdueNoticeQueue` because:
+ * - Different recipient: club ADMIN users (public schema), not members.
+ * - Email-only delivery — no WhatsApp rate-limit concern.
+ * - Low volume: at most a handful of alerts per ACTIVE contract per day.
+ * - Independent monitoring — contract alert failures should not pollute
+ *   member-billing job metrics.
+ *
+ * Cron scheduled at 11:00 UTC (08:00 BRT), staggered 1h after the overdue
+ * notice cron (10:00 UTC) to spread DB and Redis load across the morning.
+ *
+ * Retry strategy (T-079):
+ *   attempt 1 fails → wait 10s → attempt 2 (exponential backoff).
+ *   Max 2 attempts — email send failures are often auth/config issues
+ *   (non-retriable), so a short retry window is preferred over flooding
+ *   the queue with zombie jobs.
+ */
+export const contractAlertQueue = new Queue("contract-alerts", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 200 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 10_000,
+    },
+  },
+});

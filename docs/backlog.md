@@ -290,7 +290,7 @@
 
 **Bloco 1 — Backend MUSTs (sequência crítica)**
 
-7. **T-081 → T-082 → T-083:** Multi-Acquiring PIX (Pagarme + fallback + onboarding).
+7. **T-081 → T-082 → T-083 → T-085:** Multi-Acquiring PIX (Pagarme + fallback + onboarding + Stripe).
 8. **T-060:** Endpoint histórico de pagamentos (backend isolado, ~0.5d).
 9. **T-084:** Job D-0 (último job da régua, fecha M6).
 

@@ -17,10 +17,7 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-    "esModuleInterop": true,
-    "paths": {
-      "@clubos/shared-types": ["../../packages/shared-types/src/index.ts"]
-    }
+    "esModuleInterop": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "generated"],

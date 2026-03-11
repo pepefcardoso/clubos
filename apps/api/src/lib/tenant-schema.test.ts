@@ -44,12 +44,8 @@ beforeAll(() => {
 
   prisma = new PrismaClient({
     log: [],
-    datasources: {
-      db: {
-        url: DATABASE_URL!,
-      },
-    },
-  });
+    datasourceUrl: DATABASE_URL!,
+  } as any);
 });
 
 const createdSchemas: string[] = [];

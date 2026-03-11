@@ -6,12 +6,15 @@
       "persistent": true
     },
     "build": {
-      "outputs": [".next/**", "dist/**"]
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**", "**/*.tsbuildinfo"]
     },
     "lint": {},
     "test": {
       "cache": false
     },
-    "typecheck": {}
+    "typecheck": {
+      "dependsOn": ["^build"]
+    }
   }
 }

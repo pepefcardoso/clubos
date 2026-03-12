@@ -4,14 +4,17 @@ import type { PaymentGateway, PaymentMethod } from "./gateway.interface.js";
  * Central registry for all payment gateway implementations.
  *
  * Usage:
- *   // Resolve by payment method (charge creation — T-021)
+ *   // Resolve by payment method — single gateway (legacy, backward-compatible)
  *   const gateway = GatewayRegistry.forMethod('PIX');
+ *
+ *   // Resolve all gateways for a method in priority order — used by fallback chain (T-082)
+ *   const gateways = GatewayRegistry.listForMethod('PIX');
  *
  *   // Resolve by provider name (webhook routes — T-026)
  *   const gateway = GatewayRegistry.get('asaas');
  */
 export class GatewayRegistry {
-  /** Keyed by gateway.name (e.g. "asaas") */
+  /** Keyed by gateway.name (e.g. "asaas"). Insertion order = priority order. */
   private static readonly _byName = new Map<string, PaymentGateway>();
 
   /**
@@ -50,6 +53,9 @@ export class GatewayRegistry {
    *
    * Used by ChargeService during charge creation.
    * For multi-gateway setups, extend with priority rules or a config-driven mapping.
+   *
+   * For the fallback chain (T-082), use `listForMethod()` instead — it returns all
+   * matching gateways in priority order so callers can try each in sequence.
    */
   static forMethod(method: PaymentMethod): PaymentGateway {
     for (const gateway of GatewayRegistry._byName.values()) {
@@ -65,6 +71,32 @@ export class GatewayRegistry {
       `No gateway registered that supports payment method "${method}". ` +
         `Available gateways: [${[...GatewayRegistry._byName.keys()].join(", ")}]`,
     );
+  }
+
+  /**
+   * Returns ALL registered gateways that support the given payment method,
+   * in registration order (= priority order).
+   *
+   * Used by the fallback chain (T-082): callers iterate the list and attempt
+   * each gateway in sequence, falling back to the next on failure.
+   *
+   * Returns an empty array when no gateway supports the method — the fallback
+   * chain will proceed directly to the static PIX fallback if one is configured.
+   *
+   * @param method - The payment method to filter by.
+   */
+  static listForMethod(method: PaymentMethod): PaymentGateway[] {
+    const results: PaymentGateway[] = [];
+    for (const gateway of GatewayRegistry._byName.values()) {
+      if (
+        (gateway.supportedMethods as ReadonlyArray<PaymentMethod>).includes(
+          method,
+        )
+      ) {
+        results.push(gateway);
+      }
+    }
+    return results;
   }
 
   /**

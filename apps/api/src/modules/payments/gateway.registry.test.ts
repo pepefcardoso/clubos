@@ -139,6 +139,59 @@ describe("GatewayRegistry.forMethod()", () => {
   });
 });
 
+describe("GatewayRegistry.listForMethod()", () => {
+  it("returns an empty array when no gateways are registered", () => {
+    expect(GatewayRegistry.listForMethod("PIX")).toEqual([]);
+  });
+
+  it("returns an empty array when no registered gateway supports the method", () => {
+    GatewayRegistry.register(makeGateway("cash-only", ["CASH"]));
+    expect(GatewayRegistry.listForMethod("PIX")).toEqual([]);
+  });
+
+  it("returns only the gateways that support the method", () => {
+    GatewayRegistry.register(makeGateway("asaas", ["PIX"]));
+    GatewayRegistry.register(makeGateway("cash-only", ["CASH"]));
+    const list = GatewayRegistry.listForMethod("PIX");
+    expect(list).toHaveLength(1);
+    expect(list[0]!.name).toBe("asaas");
+  });
+
+  it("returns all matching gateways in registration (priority) order", () => {
+    const first = makeGateway("asaas", ["PIX"]);
+    const second = makeGateway("pagarme", ["PIX", "CREDIT_CARD"]);
+    GatewayRegistry.register(first);
+    GatewayRegistry.register(second);
+    const list = GatewayRegistry.listForMethod("PIX");
+    expect(list).toHaveLength(2);
+    expect(list[0]!.name).toBe("asaas");
+    expect(list[1]!.name).toBe("pagarme");
+  });
+
+  it("returns only the second gateway when only it supports the method", () => {
+    GatewayRegistry.register(makeGateway("asaas", ["PIX"]));
+    GatewayRegistry.register(makeGateway("pagarme", ["PIX", "CREDIT_CARD"]));
+    const list = GatewayRegistry.listForMethod("CREDIT_CARD");
+    expect(list).toHaveLength(1);
+    expect(list[0]!.name).toBe("pagarme");
+  });
+
+  it("returns a new array on each call (not a reference to internal state)", () => {
+    GatewayRegistry.register(makeGateway("asaas", ["PIX"]));
+    const a = GatewayRegistry.listForMethod("PIX");
+    const b = GatewayRegistry.listForMethod("PIX");
+    expect(a).not.toBe(b);
+    expect(a).toEqual(b);
+  });
+
+  it("does not affect forMethod() — both coexist independently", () => {
+    const gw = makeGateway("asaas", ["PIX"]);
+    GatewayRegistry.register(gw);
+    expect(GatewayRegistry.forMethod("PIX")).toBe(gw);
+    expect(GatewayRegistry.listForMethod("PIX")).toEqual([gw]);
+  });
+});
+
 describe("GatewayRegistry.list()", () => {
   it("returns an empty array when no gateways are registered", () => {
     expect(GatewayRegistry.list()).toEqual([]);

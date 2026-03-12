@@ -3,6 +3,7 @@ import { withTenantSchema } from "../../lib/prisma.js";
 import { decryptField } from "../../lib/crypto.js";
 import { assertClubHasActivePlan } from "../plans/plans.service.js";
 import { GatewayRegistry } from "../payments/gateway.registry.js";
+import { createChargeWithFallback } from "../payments/gateway-fallback.js";
 import type { PaymentMethod } from "../payments/gateway.interface.js";
 import type {
   GenerateMonthlyChargesInput,
@@ -20,7 +21,7 @@ export class ChargePeriodConflictError extends Error {
 }
 
 /**
- * Payment methods that skip the external gateway.
+ * Payment methods that skip the external gateway entirely.
  * Charges created with these methods are confirmed manually by the treasurer.
  */
 const OFFLINE_METHODS = new Set<string>(["CASH", "BANK_TRANSFER"]);
@@ -36,7 +37,11 @@ const OFFLINE_METHODS = new Set<string>(["CASH", "BANK_TRANSFER"]);
  */
 export type DispatchResult =
   | { error: string }
-  | { externalId: string; gatewayName: string; meta: GatewayMeta };
+  | {
+      externalId: string | null;
+      gatewayName: string | null;
+      meta: GatewayMeta;
+    };
 
 /**
  * Returns the billing period (year + month) from an optional ISO date string.
@@ -131,32 +136,36 @@ export async function markChargesPendingRetry(
 }
 
 /**
- * Dispatches an already-persisted PENDING charge to the appropriate payment
- * gateway and updates the charge row with externalId, gatewayName, and
- * gatewayMeta on success.
+ * Dispatches an already-persisted PENDING charge through the gateway fallback
+ * chain (T-082: Asaas → Pagarme → static PIX) and updates the charge row with
+ * the resolved externalId, gatewayName, and gatewayMeta on success.
  *
  * Design decisions:
  * - Called OUTSIDE the DB transaction that creates the charge row so a long
  *   HTTP call to the gateway never holds a DB connection open.
+ * - Uses GatewayRegistry.listForMethod() + createChargeWithFallback() so the
+ *   full fallback chain is tried before the static PIX path (T-082).
  * - Gateway failures are logged and swallowed — the charge stays PENDING and
  *   T-024 retry logic handles recovery. Only non-retriable errors (e.g.
  *   decryption failure, programmer error) are re-thrown.
- * - `idempotencyKey: charge.id` is stable across retries. Asaas will return
- *   the existing charge if the same externalReference is re-submitted, which
- *   prevents double-billing.
+ * - `idempotencyKey: charge.id` is stable across retries. Each gateway will
+ *   return the existing charge if the same idempotencyKey is re-submitted,
+ *   which prevents double-billing.
  * - Offline methods (CASH, BANK_TRANSFER) short-circuit immediately — no
  *   gateway required; the treasurer confirms them manually.
  * - DB update failure after a successful gateway call is caught separately
- *   and returned as an error with full context (externalId included) so
- *   operators can reconcile the orphaned gateway charge via T-024 retry.
+ *   and returned as an error with full context so operators can reconcile.
+ * - Static PIX result (isStaticFallback=true) is persisted with
+ *   gatewayName=null and externalId=null — same path as offline methods.
  *
- * @param prisma   - Singleton Prisma client (not a transaction).
- * @param clubId   - Tenant identifier used by withTenantSchema.
- * @param charge   - The persisted PENDING Charge row (subset of fields needed).
- * @param member   - Raw Member row with cpf/phone still encrypted as Bytes.
- * @returns        A DispatchResult discriminated union:
- *                   { error } on any failure,
- *                   { externalId, gatewayName, meta } on success.
+ * @param prisma         - Singleton Prisma client (not a transaction).
+ * @param clubId         - Tenant identifier used by withTenantSchema.
+ * @param charge         - The persisted PENDING Charge row (subset of fields).
+ * @param member         - Raw Member row with cpf/phone still encrypted as Bytes.
+ * @param pixKeyFallback - Club's static Pix key for last-resort fallback (T-082).
+ * @returns              A DispatchResult discriminated union:
+ *                         { error } on any failure,
+ *                         { externalId, gatewayName, meta } on success.
  */
 export async function dispatchChargeToGateway(
   prisma: PrismaClient,
@@ -174,6 +183,7 @@ export async function dispatchChargeToGateway(
     phone: Uint8Array;
     email: string | null;
   },
+  pixKeyFallback: string | null = null,
 ): Promise<DispatchResult> {
   if (OFFLINE_METHODS.has(charge.method)) {
     return { externalId: "", gatewayName: "", meta: {} as GatewayMeta };
@@ -186,66 +196,78 @@ export async function dispatchChargeToGateway(
     ]);
   });
 
-  let gateway: ReturnType<typeof GatewayRegistry.forMethod>;
-  try {
-    gateway = GatewayRegistry.forMethod(charge.method as PaymentMethod);
-  } catch (err) {
-    const reason =
-      err instanceof Error ? err.message : "Unknown registry error";
-    console.warn(
-      `[charges] No gateway for method "${charge.method}" on charge ${charge.id}: ${reason}`,
-    );
-    return { error: reason };
-  }
+  const gateways = GatewayRegistry.listForMethod(
+    charge.method as PaymentMethod,
+  );
 
-  let gatewayResult: Awaited<ReturnType<typeof gateway.createCharge>>;
+  let fallbackResult: Awaited<ReturnType<typeof createChargeWithFallback>>;
   try {
-    gatewayResult = await gateway.createCharge({
-      amountCents: charge.amountCents,
-      dueDate: charge.dueDate,
-      method: charge.method as PaymentMethod,
-      customer: {
-        name: member.name,
-        cpf,
-        phone,
-        email: member.email ?? undefined,
+    fallbackResult = await createChargeWithFallback(
+      gateways,
+      {
+        amountCents: charge.amountCents,
+        dueDate: charge.dueDate,
+        method: charge.method as PaymentMethod,
+        customer: {
+          name: member.name,
+          cpf,
+          phone,
+          email: member.email ?? undefined,
+        },
+        description: `Mensalidade ClubOS — ${charge.dueDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`,
+        idempotencyKey: charge.id,
       },
-      description: `Mensalidade ClubOS — ${charge.dueDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`,
-      idempotencyKey: charge.id,
-    });
+      { pixKeyFallback },
+    );
   } catch (err) {
     const reason = err instanceof Error ? err.message : "Unknown gateway error";
     console.warn(
-      `[charges] Gateway dispatch failed for charge ${charge.id}: ${reason}`,
+      `[charges] All gateways exhausted for charge ${charge.id} (member ${member.id}): ${reason}`,
     );
     return { error: reason };
   }
 
-  const meta = gatewayResult.meta as GatewayMeta;
+  if (fallbackResult.attemptErrors.length > 0) {
+    console.warn(
+      `[charges] Gateway fallback triggered for charge ${charge.id} (club ${clubId}):`,
+      fallbackResult.attemptErrors
+        .map((e) => `${e.gatewayName}: ${e.error}`)
+        .join("; "),
+    );
+  }
+
+  const meta = fallbackResult.meta as GatewayMeta;
 
   try {
     await withTenantSchema(prisma, clubId, async (tx) => {
       await tx.charge.update({
         where: { id: charge.id },
         data: {
-          externalId: gatewayResult.externalId,
-          gatewayName: gateway.name,
+          externalId: fallbackResult.isStaticFallback
+            ? null
+            : fallbackResult.externalId || null,
+          gatewayName: fallbackResult.resolvedGatewayName,
           gatewayMeta: meta as Prisma.InputJsonValue,
         },
       });
     });
   } catch (dbErr) {
+    const externalId = fallbackResult.isStaticFallback
+      ? "static-pix"
+      : fallbackResult.externalId;
     const reason =
       dbErr instanceof Error
-        ? `DB update failed after gateway success (externalId=${gatewayResult.externalId}): ${dbErr.message}`
-        : `DB update failed after gateway success (externalId=${gatewayResult.externalId}): Unknown error`;
+        ? `DB update failed after gateway success (externalId=${externalId}): ${dbErr.message}`
+        : `DB update failed after gateway success (externalId=${externalId}): Unknown error`;
     console.error(`[charges] Critical: ${reason}`);
     return { error: reason };
   }
 
   return {
-    externalId: gatewayResult.externalId,
-    gatewayName: gateway.name,
+    externalId: fallbackResult.isStaticFallback
+      ? null
+      : fallbackResult.externalId || null,
+    gatewayName: fallbackResult.resolvedGatewayName,
     meta,
   };
 }
@@ -260,8 +282,10 @@ export async function dispatchChargeToGateway(
  *
  * After committing each charge row, dispatchChargeToGateway() is called to
  * obtain the Pix QR Code and update the charge with externalId / gatewayMeta.
- * Gateway failures are isolated into result.gatewayErrors — they do NOT appear
- * in result.errors and do NOT prevent other charges from being processed.
+ * The dispatch uses the full fallback chain: Asaas → Pagarme → static PIX
+ * (T-082). Gateway failures are isolated into result.gatewayErrors — they do
+ * NOT appear in result.errors and do NOT prevent other charges from being
+ * processed.
  *
  * @param prisma   - Singleton Prisma client (not a transaction).
  * @param clubId   - The authenticated club's ID.
@@ -280,6 +304,12 @@ export async function generateMonthlyCharges(
   const dueDate = input.dueDate
     ? new Date(input.dueDate)
     : getDefaultDueDate(year, month);
+
+  const club = await prisma.club.findUnique({
+    where: { id: clubId },
+    select: { id: true, pixKeyFallback: true },
+  });
+  const pixKeyFallback = club?.pixKeyFallback ?? null;
 
   const result: ChargeGenerationResult = {
     generated: 0,
@@ -394,6 +424,7 @@ export async function generateMonthlyCharges(
             phone: Buffer.from(memberRow.phone),
             email: memberRow.email,
           },
+          pixKeyFallback,
         );
 
         if ("error" in dispatchResult) {
@@ -402,14 +433,21 @@ export async function generateMonthlyCharges(
             memberId: mp.memberId,
             reason: dispatchResult.error,
           });
-        } else if (dispatchResult.externalId) {
+        } else if (
+          dispatchResult.externalId ||
+          dispatchResult.gatewayName === null
+        ) {
           const summary = result.charges.find(
             (c) => c.chargeId === createdCharge!.id,
           );
           if (summary) {
             summary.gatewayMeta = dispatchResult.meta;
-            summary.externalId = dispatchResult.externalId;
-            summary.gatewayName = dispatchResult.gatewayName;
+            if (dispatchResult.externalId != null) {
+              summary.externalId = dispatchResult.externalId;
+            }
+            if (dispatchResult.gatewayName != null) {
+              summary.gatewayName = dispatchResult.gatewayName;
+            }
           }
         }
       }

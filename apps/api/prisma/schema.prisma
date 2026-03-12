@@ -139,14 +139,19 @@ enum AuditAction {
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
 /// The slug is used both in URLs and as part of the schema name.
 model Club {
-  id        String   @id @default(cuid())
-  slug      String   @unique
-  name      String
-  logoUrl   String?
-  cnpj      String?  @unique
-  planTier  String   @default("starter")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  name           String
+  logoUrl        String?
+  cnpj           String?  @unique
+  planTier       String   @default("starter")
+  /// Static Pix key used as last-resort fallback when all payment gateways fail (T-082).
+  /// Supported formats: CPF, CNPJ, phone (+5511999990000), e-mail, or random UUID key.
+  /// Null means no static fallback is configured — all gateway failures will be retried by BullMQ.
+  /// Notifications when this fires are handled by T-083.
+  pixKeyFallback String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   users User[]
 
@@ -226,13 +231,14 @@ model MemberPlan {
 
 /// Gateway fields:
 ///   method      → what payment method was requested (PIX, CARD, CASH, …)
-///   gatewayName → which provider handled it ("asaas", "pagarme", null for offline)
+///   gatewayName → which provider handled it ("asaas", "pagarme", null for offline/static-pix)
 ///   externalId  → charge ID in the external gateway (used for cancellation / lookup)
 ///   gatewayMeta → provider + method-specific data stored as JSONB, e.g.:
 ///                   PIX   → { qrCodeBase64, pixCopyPaste }
 ///                   Boleto→ { bankSlipUrl, pdfUrl }
 ///                   Card  → { checkoutUrl }
 ///                   Cash  → {}  (no external data)
+///                   Static PIX (T-082) → { type: "static_pix", pixKey: "..." }
 model Charge {
   id          String        @id @default(cuid())
   memberId    String

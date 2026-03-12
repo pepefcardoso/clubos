@@ -48,6 +48,11 @@ export interface ChargeGenerationResult {
    */
   gatewayErrors: Array<{ chargeId: string; memberId: string; reason: string }>;
   charges: GeneratedChargeSummary[];
+  /**
+   * Number of charges that used the club's static PIX key as last-resort fallback.
+   * Zero in normal operation. Non-zero value means admin was notified (T-083).
+   */
+  staticPixFallbackCount: number;
 }
 
 export interface GeneratedChargeSummary {
@@ -64,4 +69,15 @@ export interface GeneratedChargeSummary {
   gatewayMeta?: GatewayMeta;
   externalId?: string;
   gatewayName?: string;
+  /**
+   * True when the club's static PIX key was used as a last-resort fallback
+   * because all registered gateways failed (T-083).
+   */
+  isStaticFallback?: boolean;
+  /**
+   * The club's own Pix key that was used as fallback. Populated only when
+   * isStaticFallback is true. Exposed in the API response so the dashboard
+   * (T-058) can display it to the treasurer without a second DB round-trip.
+   */
+  staticPixKey?: string;
 }

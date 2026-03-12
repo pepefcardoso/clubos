@@ -18,6 +18,11 @@ export const CreateClubSchema = z.object({
     .regex(cnpjRegex, "CNPJ must contain exactly 14 digits (no mask)")
     .optional(),
   adminEmail: z.email("adminEmail must be a valid email address").optional(),
+  pixKeyFallback: z
+    .string()
+    .max(77, "Chave PIX deve ter no máximo 77 caracteres.")
+    .optional()
+    .nullable(),
 });
 
 export type CreateClubInput = z.infer<typeof CreateClubSchema>;

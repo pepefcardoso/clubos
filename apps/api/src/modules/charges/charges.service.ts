@@ -5,6 +5,10 @@ import { assertClubHasActivePlan } from "../plans/plans.service.js";
 import { GatewayRegistry } from "../payments/gateway.registry.js";
 import { createChargeWithFallback } from "../payments/gateway-fallback.js";
 import type { PaymentMethod } from "../payments/gateway.interface.js";
+import {
+  notifyClubStaticPixFallback,
+  type StaticPixFallbackCharge,
+} from "../notifications/club-notifications.service.js";
 import type {
   GenerateMonthlyChargesInput,
   ChargeGenerationResult,
@@ -30,7 +34,7 @@ const OFFLINE_METHODS = new Set<string>(["CASH", "BANK_TRANSFER"]);
  * Discriminated union returned by dispatchChargeToGateway.
  *
  *   - Error path:   { error: string }
- *   - Success path: { externalId, gatewayName, meta }
+ *   - Success path: { externalId, gatewayName, meta, isStaticFallback }
  *
  * Keeping these distinct lets callers check `'error' in result` without
  * relying on an `undefined` sentinel, which is harder to type-narrow.
@@ -41,6 +45,12 @@ export type DispatchResult =
       externalId: string | null;
       gatewayName: string | null;
       meta: GatewayMeta;
+      /**
+       * True when all registered gateways failed and the club's static PIX key
+       * was used as a last resort (T-082/T-083). The charge has no externalId.
+       * Callers use this flag to trigger the admin notification (T-083).
+       */
+      isStaticFallback: boolean;
     };
 
 /**
@@ -165,7 +175,7 @@ export async function markChargesPendingRetry(
  * @param pixKeyFallback - Club's static Pix key for last-resort fallback (T-082).
  * @returns              A DispatchResult discriminated union:
  *                         { error } on any failure,
- *                         { externalId, gatewayName, meta } on success.
+ *                         { externalId, gatewayName, meta, isStaticFallback } on success.
  */
 export async function dispatchChargeToGateway(
   prisma: PrismaClient,
@@ -186,7 +196,12 @@ export async function dispatchChargeToGateway(
   pixKeyFallback: string | null = null,
 ): Promise<DispatchResult> {
   if (OFFLINE_METHODS.has(charge.method)) {
-    return { externalId: "", gatewayName: "", meta: {} as GatewayMeta };
+    return {
+      externalId: "",
+      gatewayName: "",
+      meta: {} as GatewayMeta,
+      isStaticFallback: false,
+    };
   }
 
   const [cpf, phone] = await withTenantSchema(prisma, clubId, async (tx) => {
@@ -269,6 +284,7 @@ export async function dispatchChargeToGateway(
       : fallbackResult.externalId || null,
     gatewayName: fallbackResult.resolvedGatewayName,
     meta,
+    isStaticFallback: fallbackResult.isStaticFallback,
   };
 }
 
@@ -286,6 +302,11 @@ export async function dispatchChargeToGateway(
  * (T-082). Gateway failures are isolated into result.gatewayErrors — they do
  * NOT appear in result.errors and do NOT prevent other charges from being
  * processed.
+ *
+ * When one or more charges resolve via the static PIX fallback, a batch
+ * summary email is sent to all ADMIN users of the club (T-083). This
+ * notification is fire-and-forget — delivery failure never affects the
+ * HTTP response or job result.
  *
  * @param prisma   - Singleton Prisma client (not a transaction).
  * @param clubId   - The authenticated club's ID.
@@ -317,7 +338,10 @@ export async function generateMonthlyCharges(
     errors: [],
     gatewayErrors: [],
     charges: [],
+    staticPixFallbackCount: 0,
   };
+
+  const staticFallbackCharges: StaticPixFallbackCharge[] = [];
 
   const eligibleMembers = await withTenantSchema(prisma, clubId, async (tx) => {
     return tx.memberPlan.findMany({
@@ -433,15 +457,13 @@ export async function generateMonthlyCharges(
             memberId: mp.memberId,
             reason: dispatchResult.error,
           });
-        } else if (
-          dispatchResult.externalId ||
-          dispatchResult.gatewayName === null
-        ) {
+        } else {
           const summary = result.charges.find(
             (c) => c.chargeId === createdCharge!.id,
           );
           if (summary) {
             summary.gatewayMeta = dispatchResult.meta;
+            summary.isStaticFallback = dispatchResult.isStaticFallback;
             if (dispatchResult.externalId != null) {
               summary.externalId = dispatchResult.externalId;
             }
@@ -449,9 +471,36 @@ export async function generateMonthlyCharges(
               summary.gatewayName = dispatchResult.gatewayName;
             }
           }
+
+          if (dispatchResult.isStaticFallback && pixKeyFallback !== null) {
+            staticFallbackCharges.push({
+              chargeId: createdCharge.id,
+              memberId: mp.memberId,
+              memberName: mp.member.name,
+              amountCents: createdCharge.amountCents,
+              dueDate: createdCharge.dueDate,
+              staticPixKey: pixKeyFallback,
+            });
+            if (summary) {
+              summary.staticPixKey = pixKeyFallback;
+            }
+          }
         }
       }
     }
+  }
+
+  result.staticPixFallbackCount = staticFallbackCharges.length;
+
+  if (staticFallbackCharges.length > 0) {
+    notifyClubStaticPixFallback(prisma, clubId, staticFallbackCharges).catch(
+      (err: unknown) => {
+        console.error(
+          "[charges] Failed to send static PIX fallback notification:",
+          err instanceof Error ? err.message : err,
+        );
+      },
+    );
   }
 
   return result;

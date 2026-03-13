@@ -86,7 +86,7 @@ async function buildTestApp(): Promise<FastifyInstance> {
   return fastify;
 }
 
-describe("GET /api/messages — T-037", () => {
+describe("GET /api/messages", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
@@ -188,7 +188,7 @@ describe("GET /api/messages — T-037", () => {
   });
 });
 
-describe("GET /api/messages/member/:memberId — T-037", () => {
+describe("GET /api/messages/member/:memberId", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {

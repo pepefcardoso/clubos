@@ -89,20 +89,20 @@ const _workers: Worker[] = [];
  *   2. Charge generation worker (concurrency=5) — calls `generateMonthlyCharges()`
  *      for each club.
  *   3. Webhook worker (concurrency=5) — processes incoming payment gateway
- *      events from the "webhook-events" BullMQ queue (T-028).
+ *      events from the "webhook-events" BullMQ queue.
  *   4. Billing reminder dispatch worker (concurrency=1) — processes the daily
  *      D-3 cron trigger, fans out one reminder job per club.
  *   5. Billing reminder worker (concurrency=5) — sends WhatsApp D-3 reminders
- *      for each club's PENDING charges due in 3 days (T-033).
+ *      for each club's PENDING charges due in 3 days.
  *   6. Overdue notice dispatch worker (concurrency=1) — processes the daily
  *      D+3 cron trigger, fans out one overdue notice job per club.
  *   7. Overdue notice worker (concurrency=5) — sends WhatsApp D+3 overdue notices
- *      for each club's PENDING/OVERDUE charges due 3 days ago (T-034).
+ *      for each club's PENDING/OVERDUE charges due 3 days ago.
  *   8. Contract alert dispatch worker (concurrency=1) — processes the daily
  *      11:00 UTC cron trigger, fans out one contract alert job per club.
  *   9. Contract alert worker (concurrency=5) — sends email alerts to club ADMIN
  *      users for contracts expiring in 7 or 1 days, and batched BID-pending
- *      notices for athletes whose BID/CBF registration is not yet confirmed (T-079).
+ *      notices for athletes whose BID/CBF registration is not yet confirmed.
  *
  * Cron registration is **skipped in test environments** (`NODE_ENV=test`) to
  * prevent polluting the test Redis instance with repeatable job entries that

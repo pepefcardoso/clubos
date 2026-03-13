@@ -86,7 +86,7 @@ beforeEach(() => {
   mockCountRecentFailed.mockResolvedValue(0);
 });
 
-describe("sendOverdueNoticesForClub() — email fallback (T-036)", () => {
+describe("sendOverdueNoticesForClub() — email fallback", () => {
   it("increments sent when WhatsApp succeeds", async () => {
     vi.mocked(withTenantSchema).mockResolvedValueOnce([makeCharge()]);
 

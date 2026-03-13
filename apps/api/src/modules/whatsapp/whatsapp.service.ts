@@ -49,7 +49,7 @@ export interface SendWhatsAppMessageResult {
  *   - decryptField errors → re-thrown (indicates system misconfiguration,
  *     not a transient failure — callers should not retry blindly)
  *
- * Rate limiting is NOT implemented here. BullMQ job callers (T-035) are
+ * Rate limiting is NOT implemented here. BullMQ job callers are
  * responsible for enforcing the 30 messages/minute per club Redis sliding
  * window before invoking this function.
  *

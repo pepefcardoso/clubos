@@ -56,7 +56,7 @@ export async function dashboardRoutes(fastify: FastifyInstance): Promise<void> {
    *   limit → default 20, max 50
    *
    * No role guard — accessible by ADMIN and TREASURER.
-   * Used by the dashboard "Sócios Inadimplentes" table (T-041).
+   * Used by the dashboard "Sócios Inadimplentes" table.
    */
   fastify.get("/overdue-members", async (request, reply) => {
     const user = request.user as AccessTokenPayload;

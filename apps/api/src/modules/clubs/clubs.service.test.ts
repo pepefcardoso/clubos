@@ -1,6 +1,4 @@
 /**
- * Unit tests for uploadClubLogo (T-004) and welcome email wiring (T-005).
- *
  * All external I/O (sharp, prisma, saveFile, sendEmail) is mocked so tests
  * run without a real database, filesystem, native binaries, or email provider.
  *

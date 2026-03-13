@@ -48,7 +48,7 @@ export async function notifyClubStaticPixFallback(
 
   if (admins.length === 0) {
     console.warn(
-      `[T-083] No ADMIN users found for club "${clubId}" — static PIX fallback notification skipped.`,
+      `No ADMIN users found for club "${clubId}" — static PIX fallback notification skipped.`,
     );
     return;
   }
@@ -69,12 +69,12 @@ export async function notifyClubStaticPixFallback(
 
   if (errors.length > 0) {
     console.error(
-      `[T-083] Failed to send static PIX fallback notification for club "${clubId}":`,
+      `Failed to send static PIX fallback notification for club "${clubId}":`,
       errors.join("; "),
     );
   } else {
     console.info(
-      `[T-083] Static PIX fallback notification sent to ${admins.length} admin(s) ` +
+      `Static PIX fallback notification sent to ${admins.length} admin(s) ` +
         `for club "${clubId}" (${charges.length} charge(s) affected).`,
     );
   }

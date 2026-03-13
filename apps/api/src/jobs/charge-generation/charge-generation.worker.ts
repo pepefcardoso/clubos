@@ -19,12 +19,12 @@ import type { ChargeGenerationResult } from "../../modules/charges/charges.schem
  * Calls `generateMonthlyCharges()` which already handles:
  *   - Idempotency via `hasExistingCharge()` (skips members already charged)
  *   - Per-member error isolation
- *   - Asaas gateway dispatch and gatewayMeta persistence (T-022)
+ *   - Asaas gateway dispatch and gatewayMeta persistence
  *
  * Concurrency is set to 5 per architecture-rules.md:
  *   "Jobs de cobrança rodam com concorrência máxima de 5"
  *
- * Backoff strategy (T-024):
+ * Backoff strategy:
  *   attempt 1 fails → wait  1h  → attempt 2
  *   attempt 2 fails → wait  6h  → attempt 3
  *   attempt 3 fails → wait 24h  → EXHAUSTED
@@ -38,9 +38,9 @@ import type { ChargeGenerationResult } from "../../modules/charges/charges.schem
  *   - Any other thrown error → job fails, BullMQ applies the custom backoff
  *     (1h / 6h / 24h, up to 3 attempts total, per queues.ts config).
  *   - `result.errors` (per-member DB failures) → job completes successfully.
- *     These are non-fatal: most members were charged; T-024 handles PENDING_RETRY.
+ *     These are non-fatal: most members were charged; handles PENDING_RETRY.
  *   - `result.gatewayErrors` (gateway dispatch failures) → job completes
- *     successfully. Charges are persisted as PENDING; T-024 retry picks them up.
+ *     successfully. Charges are persisted as PENDING; retry picks them up.
  */
 export function startChargeGenerationWorker(): Worker {
   const connection = getRedisClient();
@@ -102,7 +102,7 @@ export function startChargeGenerationWorker(): Worker {
       concurrency: 5,
       settings: {
         /**
-         * Custom backoff delays per T-024 spec (architecture-rules.md):
+         * Custom backoff delays:
          *   attempt 1 fails → wait  1h  → attempt 2
          *   attempt 2 fails → wait  6h  → attempt 3
          *   attempt 3 fails → wait 24h  → EXHAUSTED

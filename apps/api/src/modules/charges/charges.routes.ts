@@ -11,7 +11,7 @@ export async function chargeRoutes(fastify: FastifyInstance): Promise<void> {
    * POST /api/charges/generate
    *
    * Manually triggers monthly charge generation for the authenticated club.
-   * Equivalent to the BullMQ cron job (T-023) but HTTP-triggered, so a
+   * Equivalent to the BullMQ cron job but HTTP-triggered, so a
    * TREASURER can kick it off outside the scheduled window.
    *
    * Available to: ADMIN, TREASURER (both roles are valid — no requireRole guard

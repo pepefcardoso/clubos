@@ -87,7 +87,7 @@ async function buildTestApp(): Promise<FastifyInstance> {
   return fastify;
 }
 
-describe("GET /api/templates — T-032", () => {
+describe("GET /api/templates", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
@@ -139,7 +139,7 @@ describe("GET /api/templates — T-032", () => {
   });
 });
 
-describe("PUT /api/templates/:key — T-032", () => {
+describe("PUT /api/templates/:key", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
@@ -267,7 +267,7 @@ describe("PUT /api/templates/:key — T-032", () => {
   });
 });
 
-describe("DELETE /api/templates/:key — T-032", () => {
+describe("DELETE /api/templates/:key", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {

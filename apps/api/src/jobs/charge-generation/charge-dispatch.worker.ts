@@ -10,7 +10,7 @@ import {
 
 /**
  * Actor ID used in audit log entries created by cron-triggered runs.
- * Distinguishable from human-triggered runs (T-025 uses the authenticated user's ID).
+ * Distinguishable from human-triggered runs.
  */
 export const SYSTEM_ACTOR_ID = "system:cron";
 

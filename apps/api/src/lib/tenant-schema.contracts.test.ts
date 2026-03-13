@@ -1,5 +1,4 @@
 /**
- * Integration tests for provisionTenantSchema — contracts table (T-076).
  *
  * These tests run against a real PostgreSQL instance. The DATABASE_URL env var
  * must point to a test database (e.g. clubos_test). The CI pipeline provides
@@ -50,46 +49,44 @@ afterEach(async () => {
   }
 });
 
-describe.skipIf(!hasDatabase)(
-  "provisionTenantSchema — contracts table (T-076, requires DATABASE_URL)",
-  () => {
-    it("is idempotent — calling twice for the same clubId does not throw", async () => {
-      const clubId = makeTestClubId();
-      createdSchemas.push(`clube_${clubId}`);
+describe.skipIf(!hasDatabase)("provisionTenantSchema — contracts table", () => {
+  it("is idempotent — calling twice for the same clubId does not throw", async () => {
+    const clubId = makeTestClubId();
+    createdSchemas.push(`clube_${clubId}`);
 
-      await expect(
-        provisionTenantSchema(prisma, clubId),
-      ).resolves.toBeUndefined();
-      await expect(
-        provisionTenantSchema(prisma, clubId),
-      ).resolves.toBeUndefined();
-    });
+    await expect(
+      provisionTenantSchema(prisma, clubId),
+    ).resolves.toBeUndefined();
+    await expect(
+      provisionTenantSchema(prisma, clubId),
+    ).resolves.toBeUndefined();
+  });
 
-    it("creates the contracts table", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("creates the contracts table", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<Row[]>`
+    const result = await prisma.$queryRaw<Row[]>`
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = ${schemaName}
           AND table_name   = 'contracts'
           AND table_type   = 'BASE TABLE'
       `;
-      expect(result).toHaveLength(1);
-    });
+    expect(result).toHaveLength(1);
+  });
 
-    it("total tenant table count is now 8 (7 original + contracts)", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("total tenant table count is now 8 (7 original + contracts)", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<Row[]>`
+    const result = await prisma.$queryRaw<Row[]>`
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = ${schemaName}
@@ -97,32 +94,32 @@ describe.skipIf(!hasDatabase)(
         ORDER BY table_name
       `;
 
-      const names = result.map((r) => r["table_name"] as string);
-      expect(names).toEqual(
-        expect.arrayContaining([
-          "audit_log",
-          "charges",
-          "contracts",
-          "member_plans",
-          "members",
-          "messages",
-          "payments",
-          "plans",
-        ]),
-      );
-      expect(names).toHaveLength(8);
-    });
+    const names = result.map((r) => r["table_name"] as string);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "audit_log",
+        "charges",
+        "contracts",
+        "member_plans",
+        "members",
+        "messages",
+        "payments",
+        "plans",
+      ]),
+    );
+    expect(names).toHaveLength(8);
+  });
 
-    it("creates contracts with the correct column types", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("creates contracts with the correct column types", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<
-        { column_name: string; data_type: string; is_nullable: string }[]
-      >`
+    const result = await prisma.$queryRaw<
+      { column_name: string; data_type: string; is_nullable: string }[]
+    >`
         SELECT column_name, data_type, is_nullable
         FROM information_schema.columns
         WHERE table_schema = ${schemaName}
@@ -130,84 +127,80 @@ describe.skipIf(!hasDatabase)(
         ORDER BY ordinal_position
       `;
 
-      const byName = Object.fromEntries(result.map((r) => [r.column_name, r]));
+    const byName = Object.fromEntries(result.map((r) => [r.column_name, r]));
 
-      expect(byName["id"]?.data_type).toBe("text");
-      expect(byName["id"]?.is_nullable).toBe("NO");
+    expect(byName["id"]?.data_type).toBe("text");
+    expect(byName["id"]?.is_nullable).toBe("NO");
 
-      expect(byName["athleteId"]?.data_type).toBe("text");
-      expect(byName["athleteId"]?.is_nullable).toBe("NO");
+    expect(byName["athleteId"]?.data_type).toBe("text");
+    expect(byName["athleteId"]?.is_nullable).toBe("NO");
 
-      expect(byName["type"]?.data_type).toBe("USER-DEFINED");
-      expect(byName["type"]?.is_nullable).toBe("NO");
-      expect(byName["status"]?.data_type).toBe("USER-DEFINED");
-      expect(byName["status"]?.is_nullable).toBe("NO");
+    expect(byName["type"]?.data_type).toBe("USER-DEFINED");
+    expect(byName["type"]?.is_nullable).toBe("NO");
+    expect(byName["status"]?.data_type).toBe("USER-DEFINED");
+    expect(byName["status"]?.is_nullable).toBe("NO");
 
-      expect(byName["startDate"]?.data_type).toBe("date");
-      expect(byName["startDate"]?.is_nullable).toBe("NO");
-      expect(byName["endDate"]?.data_type).toBe("date");
-      expect(byName["endDate"]?.is_nullable).toBe("YES");
+    expect(byName["startDate"]?.data_type).toBe("date");
+    expect(byName["startDate"]?.is_nullable).toBe("NO");
+    expect(byName["endDate"]?.data_type).toBe("date");
+    expect(byName["endDate"]?.is_nullable).toBe("YES");
 
-      expect(byName["bidRegistered"]?.data_type).toBe("boolean");
-      expect(byName["bidRegistered"]?.is_nullable).toBe("NO");
+    expect(byName["bidRegistered"]?.data_type).toBe("boolean");
+    expect(byName["bidRegistered"]?.is_nullable).toBe("NO");
 
-      expect(byName["federationCode"]?.data_type).toBe("text");
-      expect(byName["federationCode"]?.is_nullable).toBe("YES");
-      expect(byName["notes"]?.data_type).toBe("text");
-      expect(byName["notes"]?.is_nullable).toBe("YES");
+    expect(byName["federationCode"]?.data_type).toBe("text");
+    expect(byName["federationCode"]?.is_nullable).toBe("YES");
+    expect(byName["notes"]?.data_type).toBe("text");
+    expect(byName["notes"]?.is_nullable).toBe("YES");
 
-      expect(byName["createdAt"]?.data_type).toBe(
-        "timestamp without time zone",
-      );
-      expect(byName["createdAt"]?.is_nullable).toBe("NO");
-      expect(byName["updatedAt"]?.data_type).toBe(
-        "timestamp without time zone",
-      );
-      expect(byName["updatedAt"]?.is_nullable).toBe("NO");
-    });
+    expect(byName["createdAt"]?.data_type).toBe("timestamp without time zone");
+    expect(byName["createdAt"]?.is_nullable).toBe("NO");
+    expect(byName["updatedAt"]?.data_type).toBe("timestamp without time zone");
+    expect(byName["updatedAt"]?.is_nullable).toBe("NO");
+  });
 
-    it("status column defaults to ACTIVE", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("status column defaults to ACTIVE", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<{ column_default: string }[]>`
+    const result = await prisma.$queryRaw<{ column_default: string }[]>`
         SELECT column_default
         FROM information_schema.columns
         WHERE table_schema  = ${schemaName}
           AND table_name    = 'contracts'
           AND column_name   = 'status'
       `;
-      expect(result[0]?.column_default).toContain("ACTIVE");
-    });
+    expect(result[0]?.column_default).toContain("ACTIVE");
+  });
 
-    it("bidRegistered column defaults to false", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("bidRegistered column defaults to false", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<{ column_default: string }[]>`
+    const result = await prisma.$queryRaw<{ column_default: string }[]>`
         SELECT column_default
         FROM information_schema.columns
         WHERE table_schema  = ${schemaName}
           AND table_name    = 'contracts'
           AND column_name   = 'bidRegistered'
       `;
-      expect(result[0]?.column_default).toBe("false");
-    });
+    expect(result[0]?.column_default).toBe("false");
+  });
 
-    it("creates contracts_athleteId_idx", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("creates contracts_athleteId_idx", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<Row[]>`
+    const result = await prisma.$queryRaw<Row[]>`
         SELECT ix.relname AS index_name
         FROM pg_index i
         JOIN pg_class t  ON t.oid = i.indrelid
@@ -217,17 +210,17 @@ describe.skipIf(!hasDatabase)(
           AND t.relname  = 'contracts'
           AND ix.relname = 'contracts_athleteId_idx'
       `;
-      expect(result).toHaveLength(1);
-    });
+    expect(result).toHaveLength(1);
+  });
 
-    it("creates contracts_status_idx", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("creates contracts_status_idx", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<Row[]>`
+    const result = await prisma.$queryRaw<Row[]>`
         SELECT ix.relname AS index_name
         FROM pg_index i
         JOIN pg_class t  ON t.oid = i.indrelid
@@ -237,17 +230,17 @@ describe.skipIf(!hasDatabase)(
           AND t.relname  = 'contracts'
           AND ix.relname = 'contracts_status_idx'
       `;
-      expect(result).toHaveLength(1);
-    });
+    expect(result).toHaveLength(1);
+  });
 
-    it("creates contracts_endDate_idx", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("creates contracts_endDate_idx", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<Row[]>`
+    const result = await prisma.$queryRaw<Row[]>`
         SELECT ix.relname AS index_name
         FROM pg_index i
         JOIN pg_class t  ON t.oid = i.indrelid
@@ -257,17 +250,17 @@ describe.skipIf(!hasDatabase)(
           AND t.relname  = 'contracts'
           AND ix.relname = 'contracts_endDate_idx'
       `;
-      expect(result).toHaveLength(1);
-    });
+    expect(result).toHaveLength(1);
+  });
 
-    it("does NOT create a unique index on contracts.athleteId (historical records allowed)", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("does NOT create a unique index on contracts.athleteId (historical records allowed)", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<Row[]>`
+    const result = await prisma.$queryRaw<Row[]>`
         SELECT ix.relname AS index_name
         FROM pg_index i
         JOIN pg_class t  ON t.oid = i.indrelid
@@ -279,22 +272,22 @@ describe.skipIf(!hasDatabase)(
           AND a.attname   = 'athleteId'
           AND i.indisunique = true
       `;
-      expect(result).toHaveLength(0);
-    });
+    expect(result).toHaveLength(0);
+  });
 
-    it("enforces FK — inserting contract with unknown athleteId throws", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("enforces FK — inserting contract with unknown athleteId throws", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      await prisma.$executeRawUnsafe(
-        `SET search_path TO "${schemaName}", public`,
-      );
+    await prisma.$executeRawUnsafe(
+      `SET search_path TO "${schemaName}", public`,
+    );
 
-      await expect(
-        prisma.$executeRaw`
+    await expect(
+      prisma.$executeRaw`
           INSERT INTO "contracts" (
             id, "athleteId", type, "startDate", "updatedAt"
           ) VALUES (
@@ -305,145 +298,134 @@ describe.skipIf(!hasDatabase)(
             NOW()
           )
         `,
-      ).rejects.toThrow();
-    });
+    ).rejects.toThrow();
+  });
 
-    it("accepts CONTRACT_CREATED as a valid AuditAction", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("accepts CONTRACT_CREATED as a valid AuditAction", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      await prisma.$executeRawUnsafe(
-        `SET search_path TO "${schemaName}", public`,
-      );
+    await prisma.$executeRawUnsafe(
+      `SET search_path TO "${schemaName}", public`,
+    );
 
-      await expect(
-        prisma.$executeRaw`
+    await expect(
+      prisma.$executeRaw`
           INSERT INTO "audit_log" (id, action, "createdAt")
           VALUES ('audit-contract-created', 'CONTRACT_CREATED', NOW())
         `,
-      ).resolves.not.toThrow();
-    });
+    ).resolves.not.toThrow();
+  });
 
-    it("accepts CONTRACT_UPDATED as a valid AuditAction", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("accepts CONTRACT_UPDATED as a valid AuditAction", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      await prisma.$executeRawUnsafe(
-        `SET search_path TO "${schemaName}", public`,
-      );
+    await prisma.$executeRawUnsafe(
+      `SET search_path TO "${schemaName}", public`,
+    );
 
-      await expect(
-        prisma.$executeRaw`
+    await expect(
+      prisma.$executeRaw`
           INSERT INTO "audit_log" (id, action, "createdAt")
           VALUES ('audit-contract-updated', 'CONTRACT_UPDATED', NOW())
         `,
-      ).resolves.not.toThrow();
-    });
+    ).resolves.not.toThrow();
+  });
 
-    it("accepts CONTRACT_TERMINATED as a valid AuditAction", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("accepts CONTRACT_TERMINATED as a valid AuditAction", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      await prisma.$executeRawUnsafe(
-        `SET search_path TO "${schemaName}", public`,
-      );
+    await prisma.$executeRawUnsafe(
+      `SET search_path TO "${schemaName}", public`,
+    );
 
-      await expect(
-        prisma.$executeRaw`
+    await expect(
+      prisma.$executeRaw`
           INSERT INTO "audit_log" (id, action, "createdAt")
           VALUES ('audit-contract-terminated', 'CONTRACT_TERMINATED', NOW())
         `,
-      ).resolves.not.toThrow();
-    });
+    ).resolves.not.toThrow();
+  });
 
-    it("ContractType enum has all four expected values", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("ContractType enum has all four expected values", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<{ enumlabel: string }[]>`
+    const result = await prisma.$queryRaw<{ enumlabel: string }[]>`
         SELECT e.enumlabel
         FROM pg_enum e
         JOIN pg_type t ON t.oid = e.enumtypid
         WHERE t.typname = 'ContractType'
         ORDER BY e.enumsortorder
       `;
-      const labels = result.map((r) => r.enumlabel);
-      expect(labels).toEqual(
-        expect.arrayContaining([
-          "PROFESSIONAL",
-          "AMATEUR",
-          "FORMATIVE",
-          "LOAN",
-        ]),
-      );
-      expect(labels).toHaveLength(4);
-    });
+    const labels = result.map((r) => r.enumlabel);
+    expect(labels).toEqual(
+      expect.arrayContaining(["PROFESSIONAL", "AMATEUR", "FORMATIVE", "LOAN"]),
+    );
+    expect(labels).toHaveLength(4);
+  });
 
-    it("ContractStatus enum has all four expected values", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("ContractStatus enum has all four expected values", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<{ enumlabel: string }[]>`
+    const result = await prisma.$queryRaw<{ enumlabel: string }[]>`
         SELECT e.enumlabel
         FROM pg_enum e
         JOIN pg_type t ON t.oid = e.enumtypid
         WHERE t.typname = 'ContractStatus'
         ORDER BY e.enumsortorder
       `;
-      const labels = result.map((r) => r.enumlabel);
-      expect(labels).toEqual(
-        expect.arrayContaining([
-          "ACTIVE",
-          "EXPIRED",
-          "TERMINATED",
-          "SUSPENDED",
-        ]),
-      );
-      expect(labels).toHaveLength(4);
-    });
+    const labels = result.map((r) => r.enumlabel);
+    expect(labels).toEqual(
+      expect.arrayContaining(["ACTIVE", "EXPIRED", "TERMINATED", "SUSPENDED"]),
+    );
+    expect(labels).toHaveLength(4);
+  });
 
-    it("all original tenant tables still exist after T-076 provisioning", async () => {
-      const clubId = makeTestClubId();
-      const schemaName = `clube_${clubId}`;
-      createdSchemas.push(schemaName);
+  it("all original tenant tables still exist after provisioning", async () => {
+    const clubId = makeTestClubId();
+    const schemaName = `clube_${clubId}`;
+    createdSchemas.push(schemaName);
 
-      await provisionTenantSchema(prisma, clubId);
+    await provisionTenantSchema(prisma, clubId);
 
-      const result = await prisma.$queryRaw<Row[]>`
+    const result = await prisma.$queryRaw<Row[]>`
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = ${schemaName}
           AND table_type   = 'BASE TABLE'
         ORDER BY table_name
       `;
-      const names = result.map((r) => r["table_name"] as string);
+    const names = result.map((r) => r["table_name"] as string);
 
-      for (const table of [
-        "audit_log",
-        "charges",
-        "member_plans",
-        "members",
-        "messages",
-        "payments",
-        "plans",
-      ]) {
-        expect(names).toContain(table);
-      }
-    });
-  },
-);
+    for (const table of [
+      "audit_log",
+      "charges",
+      "member_plans",
+      "members",
+      "messages",
+      "payments",
+      "plans",
+    ]) {
+      expect(names).toContain(table);
+    }
+  });
+});

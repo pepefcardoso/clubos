@@ -109,7 +109,7 @@ async function buildTestApp(): Promise<FastifyInstance> {
   return fastify;
 }
 
-describe("POST /api/charges/generate — T-025", () => {
+describe("POST /api/charges/generate", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {

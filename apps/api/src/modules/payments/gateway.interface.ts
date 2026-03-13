@@ -31,7 +31,7 @@ export class WebhookSignatureError extends Error {
 /**
  * Provider-agnostic normalised event returned by parseWebhook().
  *
- * Business-layer handlers (T-027 onwards) only need to deal with
+ * Business-layer handlers only need to deal with
  * this shape — never with provider-specific payloads.
  */
 export interface WebhookEvent {
@@ -39,7 +39,7 @@ export interface WebhookEvent {
   type: "PAYMENT_RECEIVED" | "PAYMENT_REFUNDED" | "PAYMENT_OVERDUE" | "UNKNOWN";
   /**
    * The gateway's own transaction / charge identifier.
-   * Stored as `gatewayTxid` in the Payment row for idempotency checks (T-028).
+   * Stored as `gatewayTxid` in the Payment row for idempotency checks.
    */
   gatewayTxId: string;
   /**

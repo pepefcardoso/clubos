@@ -48,7 +48,7 @@ interface ZApiSendTextResponse {
  * Endpoint: POST https://api.z-api.io/instances/{instanceId}/token/{token}/send-text
  * Auth: Client-Token header (ZAPI_CLIENT_TOKEN)
  *
- * Rate limiting and retry logic are handled by the BullMQ job layer (T-035),
+ * Rate limiting and retry logic are handled by the BullMQ job layer,
  * not here. This provider is a thin, stateless HTTP adapter.
  */
 export class ZApiProvider implements WhatsAppProvider {

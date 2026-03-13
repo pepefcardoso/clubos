@@ -1,6 +1,4 @@
 /**
- * T-030 — Integration tests: POST /webhooks/:gateway with the real AsaasGateway
- *
  * Unlike webhooks.routes.test.ts (which mocks GatewayRegistry and parseWebhook
  * entirely), these tests wire the REAL AsaasGateway through the REAL
  * GatewayRegistry so that the full path is exercised:
@@ -9,9 +7,6 @@
  *   → signature validation (timingSafeEqual) → enqueueWebhookEvent
  *
  * Only infrastructure (Redis, BullMQ queue) is mocked — the crypto layer is not.
- *
- * This validates T-030's requirement:
- *   "Simulate Asaas payload with valid and invalid signature (end-to-end)."
  */
 
 import {
@@ -86,7 +81,7 @@ async function buildIntegrationApp(): Promise<FastifyInstance> {
   return fastify;
 }
 
-describe("POST /webhooks/asaas — T-030 integration (real AsaasGateway)", () => {
+describe("POST /webhooks/asaas", () => {
   let app: FastifyInstance;
 
   beforeAll(() => {

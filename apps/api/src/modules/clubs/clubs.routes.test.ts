@@ -1,6 +1,4 @@
 /**
- * Route-level tests for POST /api/clubs (T-002).
- *
  * Uses Fastify's inject() to exercise the full HTTP stack (routing, Zod
  * validation, error mapping) without hitting the database. The service layer
  * is fully mocked.

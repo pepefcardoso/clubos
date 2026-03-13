@@ -333,7 +333,7 @@ describe("Webhook worker processor — guard clauses", () => {
   });
 });
 
-describe("Webhook worker processor — idempotency (T-028 core)", () => {
+describe("Webhook worker processor — idempotency", () => {
   const RESOLVED_CLUB_ID = "club-001";
 
   beforeEach(() => {

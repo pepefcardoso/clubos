@@ -83,10 +83,6 @@ const PAGARME_EVENT_TYPE_MAP: Record<string, WebhookEvent["type"]> = {
 export class PagarmeGateway implements PaymentGateway {
   readonly name = "pagarme";
 
-  /**
-   * T-081 implements PIX only. CREDIT_CARD and BOLETO are declared here so
-   * that T-082 / future tasks can enable them without interface changes.
-   */
   readonly supportedMethods: ReadonlyArray<PaymentMethod> = [
     "PIX",
     "CREDIT_CARD",

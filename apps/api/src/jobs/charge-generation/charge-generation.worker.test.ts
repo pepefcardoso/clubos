@@ -322,7 +322,7 @@ describe("startChargeGenerationWorker — failed event handler", () => {
   });
 });
 
-describe("charge generation backoff delays (T-024)", () => {
+describe("charge generation backoff delays", () => {
   const DELAYS_MS = [
     1 * 60 * 60 * 1000,
     6 * 60 * 60 * 1000,

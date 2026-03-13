@@ -4,7 +4,7 @@
  *   charge_reminder_d3     → sent 3 days before the due date
  *   charge_reminder_d0     → sent on the due date itself
  *   overdue_notice         → sent 3 days after the due date (D+3)
- *   charge_reminder_manual → sent on-demand via the "Cobrar agora" dashboard action (T-041)
+ *   charge_reminder_manual → sent on-demand via the "Cobrar agora" dashboard action
  *
  * These keys are stored verbatim in Message.template for auditability.
  */

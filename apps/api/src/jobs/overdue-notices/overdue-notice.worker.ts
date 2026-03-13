@@ -19,7 +19,7 @@ import {
  *   - Idempotency via `hasRecentMessage()` (20h window)
  *   - Per-club WhatsApp rate limiting (30 msgs/min Redis sliding window)
  *   - Per-member error isolation (template render, provider failures)
- *   - Email fallback via Resend when WhatsApp fails a 2nd time (T-036)
+ *   - Email fallback via Resend when WhatsApp fails a 2nd time
  *
  * Concurrency = 5 per architecture-rules.md:
  *   "Jobs de cobrança rodam com concorrência máxima de 5"

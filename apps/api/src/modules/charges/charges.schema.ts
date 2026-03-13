@@ -44,13 +44,13 @@ export interface ChargeGenerationResult {
    * Gateway-level errors collected during charge dispatch.
    * A non-empty list here means some charges were persisted as PENDING
    * but the gateway call (or the subsequent DB update) failed.
-   * T-024 retry logic will pick them up.
+   * Retry logic will pick them up.
    */
   gatewayErrors: Array<{ chargeId: string; memberId: string; reason: string }>;
   charges: GeneratedChargeSummary[];
   /**
    * Number of charges that used the club's static PIX key as last-resort fallback.
-   * Zero in normal operation. Non-zero value means admin was notified (T-083).
+   * Zero in normal operation. Non-zero value means admin was notified.
    */
   staticPixFallbackCount: number;
 }
@@ -63,7 +63,7 @@ export interface GeneratedChargeSummary {
   dueDate: Date;
   /**
    * Populated only when gateway dispatch succeeded.
-   * Callers (e.g. the T-025 HTTP endpoint, T-023 BullMQ job) can read the
+   * Callers (e.g. the HTTP endpoint, BullMQ job) can read the
    * QR code or payment link here without a second DB round-trip.
    */
   gatewayMeta?: GatewayMeta;
@@ -71,13 +71,13 @@ export interface GeneratedChargeSummary {
   gatewayName?: string;
   /**
    * True when the club's static PIX key was used as a last-resort fallback
-   * because all registered gateways failed (T-083).
+   * because all registered gateways failed.
    */
   isStaticFallback?: boolean;
   /**
    * The club's own Pix key that was used as fallback. Populated only when
    * isStaticFallback is true. Exposed in the API response so the dashboard
-   * (T-058) can display it to the treasurer without a second DB round-trip.
+   * Can display it to the treasurer without a second DB round-trip.
    */
   staticPixKey?: string;
 }

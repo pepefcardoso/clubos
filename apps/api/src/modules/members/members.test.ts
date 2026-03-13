@@ -184,7 +184,7 @@ async function buildTestApp(
   return fastify;
 }
 
-describe("POST /api/members — T-011", () => {
+describe("POST /api/members", () => {
   let app: FastifyInstance;
 
   afterEach(async () => {

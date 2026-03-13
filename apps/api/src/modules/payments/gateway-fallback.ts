@@ -40,8 +40,6 @@ export interface FallbackOptions {
    *
    * When absent or null, the function throws the last gateway error instead
    * of producing a static PIX charge, allowing BullMQ to retry normally.
-   *
-   * Notifications when this fires are handled by T-083.
    */
   pixKeyFallback?: string | null | undefined;
 }
@@ -69,7 +67,7 @@ export interface FallbackOptions {
  *    because gateway idempotency is delegated to each provider's `createCharge`.
  *  - The `isStaticFallback` flag must be propagated to the ChargeService so it
  *    can set `gatewayName = null` and `externalId = null` on the DB row.
- *  - Does NOT notify the club when falling back — that is T-083's responsibility.
+ *  - Does NOT notify the club when falling back.
  *
  * @param gateways - Ordered list from GatewayRegistry.listForMethod(). May be empty.
  * @param input    - Standard CreateChargeInput (method, amount, customer, etc.).
@@ -116,7 +114,7 @@ export async function createChargeWithFallback(
  * and the club has a configured pixKeyFallback.
  *
  * The `meta.pixKey` field stores the club's Pix key so the frontend
- * (T-058 charges page) can display it to the treasurer for manual collection.
+ * can display it to the treasurer for manual collection.
  *
  * - `externalId` is an empty string (ChargeService maps this to null in DB).
  * - `status` is always PENDING — the treasurer must confirm receipt manually

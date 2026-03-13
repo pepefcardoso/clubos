@@ -72,7 +72,7 @@ return {1, current + 1, 0}
  * Returns `allowed: true` and records the attempt when under the limit.
  * Returns `allowed: false` without consuming a slot when the limit is reached.
  *
- * **Job workers (T-033 / T-034) must call this before `sendWhatsAppMessage()`.**
+ * **Job workers must call this before `sendWhatsAppMessage()`.**
  *
  * ```ts
  * const { allowed, retryAfterMs } = await checkAndConsumeWhatsAppRateLimit(redis, clubId);

@@ -59,7 +59,7 @@ export async function listMessages(
 }
 
 /**
- * Idempotency guard for billing reminder jobs (T-033, T-034).
+ * Idempotency guard for billing reminder jobs.
  *
  * Returns true if a SENT or PENDING message for the given
  * (memberId, template) pair exists within the last `windowHours` hours,
@@ -107,7 +107,7 @@ export async function hasRecentMessage(
  * Counts FAILED WhatsApp messages for a given (memberId, template) pair
  * within the last `windowHours` hours.
  *
- * Used by the email fallback logic (T-036) to determine whether a second
+ * Used by the email fallback logic to determine whether a second
  * WhatsApp attempt has already been made before escalating to email.
  * When `count >= 1`, the current failure is at least the second attempt,
  * which satisfies the "2 attempts" threshold for email fallback.

@@ -87,7 +87,7 @@ beforeEach(() => {
 
 import { withTenantSchema } from "../../lib/prisma.js";
 
-describe("sendDailyRemindersForClub() — email fallback (T-036)", () => {
+describe("sendDailyRemindersForClub() — email fallback", () => {
   it("sends WhatsApp and increments sent when WA succeeds", async () => {
     vi.mocked(withTenantSchema).mockResolvedValueOnce([makeCharge()]);
 

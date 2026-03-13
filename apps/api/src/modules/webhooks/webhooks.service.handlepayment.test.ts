@@ -515,7 +515,7 @@ describe("handlePaymentReceived — ChargeNotFoundError class", () => {
   });
 });
 
-describe("Webhook worker processor — T-027 PAYMENT_RECEIVED integration", () => {
+describe("Webhook worker processor — PAYMENT_RECEIVED integration", () => {
   let capturedProcessor: ((job: unknown) => Promise<unknown>) | undefined;
 
   beforeEach(() => {

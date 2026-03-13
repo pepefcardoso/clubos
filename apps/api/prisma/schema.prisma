@@ -14,7 +14,7 @@
 //     Prisma uses these model definitions for full type-safety; the actual
 //     table rows live inside the tenant's own PostgreSQL schema.
 //
-//     Tenant schemas are created during onboarding (T-001) via raw SQL:
+//     Tenant schemas are created during onboarding via raw SQL:
 //       CREATE SCHEMA IF NOT EXISTS "clube_{clubId}"
 //     followed by running the tenant migrations inside that schema.
 //
@@ -145,10 +145,9 @@ model Club {
   logoUrl        String?
   cnpj           String?  @unique
   planTier       String   @default("starter")
-  /// Static Pix key used as last-resort fallback when all payment gateways fail (T-082).
+  /// Static Pix key used as last-resort fallback when all payment gateways fail.
   /// Supported formats: CPF, CNPJ, phone (+5511999990000), e-mail, or random UUID key.
   /// Null means no static fallback is configured — all gateway failures will be retried by BullMQ.
-  /// Notifications when this fires are handled by T-083.
   pixKeyFallback String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -238,7 +237,7 @@ model MemberPlan {
 ///                   Boleto→ { bankSlipUrl, pdfUrl }
 ///                   Card  → { checkoutUrl }
 ///                   Cash  → {}  (no external data)
-///                   Static PIX (T-082) → { type: "static_pix", pixKey: "..." }
+///                   Static PIX → { type: "static_pix", pixKey: "..." }
 model Charge {
   id          String        @id @default(cuid())
   memberId    String

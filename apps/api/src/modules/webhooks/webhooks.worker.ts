@@ -12,19 +12,6 @@ import {
 /**
  * Starts the webhook event processing worker.
  *
- * Responsibility scope for T-028:
- *   - Dequeue webhook events from the "webhook-events" BullMQ queue.
- *   - Resolve the tenant (clubId) from event.externalReference.
- *   - Check idempotency via hasExistingPayment() before any write.
- *   - Log a clear message and return early if duplicate detected.
- *
- * T-027 extends the processor with the full PAYMENT_RECEIVED handler
- * (create Payment, update Charge, update Member status).
- *
- * T-042 adds: after successful handlePaymentReceived, emit an SSE event
- * via emitPaymentConfirmed() so connected dashboard clients update in
- * real-time without a page reload.
- *
  * Two-layer idempotency:
  *   Layer 1 — BullMQ: deterministic jobId prevents enqueueing the same
  *             gatewayTxId twice while a job is still in the queue.

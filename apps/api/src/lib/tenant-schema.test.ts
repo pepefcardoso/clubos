@@ -1,5 +1,4 @@
 /**
- * Integration tests for provisionTenantSchema (T-001).
  *
  * These tests run against a real PostgreSQL instance. The DATABASE_URL env var
  * must point to a test database (e.g. clubos_test). The CI pipeline provides

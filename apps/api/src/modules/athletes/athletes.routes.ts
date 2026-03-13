@@ -21,9 +21,6 @@ import type { AccessTokenPayload } from "../../types/fastify.js";
  * All routes are protected by verifyAccessToken via the protectedRoutes
  * plugin-level hook — no additional auth setup needed here.
  *
- * TODO (T-055): implement route handlers once service layer is complete.
- *               The stubs below wire up schema validation and error mapping
- *               so the route surface is established for the frontend (T-056).
  */
 export async function athleteRoutes(fastify: FastifyInstance): Promise<void> {
   /**

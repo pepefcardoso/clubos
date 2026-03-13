@@ -7,10 +7,10 @@ import type { PaymentGateway, PaymentMethod } from "./gateway.interface.js";
  *   // Resolve by payment method — single gateway (legacy, backward-compatible)
  *   const gateway = GatewayRegistry.forMethod('PIX');
  *
- *   // Resolve all gateways for a method in priority order — used by fallback chain (T-082)
+ *   // Resolve all gateways for a method in priority order — used by fallback chain
  *   const gateways = GatewayRegistry.listForMethod('PIX');
  *
- *   // Resolve by provider name (webhook routes — T-026)
+ *   // Resolve by provider name
  *   const gateway = GatewayRegistry.get('asaas');
  */
 export class GatewayRegistry {
@@ -54,7 +54,7 @@ export class GatewayRegistry {
    * Used by ChargeService during charge creation.
    * For multi-gateway setups, extend with priority rules or a config-driven mapping.
    *
-   * For the fallback chain (T-082), use `listForMethod()` instead — it returns all
+   * For the fallback chain, use `listForMethod()` instead — it returns all
    * matching gateways in priority order so callers can try each in sequence.
    */
   static forMethod(method: PaymentMethod): PaymentGateway {
@@ -77,7 +77,7 @@ export class GatewayRegistry {
    * Returns ALL registered gateways that support the given payment method,
    * in registration order (= priority order).
    *
-   * Used by the fallback chain (T-082): callers iterate the list and attempt
+   * Used by the fallback chain: callers iterate the list and attempt
    * each gateway in sequence, falling back to the next on failure.
    *
    * Returns an empty array when no gateway supports the method — the fallback

@@ -11,7 +11,7 @@ const connection = getRedisClient();
  * - Enforces a single concurrency cap across all charge work.
  * - Avoids the overhead of managing multiple QueueSchedulers.
  *
- * Retry strategy (T-024):
+ * Retry strategy:
  *   attempt 1 → wait  1h  → attempt 2
  *   attempt 2 → wait  6h  → attempt 3
  *   attempt 3 → wait 24h  → EXHAUSTED → charges set to PENDING_RETRY
@@ -39,7 +39,7 @@ export const chargeGenerationQueue = new Queue("charge-generation", {
  * - Independent concurrency caps and retry policies.
  * - Isolated monitoring — reminder failures don't pollute charge job metrics.
  *
- * Retry strategy (T-033):
+ * Retry strategy:
  *   attempt 1 fails → wait 5s  → attempt 2 (exponential: 10s, 20s, …)
  *   Max 2 attempts — more retries risk duplicate sends if the failure was partial.
  *
@@ -70,7 +70,7 @@ export const billingReminderQueue = new Queue("billing-reminders", {
  *   overdue notice cron (10:00 UTC) are intentionally staggered so both queues
  *   do not compete for per-club WhatsApp rate-limit slots simultaneously.
  *
- * Retry strategy (T-034):
+ * Retry strategy:
  *   attempt 1 fails → wait 5s → attempt 2 (exponential backoff).
  *   Max 2 attempts — same reasoning as billing reminders (duplicate send risk).
  */
@@ -100,7 +100,7 @@ export const overdueNoticeQueue = new Queue("overdue-notices", {
  * Cron scheduled at 11:00 UTC (08:00 BRT), staggered 1h after the overdue
  * notice cron (10:00 UTC) to spread DB and Redis load across the morning.
  *
- * Retry strategy (T-079):
+ * Retry strategy:
  *   attempt 1 fails → wait 10s → attempt 2 (exponential backoff).
  *   Max 2 attempts — email send failures are often auth/config issues
  *   (non-retriable), so a short retry window is preferred over flooding

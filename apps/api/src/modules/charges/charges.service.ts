@@ -47,8 +47,8 @@ export type DispatchResult =
       meta: GatewayMeta;
       /**
        * True when all registered gateways failed and the club's static PIX key
-       * was used as a last resort (T-082/T-083). The charge has no externalId.
-       * Callers use this flag to trigger the admin notification (T-083).
+       * was used as a last resort. The charge has no externalId.
+       * Callers use this flag to trigger the admin notification.
        */
       isStaticFallback: boolean;
     };
@@ -147,16 +147,16 @@ export async function markChargesPendingRetry(
 
 /**
  * Dispatches an already-persisted PENDING charge through the gateway fallback
- * chain (T-082: Asaas → Pagarme → static PIX) and updates the charge row with
+ * chain and updates the charge row with
  * the resolved externalId, gatewayName, and gatewayMeta on success.
  *
  * Design decisions:
  * - Called OUTSIDE the DB transaction that creates the charge row so a long
  *   HTTP call to the gateway never holds a DB connection open.
  * - Uses GatewayRegistry.listForMethod() + createChargeWithFallback() so the
- *   full fallback chain is tried before the static PIX path (T-082).
+ *   full fallback chain is tried before the static PIX path.
  * - Gateway failures are logged and swallowed — the charge stays PENDING and
- *   T-024 retry logic handles recovery. Only non-retriable errors (e.g.
+ *   retry logic handles recovery. Only non-retriable errors (e.g.
  *   decryption failure, programmer error) are re-thrown.
  * - `idempotencyKey: charge.id` is stable across retries. Each gateway will
  *   return the existing charge if the same idempotencyKey is re-submitted,
@@ -172,7 +172,7 @@ export async function markChargesPendingRetry(
  * @param clubId         - Tenant identifier used by withTenantSchema.
  * @param charge         - The persisted PENDING Charge row (subset of fields).
  * @param member         - Raw Member row with cpf/phone still encrypted as Bytes.
- * @param pixKeyFallback - Club's static Pix key for last-resort fallback (T-082).
+ * @param pixKeyFallback - Club's static Pix key for last-resort fallback.
  * @returns              A DispatchResult discriminated union:
  *                         { error } on any failure,
  *                         { externalId, gatewayName, meta, isStaticFallback } on success.
@@ -298,13 +298,13 @@ export async function dispatchChargeToGateway(
  *
  * After committing each charge row, dispatchChargeToGateway() is called to
  * obtain the Pix QR Code and update the charge with externalId / gatewayMeta.
- * The dispatch uses the full fallback chain: Asaas → Pagarme → static PIX
- * (T-082). Gateway failures are isolated into result.gatewayErrors — they do
+ * The dispatch uses the full fallback chain: Asaas → Pagarme → static PIX.
+ * Gateway failures are isolated into result.gatewayErrors — they do
  * NOT appear in result.errors and do NOT prevent other charges from being
  * processed.
  *
  * When one or more charges resolve via the static PIX fallback, a batch
- * summary email is sent to all ADMIN users of the club (T-083). This
+ * summary email is sent to all ADMIN users of the club. This
  * notification is fire-and-forget — delivery failure never affects the
  * HTTP response or job result.
  *

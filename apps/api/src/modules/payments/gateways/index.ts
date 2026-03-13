@@ -14,8 +14,7 @@ import { PagarmeGateway } from "./pagarme.gateway.js";
  * INSERTION ORDER = PRIORITY
  *   GatewayRegistry.forMethod() returns the first matching gateway.
  *   Asaas is registered first → primary gateway for PIX.
- *   Pagarme is registered second → fallback gateway (T-082 will add explicit
- *   fallback logic, but insertion order already achieves this for the basic case).
+ *   Pagarme is registered second → fallback gateway.
  */
 export function registerGateways(): void {
   const asaasApiKey = process.env["ASAAS_API_KEY"];

@@ -108,7 +108,6 @@ const TENANT_ENUMS_DDL = `
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'ATHLETE_UPDATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'ATHLETE_DELETED';
 
-  -- Extend AuditAction with contract actions (T-076).
   -- Same rationale as above — must run outside a transaction block.
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CONTRACT_CREATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CONTRACT_UPDATED';
@@ -130,7 +129,7 @@ const TENANT_ENUMS_DDL = `
  * - contracts.endDate is nullable — open-ended contracts are valid.
  * - contracts.bidRegistered defaults to false — explicit opt-in after CBF/FPF registration.
  * - contracts have NO unique constraint on athleteId — historical records accumulate;
- *   at-most-one ACTIVE contract per athlete is enforced at the service layer (T-077).
+ *   at-most-one ACTIVE contract per athlete is enforced at the service layer.
  * - Contract audit entries use entityId / entityType = "Contract" — no dedicated FK.
  * - Contracts are never deleted — only transitioned to TERMINATED (immutability).
  */
@@ -281,7 +280,7 @@ const TENANT_TABLES_DDL = `
   -- federationCode is nullable: populated only after BID registration is confirmed.
   -- No unique constraint on athleteId: historical records accumulate across an athlete's
   -- career (original contract, renewals, loan stints). At-most-one ACTIVE contract per
-  -- athlete is enforced at the service layer (T-077) to allow concurrent transitions.
+  -- athlete is enforced at the service layer to allow concurrent transitions.
   -- Contracts are never deleted — only transitioned to TERMINATED (immutability principle).
   CREATE TABLE IF NOT EXISTS "contracts" (
     "id"             TEXT              NOT NULL,
@@ -373,8 +372,8 @@ const TENANT_INDEXES_DDL = `
 
   -- contracts
   -- contracts_athleteId_idx: supports athlete-scoped contract lookups (GET /api/athletes/:id/contracts)
-  -- contracts_status_idx: supports filtering active contracts (T-077 list endpoint, T-079 alert job)
-  -- contracts_endDate_idx: supports T-079 alert query (WHERE endDate <= NOW() + interval '7 days')
+  -- contracts_status_idx: supports filtering active contracts
+  -- contracts_endDate_idx: supports alert query (WHERE endDate <= NOW() + interval '7 days')
   CREATE INDEX IF NOT EXISTS "contracts_athleteId_idx"
     ON "contracts" ("athleteId");
   CREATE INDEX IF NOT EXISTS "contracts_status_idx"
@@ -463,7 +462,7 @@ const TENANT_FOREIGN_KEYS_DDL = `
  *   A failure there leaves enums created but tables absent — re-running
  *   `provisionTenantSchema` is the safe recovery path (all DDL is idempotent).
  *
- * Called once during club onboarding by `POST /api/clubs` (T-002).
+ * Called once during club onboarding by `POST /api/clubs`.
  * Must NOT be called for every request — only at club creation time.
  *
  * @param prisma  - The global Prisma client (public schema connection).

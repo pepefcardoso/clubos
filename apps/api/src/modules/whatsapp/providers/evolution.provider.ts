@@ -53,7 +53,7 @@ interface EvolutionSendTextResponse {
  * Auth: apikey header (EVOLUTION_API_KEY)
  *
  * Evolution API can be self-hosted or used as a cloud service.
- * Rate limiting and retry logic are handled by the BullMQ job layer (T-035),
+ * Rate limiting and retry logic are handled by the BullMQ job layer,
  * not here. This provider is a thin, stateless HTTP adapter.
  */
 export class EvolutionProvider implements WhatsAppProvider {

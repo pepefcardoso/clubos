@@ -56,7 +56,7 @@ describe("AthleteNotFoundError", () => {
 
 const STUB_PRISMA = {} as PrismaClient;
 
-describe("service stubs (T-054 placeholder contracts)", () => {
+describe("service stubs (placeholder contracts)", () => {
   it("createAthlete rejects with 'Not implemented'", async () => {
     await expect(
       createAthlete(STUB_PRISMA, "club1", "actor1", {

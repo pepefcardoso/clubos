@@ -41,16 +41,13 @@ export class ChargeNotFoundError extends Error {
 
 /**
  * Enqueues a normalised webhook event for async processing by the
- * BullMQ worker (T-027 and beyond).
+ * BullMQ worker.
  *
  * Design decisions:
  * - `jobId` is deterministic on gatewayTxId so BullMQ deduplicates
  *   retransmissions from the PSP within the active job window.
  * - `removeOnComplete` keeps successful jobs for 24 h for debugging.
  * - `removeOnFail` retains failed jobs for 7 days so ops can inspect them.
- *
- * Idempotency at the business layer (duplicate Payment guard) is handled
- * separately in T-028 — this enqueue is intentionally lightweight.
  *
  * @param queue       The BullMQ Queue decorated onto the Fastify instance.
  * @param gatewayName Canonical gateway name (e.g. "asaas").
@@ -82,7 +79,7 @@ export async function enqueueWebhookEvent(
 
 /**
  * Checks whether a Payment with the given gatewayTxid already exists
- * in the tenant schema. This is the DB-level idempotency guard (T-028).
+ * in the tenant schema. This is the DB-level idempotency guard.
  *
  * Called by the webhook worker before creating any Payment row.
  * Returns true  → skip processing (duplicate event).

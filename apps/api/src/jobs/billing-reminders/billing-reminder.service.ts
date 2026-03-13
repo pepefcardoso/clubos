@@ -35,7 +35,7 @@ export interface ReminderResult {
  *      (idempotency guard — prevents duplicate sends on job retry).
  *   4. Per-club WhatsApp rate limit (30 msgs/min) must have an available slot.
  *
- * Email fallback (T-036):
+ * Email fallback:
  *   When a WhatsApp send fails AND the member has an email address AND there is
  *   already at least 1 prior FAILED WhatsApp message within 48h for the same
  *   template, an email is sent via Resend as a fallback — provided no email has

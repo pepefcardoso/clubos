@@ -505,7 +505,7 @@ describe("dispatchChargeToGateway", () => {
   });
 });
 
-describe("dispatchChargeToGateway — persistence (T-022)", () => {
+describe("dispatchChargeToGateway — persistence", () => {
   const mockCharge = {
     id: "charge-001",
     amountCents: 14900,
@@ -522,7 +522,7 @@ describe("dispatchChargeToGateway — persistence (T-022)", () => {
       .mockResolvedValueOnce("11999990000");
   });
 
-  it("T-022-1: persists externalId, gatewayName and gatewayMeta atomically", async () => {
+  it("persists externalId, gatewayName and gatewayMeta atomically", async () => {
     const gateway = buildMockGateway({
       createChargeResult: {
         externalId: "pay_pix_xyz",
@@ -553,7 +553,7 @@ describe("dispatchChargeToGateway — persistence (T-022)", () => {
     });
   });
 
-  it("T-022-2: returns structured result with externalId, gatewayName and meta on success", async () => {
+  it("returns structured result with externalId, gatewayName and meta on success", async () => {
     const meta = { qrCodeBase64: "abc123==", pixCopyPaste: "00020126..." };
     const gateway = buildMockGateway({
       createChargeResult: {
@@ -581,7 +581,7 @@ describe("dispatchChargeToGateway — persistence (T-022)", () => {
     });
   });
 
-  it("T-022-3: DB update failure after gateway success surfaces as error containing externalId", async () => {
+  it("DB update failure after gateway success surfaces as error containing externalId", async () => {
     const gateway = buildMockGateway({
       createChargeResult: {
         externalId: "pay_pix_xyz",
@@ -609,7 +609,7 @@ describe("dispatchChargeToGateway — persistence (T-022)", () => {
     }
   });
 
-  it("T-022-4: CASH method returns empty meta object without calling charge.update", async () => {
+  it("CASH method returns empty meta object without calling charge.update", async () => {
     const tx = buildMockTx();
     setMockTx(tx);
 
@@ -624,7 +624,7 @@ describe("dispatchChargeToGateway — persistence (T-022)", () => {
     expect(tx.charge.update).not.toHaveBeenCalled();
   });
 
-  it("T-022-5: generated charge summary contains gatewayMeta and externalId when dispatch succeeds", async () => {
+  it("generated charge summary contains gatewayMeta and externalId when dispatch succeeds", async () => {
     const meta = { qrCodeBase64: "qrbase64==", pixCopyPaste: "00020126..." };
     const gateway = buildMockGateway({
       createChargeResult: { externalId: "pay_123", status: "PENDING", meta },
@@ -948,7 +948,7 @@ describe("generateMonthlyCharges", () => {
     });
   });
 
-  it("TC-15 (T-021): gateway succeeds — result.gatewayErrors is empty", async () => {
+  it("TC-15: gateway succeeds — result.gatewayErrors is empty", async () => {
     const members = [
       makeMemberPlan("m1", "Alice", 9900),
       makeMemberPlan("m2", "Bob", 14900),
@@ -966,7 +966,7 @@ describe("generateMonthlyCharges", () => {
     expect(result.gatewayErrors).toHaveLength(0);
   });
 
-  it("TC-16 (T-021): gateway failure populates gatewayErrors[], charge still counted as generated", async () => {
+  it("TC-16: gateway failure populates gatewayErrors[], charge still counted as generated", async () => {
     const members = [
       makeMemberPlan("m1", "Alice"),
       makeMemberPlan("m2", "Bob"),
@@ -1008,7 +1008,7 @@ describe("generateMonthlyCharges", () => {
     });
   });
 
-  it("TC-17 (T-021): null member row after charge creation gracefully skips dispatch", async () => {
+  it("TC-17: null member row after charge creation gracefully skips dispatch", async () => {
     const members = [makeMemberPlan("m1", "Alice")];
     const tx = buildMockTx({
       memberPlanFindMany: members,
@@ -1025,7 +1025,7 @@ describe("generateMonthlyCharges", () => {
     expect(tx.charge.update).not.toHaveBeenCalled();
   });
 
-  it("TC-18 (T-021): result always has gatewayErrors array even when empty", async () => {
+  it("TC-18: result always has gatewayErrors array even when empty", async () => {
     const tx = buildMockTx({ memberPlanFindMany: [] });
     setMockTx(tx);
 

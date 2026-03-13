@@ -209,7 +209,7 @@
 
 | ID        | Tarefa Técnica                                                                                                   | Esforço | Sprint | Status |
 | --------- | ---------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-060** | Endpoint `GET /api/members/:id/payments` com join em cobranças (`payments` + `charges`; dado já existe no banco) | 0.5d    | S4     | ⬜     |
+| **T-060** | Endpoint `GET /api/members/:id/payments` com join em cobranças (`payments` + `charges`; dado já existe no banco) | 0.5d    | S4     | ✅     |
 
 ---
 
@@ -290,7 +290,6 @@
 
 **Bloco 1 — Backend MUSTs (sequência crítica)**
 
-8. **T-060:** Endpoint histórico de pagamentos (backend isolado, ~0.5d).
 9. **T-084:** Job D-0 (último job da régua, fecha M6).
 
 **Bloco 2 — Frontend MUSTs + SHOULD**

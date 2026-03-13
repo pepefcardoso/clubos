@@ -1,6 +1,7 @@
 import { GatewayRegistry } from "../gateway.registry.js";
 import { AsaasGateway } from "./asaas.gateway.js";
 import { PagarmeGateway } from "./pagarme.gateway.js";
+import { StripeGateway } from "./stripe.gateway.js";
 
 /**
  * GATEWAY BOOTSTRAP
@@ -13,8 +14,9 @@ import { PagarmeGateway } from "./pagarme.gateway.js";
  *
  * INSERTION ORDER = PRIORITY
  *   GatewayRegistry.forMethod() returns the first matching gateway.
- *   Asaas is registered first → primary gateway for PIX.
- *   Pagarme is registered second → fallback gateway.
+ *   Asaas is registered first   → primary gateway for PIX (Brazilian provider).
+ *   Pagarme is registered second → secondary fallback gateway.
+ *   Stripe is registered third   → tertiary international gateway (opt-in via STRIPE_ENABLED=true).
  */
 export function registerGateways(): void {
   const asaasApiKey = process.env["ASAAS_API_KEY"];
@@ -44,6 +46,25 @@ export function registerGateways(): void {
         apiKey: pagarmeApiKey,
         webhookSecret: pagarmeWebhookSecret,
         sandbox: process.env["NODE_ENV"] !== "production",
+      }),
+    );
+  }
+
+  if (process.env["STRIPE_ENABLED"] === "true") {
+    const stripeSecretKey = process.env["STRIPE_SECRET_KEY"];
+    const stripeWebhookSecret = process.env["STRIPE_WEBHOOK_SECRET"];
+
+    if (!stripeSecretKey || !stripeWebhookSecret) {
+      throw new Error(
+        "STRIPE_ENABLED=true but missing required env vars: " +
+          "STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET. Check your .env file.",
+      );
+    }
+
+    GatewayRegistry.register(
+      new StripeGateway({
+        secretKey: stripeSecretKey,
+        webhookSecret: stripeWebhookSecret,
       }),
     );
   }

@@ -230,10 +230,15 @@ model MemberPlan {
 
 /// Gateway fields:
 ///   method      → what payment method was requested (PIX, CARD, CASH, …)
-///   gatewayName → which provider handled it ("asaas", "pagarme", null for offline/static-pix)
+///   gatewayName → which provider handled it ("asaas", "pagarme", "stripe", null for offline/static-pix)
 ///   externalId  → charge ID in the external gateway (used for cancellation / lookup)
 ///   gatewayMeta → provider + method-specific data stored as JSONB, e.g.:
-///                   PIX   → { qrCodeBase64, pixCopyPaste }
+///                   PIX (Asaas/Pagarme) → { qrCodeBase64, pixCopyPaste }
+///                   PIX (Stripe)        → { pixCopyPaste, qrCodeUrl, paymentIntentId }
+///                     NOTE: Stripe serves the QR as a hosted PNG URL, not inline base64.
+///                     Frontend must branch on charges.gatewayName:
+///                       "asaas"/"pagarme" → <img src="data:image/png;base64,{qrCodeBase64}"/>
+///                       "stripe"          → <img src={qrCodeUrl}/> or display pixCopyPaste
 ///                   Boleto→ { bankSlipUrl, pdfUrl }
 ///                   Card  → { checkoutUrl }
 ///                   Cash  → {}  (no external data)

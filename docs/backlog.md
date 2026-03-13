@@ -266,7 +266,7 @@
 | **T-081** | Implementar `PagarmeGateway` seguindo a interface `PaymentGateway` (PIX com QR Code, mapeamento de webhooks)                                                                                                                  | 1d      | S4     | ✅     |
 | **T-082** | Lógica de fallback silencioso em `GatewayRegistry.forMethod('PIX')`: Asaas → Pagarme → PIX estático do clube; campo `pixKeyFallback` no schema `clubs` e no DDL                                                               | 0.5d    | S4     | ✅     |
 | **T-083** | Notificação ao clube quando fallback é acionado (WhatsApp/e-mail via régua existente) + campo `pixKeyFallback` no wizard de onboarding                                                                                        | 0.5d    | S4     | ✅     |
-| **T-085** | Implementar `StripeGateway` seguindo a interface `PaymentGateway` (PIX via Stripe Brazil, mapeamento de webhooks com `stripe-signature`); registrar no `GatewayRegistry` como provider opcional via env `STRIPE_ENABLED=true` | 1d      | S4     | ⬜     |
+| **T-085** | Implementar `StripeGateway` seguindo a interface `PaymentGateway` (PIX via Stripe Brazil, mapeamento de webhooks com `stripe-signature`); registrar no `GatewayRegistry` como provider opcional via env `STRIPE_ENABLED=true` | 1d      | S4     | ✅     |
 
 ---
 
@@ -290,7 +290,6 @@
 
 **Bloco 1 — Backend MUSTs (sequência crítica)**
 
-7. **T-085:** Multi-Acquiring PIX (Pagarme + fallback + onboarding + Stripe).
 8. **T-060:** Endpoint histórico de pagamentos (backend isolado, ~0.5d).
 9. **T-084:** Job D-0 (último job da régua, fecha M6).
 

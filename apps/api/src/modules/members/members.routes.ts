@@ -22,6 +22,7 @@ import { buildRenderedMessage } from "../templates/templates.service.js";
 import { withTenantSchema } from "../../lib/prisma.js";
 import { TEMPLATE_KEYS } from "../templates/templates.constants.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
+import { memberPaymentRoutes } from "./members.payments.routes.js";
 
 /**
  * Cooldown window (hours) for the manual remind endpoint.
@@ -350,4 +351,6 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.status(200).send(result);
   });
+
+  await fastify.register(memberPaymentRoutes);
 }

@@ -88,6 +88,40 @@ export const overdueNoticeQueue = new Queue("overdue-notices", {
 });
 
 /**
+ * Queue for D-0 due-today notice jobs (daily dispatch + per-club WhatsApp sends).
+ *
+ * Fires at 08:00 UTC (05:00 BRT) — one hour before the D-3 reminder cron
+ * (09:00 UTC) so all four morning queues are staggered to avoid competing
+ * for per-club WhatsApp rate-limit slots simultaneously:
+ *
+ *   08:00 UTC — D-0  due-today-notices   ← this queue
+ *   09:00 UTC — D-3  billing-reminders
+ *   10:00 UTC — D+3  overdue-notices
+ *   11:00 UTC — contract-alerts
+ *
+ * Separate from `billingReminderQueue` and `overdueNoticeQueue` for:
+ * - Independent monitoring — D-0 failures are distinct from D-3 and D+3.
+ * - Independent retry policies and concurrency tuning.
+ * - Isolated failure metrics — one broken club does not pollute others.
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 5s → attempt 2 (exponential backoff).
+ *   Max 2 attempts — same duplicate-send risk rationale as the D-3 queue.
+ */
+export const dueTodayNoticeQueue = new Queue("due-today-notices", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 200 },
+    removeOnFail: { count: 500 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 5_000,
+    },
+  },
+});
+
+/**
  * Queue for contract expiry (D-7, D-1) and BID-pending alert jobs.
  *
  * Separate from `billingReminderQueue` and `overdueNoticeQueue` because:

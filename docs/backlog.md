@@ -280,17 +280,13 @@
 
 | ID        | Tarefa Técnica                                                                                                                                   | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
-| **T-084** | Job D-0: dispatch + worker BullMQ (cron `0 8 * * *`, fila `due-today-notices`, `sendDueTodayNoticesForClub`) — mesmo padrão fan-out de D-3 e D+3 | 0.5d    | S4     | ⬜     |
+| **T-084** | Job D-0: dispatch + worker BullMQ (cron `0 8 * * *`, fila `due-today-notices`, `sendDueTodayNoticesForClub`) — mesmo padrão fan-out de D-3 e D+3 | 0.5d    | S4     | ✅     |
 
 ---
 
 ## Ordem de Execução Recomendada (Sprint 4 e 5)
 
 ### Sprint 4 — Fechamento v1.0 (Foco em Funcionalidades MUST)
-
-**Bloco 1 — Backend MUSTs (sequência crítica)**
-
-9. **T-084:** Job D-0 (último job da régua, fecha M6).
 
 **Bloco 2 — Frontend MUSTs + SHOULD**
 

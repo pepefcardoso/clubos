@@ -18,6 +18,10 @@ import { JOB_NAMES } from "./charge-generation/charge-generation.types.js";
 import { BILLING_REMINDER_JOB_NAMES } from "./billing-reminders/billing-reminder.types.js";
 import { OVERDUE_NOTICE_JOB_NAMES } from "./overdue-notices/overdue-notice.types.js";
 import { CONTRACT_ALERT_JOB_NAMES } from "./contract-alerts/contract-alert.types.js";
+import { dueTodayNoticeQueue } from "./queues.js";
+import { startDueTodayNoticeDispatchWorker } from "./due-today-notices/due-today-notice-dispatch.worker.js";
+import { startDueTodayNoticeWorker } from "./due-today-notices/due-today-notice.worker.js";
+import { DUE_TODAY_NOTICE_JOB_NAMES } from "./due-today-notices/due-today-notice.types.js";
 
 /**
  * Cron expression: 1st of every month at 08:00 UTC.
@@ -38,6 +42,15 @@ const D3_REMINDER_CRON = "0 9 * * *";
  * for per-club WhatsApp rate-limit slots simultaneously.
  */
 const OVERDUE_NOTICE_CRON = "0 10 * * *";
+
+/**
+ * Cron expression: every day at 08:00 UTC (05:00 BRT).
+ * Sends D-0 due-today notices for charges whose dueDate is today.
+ * Fires one hour before the D-3 reminder cron (09:00 UTC) so all four
+ * morning queues are staggered and never compete for per-club
+ * WhatsApp rate-limit slots simultaneously.
+ */
+const DUE_TODAY_NOTICE_CRON = "0 8 * * *";
 
 /**
  * Cron expression: every day at 11:00 UTC (08:00 BRT).
@@ -67,6 +80,12 @@ const D3_REMINDER_CRON_ID = "daily-d3-reminder-cron";
 const OVERDUE_NOTICE_CRON_ID = "daily-overdue-notice-cron";
 
 /**
+ * Stable job ID for the D-0 due-today notice cron entry.
+ * Prevents duplicate registrations on restart.
+ */
+const DUE_TODAY_NOTICE_CRON_ID = "daily-due-today-notice-cron";
+
+/**
  * Stable job ID for the daily contract alert cron entry.
  * Prevents duplicate registrations on restart.
  */
@@ -84,25 +103,29 @@ const _workers: Worker[] = [];
  * **Must be called once** during application startup (inside `buildApp()`).
  *
  * Workers started:
- *   1. Charge dispatch worker (concurrency=1) — processes the monthly cron trigger,
- *      fans out one job per club.
- *   2. Charge generation worker (concurrency=5) — calls `generateMonthlyCharges()`
- *      for each club.
- *   3. Webhook worker (concurrency=5) — processes incoming payment gateway
- *      events from the "webhook-events" BullMQ queue.
- *   4. Billing reminder dispatch worker (concurrency=1) — processes the daily
- *      D-3 cron trigger, fans out one reminder job per club.
- *   5. Billing reminder worker (concurrency=5) — sends WhatsApp D-3 reminders
- *      for each club's PENDING charges due in 3 days.
- *   6. Overdue notice dispatch worker (concurrency=1) — processes the daily
- *      D+3 cron trigger, fans out one overdue notice job per club.
- *   7. Overdue notice worker (concurrency=5) — sends WhatsApp D+3 overdue notices
- *      for each club's PENDING/OVERDUE charges due 3 days ago.
- *   8. Contract alert dispatch worker (concurrency=1) — processes the daily
- *      11:00 UTC cron trigger, fans out one contract alert job per club.
- *   9. Contract alert worker (concurrency=5) — sends email alerts to club ADMIN
- *      users for contracts expiring in 7 or 1 days, and batched BID-pending
- *      notices for athletes whose BID/CBF registration is not yet confirmed.
+ *   1.  Charge dispatch worker (concurrency=1) — processes the monthly cron trigger,
+ *       fans out one job per club.
+ *   2.  Charge generation worker (concurrency=5) — calls `generateMonthlyCharges()`
+ *       for each club.
+ *   3.  Webhook worker (concurrency=5) — processes incoming payment gateway
+ *       events from the "webhook-events" BullMQ queue.
+ *   4.  Billing reminder dispatch worker (concurrency=1) — processes the daily
+ *       D-3 cron trigger, fans out one reminder job per club.
+ *   5.  Billing reminder worker (concurrency=5) — sends WhatsApp D-3 reminders
+ *       for each club's PENDING charges due in 3 days.
+ *   6.  Overdue notice dispatch worker (concurrency=1) — processes the daily
+ *       D+3 cron trigger, fans out one overdue notice job per club.
+ *   7.  Overdue notice worker (concurrency=5) — sends WhatsApp D+3 overdue notices
+ *       for each club's PENDING/OVERDUE charges due 3 days ago.
+ *   8.  Contract alert dispatch worker (concurrency=1) — processes the daily
+ *       11:00 UTC cron trigger, fans out one contract alert job per club.
+ *   9.  Contract alert worker (concurrency=5) — sends email alerts to club ADMIN
+ *       users for contracts expiring in 7 or 1 days, and batched BID-pending
+ *       notices for athletes whose BID/CBF registration is not yet confirmed.
+ *   10. Due-today notice dispatch worker (concurrency=1) — processes the daily
+ *       08:00 UTC cron trigger, fans out one due-today notice job per club.
+ *   11. Due-today notice worker (concurrency=5) — sends WhatsApp D-0 notices
+ *       for each club's PENDING charges due today.
  *
  * Cron registration is **skipped in test environments** (`NODE_ENV=test`) to
  * prevent polluting the test Redis instance with repeatable job entries that
@@ -110,6 +133,12 @@ const _workers: Worker[] = [];
  *
  * All `upsertJobScheduler` calls are idempotent across restarts — BullMQ will
  * update the existing repeatable job entry rather than creating a duplicate.
+ *
+ * Morning cron schedule (UTC):
+ *   08:00 — D-0  due-today-notices
+ *   09:00 — D-3  billing-reminders
+ *   10:00 — D+3  overdue-notices
+ *   11:00 — contract-alerts
  */
 export async function registerJobs(): Promise<void> {
   _workers.push(startChargeDispatchWorker());
@@ -121,6 +150,8 @@ export async function registerJobs(): Promise<void> {
   _workers.push(startOverdueNoticeWorker());
   _workers.push(startContractAlertDispatchWorker());
   _workers.push(startContractAlertWorker());
+  _workers.push(startDueTodayNoticeDispatchWorker());
+  _workers.push(startDueTodayNoticeWorker());
 
   if (process.env["NODE_ENV"] !== "test") {
     await chargeGenerationQueue.upsertJobScheduler(
@@ -168,6 +199,21 @@ export async function registerJobs(): Promise<void> {
       `[jobs] Overdue notice cron registered: "${OVERDUE_NOTICE_CRON}" (UTC)`,
     );
 
+    await dueTodayNoticeQueue.upsertJobScheduler(
+      DUE_TODAY_NOTICE_CRON_ID,
+      { pattern: DUE_TODAY_NOTICE_CRON },
+      {
+        name: DUE_TODAY_NOTICE_JOB_NAMES.DISPATCH_DUE_TODAY_NOTICES,
+        data: {},
+        opts: {
+          attempts: 1,
+        },
+      },
+    );
+    console.info(
+      `[jobs] D-0 due-today notice cron registered: "${DUE_TODAY_NOTICE_CRON}" (UTC)`,
+    );
+
     await contractAlertQueue.upsertJobScheduler(
       CONTRACT_ALERT_CRON_ID,
       { pattern: CONTRACT_ALERT_CRON },
@@ -199,6 +245,7 @@ export async function closeJobs(): Promise<void> {
   await chargeGenerationQueue.close();
   await billingReminderQueue.close();
   await overdueNoticeQueue.close();
+  await dueTodayNoticeQueue.close();
   await contractAlertQueue.close();
   console.info("[jobs] All workers and queues closed");
 }

@@ -191,7 +191,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                               | Esforço | Sprint | Status |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-057** | Fluxo de upload: Dropzone, preview de erros por linha e feedback visual na `MembersPage` (endpoint `POST /api/members/import` já disponível) | 0.5d    | S4     | ⬜     |
+| **T-057** | Fluxo de upload: Dropzone, preview de erros por linha e feedback visual na `MembersPage` (endpoint `POST /api/members/import` já disponível) | 0.5d    | S4     | ✅     |
 
 ### US-12 — Tela de Cobranças Pix
 
@@ -290,7 +290,6 @@
 
 **Bloco 2 — Frontend MUSTs + SHOULD**
 
-10. **T-057:** Fluxo CSV na `MembersPage` (endpoint já disponível).
 11. **T-058:** Página `/charges` com QR Code (backend Asaas plenamente disponível).
 12. **T-059:** Editor de templates (endpoints já disponíveis).
 13. **T-080:** Tela de contratos + entrada sidebar.

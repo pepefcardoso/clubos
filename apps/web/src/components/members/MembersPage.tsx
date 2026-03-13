@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, CheckCircle, XCircle } from "lucide-react";
+import { Plus, CheckCircle, XCircle, Upload } from "lucide-react";
 import type { MemberStatus } from "../../../../../packages/shared-types/src/index.js";
 import { useAuth } from "@/hooks/use-auth";
 import { fetchMembers, type MemberResponse } from "@/lib/api/members";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { MembersFilters } from "./MembersFilters";
 import { MembersTable } from "./MembersTable";
 import { MemberFormModal } from "./MemberFormModal";
+import { CsvImportModal } from "./CsvImportModal";
 
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -101,6 +102,7 @@ export function MembersPage() {
   const [formTarget, setFormTarget] = useState<MemberResponse | "new" | null>(
     null,
   );
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const { toasts, pushSuccess, pushError } = useToasts();
 
@@ -146,10 +148,19 @@ export function MembersPage() {
         </div>
 
         {isAdmin && (
-          <Button onClick={() => setFormTarget("new")}>
-            <Plus size={16} aria-hidden="true" />
-            Novo sócio
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setShowImportModal(true)}
+            >
+              <Upload size={15} aria-hidden="true" />
+              Importar CSV
+            </Button>
+            <Button onClick={() => setFormTarget("new")}>
+              <Plus size={16} aria-hidden="true" />
+              Novo sócio
+            </Button>
+          </div>
         )}
       </div>
 
@@ -178,6 +189,13 @@ export function MembersPage() {
           onClose={() => setFormTarget(null)}
           onSuccess={pushSuccess}
           onError={pushError}
+        />
+      )}
+
+      {showImportModal && (
+        <CsvImportModal
+          onClose={() => setShowImportModal(false)}
+          onSuccess={(msg) => pushSuccess(msg)}
         />
       )}
 

@@ -249,7 +249,7 @@
 | **T-077** | CRUD `GET/POST/PUT /api/contracts` com AuditLog em escrita; validação Zod                                                                        | 0.5d    | S4     | ✅     |
 | **T-078** | Motor de Regras Esportivas: `rules_config` (JSONB por temporada/liga), `RulesValidator.check(athlete, ruleSet)` — parametrizável sem deploy      | 1d      | S4     | ✅     |
 | **T-079** | Service de alertas: vencimento de contrato (D-7 e D-1) + BID pendente antes de escalação — WhatsApp/e-mail via régua existente                   | 0.5d    | S4     | ✅     |
-| **T-080** | Frontend: telas de listagem e cadastro de contratos + entrada na sidebar (`/contracts`) — reuso de componentes existentes                        | 0.5d    | S4     | ⬜     |
+| **T-080** | Frontend: telas de listagem e cadastro de contratos + entrada na sidebar (`/contracts`) — reuso de componentes existentes                        | 0.5d    | S4     | ✅     |
 
 ---
 
@@ -287,10 +287,6 @@
 ## Ordem de Execução Recomendada (Sprint 4 e 5)
 
 ### Sprint 4 — Fechamento v1.0 (Foco em Funcionalidades MUST)
-
-**Bloco 2 — Frontend MUSTs + SHOULD**
-
-13. **T-080:** Tela de contratos + entrada sidebar.
 
 **Bloco 3 — Qualidade (fechar Sprint 3 pendente)**
 

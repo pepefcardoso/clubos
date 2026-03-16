@@ -7,6 +7,7 @@ import {
     LayoutDashboard,
     Users,
     Users2,
+    ScrollText,
     LayoutList,
     CreditCard,
     MessageSquare,
@@ -33,6 +34,7 @@ const PRIMARY_NAV: NavItem[] = [
     { label: "Planos", href: "/plans", icon: LayoutList },
     { label: "Cobranças", href: "/charges", icon: CreditCard },
     { label: "Mensagens", href: "/templates", icon: MessageSquare },
+    { label: "Contratos", href: "/contracts", icon: ScrollText },
 ];
 
 function NavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {

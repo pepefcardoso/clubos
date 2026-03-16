@@ -203,7 +203,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                             | Esforço | Sprint | Status |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-059** | Editor de templates: Personalização de mensagens WhatsApp/e-mail e preview de placeholders (endpoints `GET/PUT/DELETE /api/templates/:key` já disponíveis) | 0.5d    | S4     | ⬜     |
+| **T-059** | Editor de templates: Personalização de mensagens WhatsApp/e-mail e preview de placeholders (endpoints `GET/PUT/DELETE /api/templates/:key` já disponíveis) | 0.5d    | S4     | ✅     |
 
 ### US-14 — Histórico de Pagamentos (Backend)
 
@@ -290,7 +290,6 @@
 
 **Bloco 2 — Frontend MUSTs + SHOULD**
 
-12. **T-059:** Editor de templates (endpoints já disponíveis).
 13. **T-080:** Tela de contratos + entrada sidebar.
 
 **Bloco 3 — Qualidade (fechar Sprint 3 pendente)**

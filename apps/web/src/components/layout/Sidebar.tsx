@@ -9,6 +9,7 @@ import {
     Users2,
     LayoutList,
     CreditCard,
+    MessageSquare,
     Menu,
     X,
     LogOut,
@@ -31,6 +32,7 @@ const PRIMARY_NAV: NavItem[] = [
     { label: "Atletas", href: "/athletes", icon: Users2 },
     { label: "Planos", href: "/plans", icon: LayoutList },
     { label: "Cobranças", href: "/charges", icon: CreditCard },
+    { label: "Mensagens", href: "/templates", icon: MessageSquare },
 ];
 
 function NavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {

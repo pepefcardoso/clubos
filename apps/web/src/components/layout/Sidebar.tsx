@@ -30,7 +30,7 @@ const PRIMARY_NAV: NavItem[] = [
     { label: "Sócios", href: "/members", icon: Users },
     { label: "Atletas", href: "/athletes", icon: Users2 },
     { label: "Planos", href: "/plans", icon: LayoutList },
-    { label: "Cobranças", href: "/charges", icon: CreditCard, soon: true },
+    { label: "Cobranças", href: "/charges", icon: CreditCard },
 ];
 
 function NavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {

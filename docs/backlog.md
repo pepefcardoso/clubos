@@ -197,7 +197,7 @@
 
 | ID        | Tarefa Técnica                                                                 | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------ | ------- | ------ | ------ |
-| **T-058** | Página `/charges`: Listagem mensal, modal de QR Code e botão de geração manual | 1d      | S4     | ⬜     |
+| **T-058** | Página `/charges`: Listagem mensal, modal de QR Code e botão de geração manual | 1d      | S4     | ✅     |
 
 ### US-13 — Configuração de Templates
 
@@ -290,7 +290,6 @@
 
 **Bloco 2 — Frontend MUSTs + SHOULD**
 
-11. **T-058:** Página `/charges` com QR Code (backend Asaas plenamente disponível).
 12. **T-059:** Editor de templates (endpoints já disponíveis).
 13. **T-080:** Tela de contratos + entrada sidebar.
 

@@ -1,12 +1,63 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+import type { ChargeStatus } from "../../../generated/prisma/index.js";
 import { GenerateMonthlyChargesSchema } from "./charges.schema.js";
 import {
   generateMonthlyCharges,
   NoActivePlanError,
 } from "./charges.service.js";
+import { listCharges } from "./charges.list.service.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 
+const ListChargesQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  /** YYYY-MM format — filters by calendar month of dueDate */
+  month: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, "month must be in YYYY-MM format")
+    .optional(),
+  status: z
+    .enum(["PENDING", "PAID", "OVERDUE", "CANCELLED", "PENDING_RETRY"])
+    .optional(),
+  memberId: z.string().optional(),
+});
+
 export async function chargeRoutes(fastify: FastifyInstance): Promise<void> {
+  /**
+   * GET /api/charges
+   *
+   * Returns a paginated list of charges for the authenticated club.
+   * Supports filtering by billing month (YYYY-MM), status, and memberId.
+   *
+   * Available to: ADMIN, TREASURER.
+   *
+   * Query params:
+   *   page     — 1-based page number (default: 1)
+   *   limit    — items per page, max 100 (default: 20)
+   *   month    — YYYY-MM filter on dueDate calendar month
+   *   status   — one of PENDING | PAID | OVERDUE | CANCELLED | PENDING_RETRY
+   *   memberId — restrict to a single member
+   */
+  fastify.get("/", async (request, reply) => {
+    const parsed = ListChargesQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: "Bad Request",
+        message: parsed.error.issues[0]?.message ?? "Invalid query params",
+      });
+    }
+
+    const { clubId } = request.user as AccessTokenPayload;
+
+    const result = await listCharges(fastify.prisma, clubId, {
+      ...parsed.data,
+      status: parsed.data.status as ChargeStatus | undefined,
+    });
+    return reply.status(200).send(result);
+  });
+
   /**
    * POST /api/charges/generate
    *

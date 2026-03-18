@@ -144,7 +144,7 @@
 
 | ID        | Tarefa Técnica                                                      | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-043** | Setup Sentry: Filtro de dados sensíveis e amostragem de 10% em prod | 0.5d    | S3     | ⬜     |
+| **T-043** | Setup Sentry: Filtro de dados sensíveis e amostragem de 10% em prod | 0.5d    | S3     | ✅     |
 | **T-044** | Rate limiting global: 100 req/min por IP (Fastify + Redis)          | 0.5d    | S1     | ✅     |
 | **T-045** | HTTPS obrigatório, headers HSTS e CSP básico no Next.js             | 0.25d   | S1     | ✅     |
 | **T-046** | Criptografia em repouso de CPF e Telefone (pgcrypto AES-256)        | 1d      | S1     | ✅     |
@@ -290,7 +290,6 @@
 
 **Bloco 3 — Qualidade (fechar Sprint 3 pendente)**
 
-15. **T-043:** Setup Sentry.
 16. **T-048:** Testes E2E Playwright (fluxos de login e cobrança).
 
 ### Sprint 5 — Hardening de Segurança

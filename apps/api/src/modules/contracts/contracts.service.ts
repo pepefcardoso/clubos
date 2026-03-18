@@ -8,29 +8,31 @@ import type {
 import type { PaginatedResponse } from "@clubos/shared-types";
 import { withTenantSchema } from "../../lib/prisma.js";
 import { AthleteNotFoundError } from "../athletes/athletes.service.js";
+import {
+  NotFoundError,
+  ConflictError,
+  ValidationError,
+} from "../../lib/errors.js";
 
 export { AthleteNotFoundError };
 
-export class ContractNotFoundError extends Error {
+export class ContractNotFoundError extends NotFoundError {
   constructor() {
     super("Contrato não encontrado");
-    this.name = "ContractNotFoundError";
   }
 }
 
-export class ActiveContractAlreadyExistsError extends Error {
+export class ActiveContractAlreadyExistsError extends ConflictError {
   constructor() {
     super(
       "Atleta já possui um contrato ATIVO. Encerre o contrato atual antes de criar um novo.",
     );
-    this.name = "ActiveContractAlreadyExistsError";
   }
 }
 
-export class ContractAlreadyTerminatedError extends Error {
+export class ContractAlreadyTerminatedError extends ValidationError {
   constructor() {
     super("Contrato já está TERMINATED e não pode ser alterado.");
-    this.name = "ContractAlreadyTerminatedError";
   }
 }
 

@@ -7,34 +7,35 @@ import type {
   ListPlansQuery,
   PlanResponse,
 } from "./plans.schema.js";
+import {
+  NotFoundError,
+  ConflictError,
+  ValidationError,
+} from "../../lib/errors.js";
 
-export class PlanNotFoundError extends Error {
+export class PlanNotFoundError extends NotFoundError {
   constructor() {
     super("Plano não encontrado");
-    this.name = "PlanNotFoundError";
   }
 }
 
-export class DuplicatePlanNameError extends Error {
+export class DuplicatePlanNameError extends ConflictError {
   constructor() {
     super("Já existe um plano com este nome");
-    this.name = "DuplicatePlanNameError";
   }
 }
 
-export class PlanHasActiveMembersError extends Error {
+export class PlanHasActiveMembersError extends ConflictError {
   constructor() {
     super("Não é possível excluir um plano com sócios ativos vinculados");
-    this.name = "PlanHasActiveMembersError";
   }
 }
 
-export class NoActivePlanError extends Error {
+export class NoActivePlanError extends ValidationError {
   constructor() {
     super(
       "O clube não possui nenhum plano ativo. Crie ao menos um plano antes de gerar cobranças.",
     );
-    this.name = "NoActivePlanError";
   }
 }
 

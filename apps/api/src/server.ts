@@ -6,6 +6,7 @@ import fastifyCors from "@fastify/cors";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import { Queue } from "bullmq";
+import sentryPlugin from "./plugins/sentry.plugin.js";
 import authPlugin from "./plugins/auth.plugin.js";
 import sensiblePlugin from "./plugins/sensible.plugin.js";
 import securityHeadersPlugin from "./plugins/security-headers.plugin.js";
@@ -54,6 +55,8 @@ export async function buildApp() {
   fastify.decorate("webhookQueue", webhookQueue);
 
   await registerJobs();
+
+  await fastify.register(sentryPlugin);
 
   await fastify.register(fastifyCors, {
     origin:

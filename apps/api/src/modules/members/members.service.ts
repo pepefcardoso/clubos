@@ -15,25 +15,23 @@ import type {
   MemberResponse,
 } from "./members.schema.js";
 import type { MemberStatus, PaginatedResponse } from "@clubos/shared-types";
+import { ConflictError, NotFoundError } from "../../lib/errors.js";
 
-export class DuplicateCpfError extends Error {
+export class DuplicateCpfError extends ConflictError {
   constructor() {
     super("Sócio com este CPF já está cadastrado");
-    this.name = "DuplicateCpfError";
   }
 }
 
-export class PlanNotFoundError extends Error {
+export class PlanNotFoundError extends NotFoundError {
   constructor() {
     super("Plano não encontrado ou inativo");
-    this.name = "PlanNotFoundError";
   }
 }
 
-export class MemberNotFoundError extends Error {
+export class MemberNotFoundError extends NotFoundError {
   constructor() {
     super("Sócio não encontrado");
-    this.name = "MemberNotFoundError";
   }
 }
 

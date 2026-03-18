@@ -6,32 +6,33 @@ import { saveFile } from "../../lib/storage.js";
 import { sendEmail } from "../../lib/email.js";
 import { buildWelcomeEmail } from "./email-templates/welcome.js";
 import type { CreateClubInput, ClubResponse } from "./clubs.schema.js";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "../../lib/errors.js";
 
-export class DuplicateSlugError extends Error {
+export class DuplicateSlugError extends ConflictError {
   constructor() {
-    super("A club with this slug already exists");
-    this.name = "DuplicateSlugError";
+    super("Um clube com este slug já está cadastrado");
   }
 }
 
-export class DuplicateCnpjError extends Error {
+export class DuplicateCnpjError extends ConflictError {
   constructor() {
-    super("A club with this CNPJ is already registered");
-    this.name = "DuplicateCnpjError";
+    super("Um clube com este CNPJ já está cadastrado");
   }
 }
 
-export class ClubNotFoundError extends Error {
+export class ClubNotFoundError extends NotFoundError {
   constructor() {
-    super("Club not found");
-    this.name = "ClubNotFoundError";
+    super("Clube não encontrado");
   }
 }
 
-export class InvalidImageError extends Error {
+export class InvalidImageError extends ValidationError {
   constructor(reason: string) {
     super(reason);
-    this.name = "InvalidImageError";
   }
 }
 
@@ -119,7 +120,7 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/gif",
 ]);
 
-const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
 
 /**
  * Validates, resizes, and persists a club logo.

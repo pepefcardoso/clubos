@@ -13,18 +13,17 @@ import {
   findAthleteByCpf,
   getEncryptionKey,
 } from "../../lib/crypto.js";
+import { ConflictError, NotFoundError } from "../../lib/errors.js";
 
-export class DuplicateAthleteCpfError extends Error {
+export class DuplicateAthleteCpfError extends ConflictError {
   constructor() {
     super("Atleta com este CPF já está cadastrado");
-    this.name = "DuplicateAthleteCpfError";
   }
 }
 
-export class AthleteNotFoundError extends Error {
+export class AthleteNotFoundError extends NotFoundError {
   constructor() {
     super("Atleta não encontrado");
-    this.name = "AthleteNotFoundError";
   }
 }
 

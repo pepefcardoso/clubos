@@ -14,13 +14,13 @@ import type {
   ChargeGenerationResult,
   GatewayMeta,
 } from "./charges.schema.js";
+import { ConflictError } from "../../lib/errors.js";
 
 export { NoActivePlanError } from "../plans/plans.service.js";
 
-export class ChargePeriodConflictError extends Error {
+export class ChargePeriodConflictError extends ConflictError {
   constructor(memberId: string) {
     super(`Member ${memberId} already has a charge for this billing period`);
-    this.name = "ChargePeriodConflictError";
   }
 }
 

@@ -12,25 +12,23 @@ import type {
   AthleteValidationResponse,
 } from "./rules-config.schema.js";
 import type { ContractSnapshot, AthleteSnapshot } from "./rules.types.js";
+import { NotFoundError, ConflictError } from "../../lib/errors.js";
 
-export class RulesConfigNotFoundError extends Error {
+export class RulesConfigNotFoundError extends NotFoundError {
   constructor() {
     super("Configuração de regras não encontrada");
-    this.name = "RulesConfigNotFoundError";
   }
 }
 
-export class DuplicateRulesConfigError extends Error {
+export class DuplicateRulesConfigError extends ConflictError {
   constructor() {
     super("Já existe uma configuração de regras para esta temporada e liga.");
-    this.name = "DuplicateRulesConfigError";
   }
 }
 
-export class RulesConfigAthleteNotFoundError extends Error {
+export class RulesConfigAthleteNotFoundError extends NotFoundError {
   constructor() {
     super("Atleta não encontrado");
-    this.name = "RulesConfigAthleteNotFoundError";
   }
 }
 

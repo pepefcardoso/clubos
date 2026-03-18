@@ -11,6 +11,9 @@
  * Companion files that use ESM (tailwind.config.ts, postcss.config.js) are
  * handled by their own loaders and are unaffected by this constraint.
  */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { withSentryConfig } = require("@sentry/nextjs");
+
 const nextConfig = {
   async headers() {
     const isProduction = process.env.NODE_ENV === "production";
@@ -101,4 +104,11 @@ function buildCsp(isProduction) {
   ].join("; ");
 }
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+  silent: true,
+  org: process.env.SENTRY_ORG ?? "clubos",
+  project: process.env.SENTRY_PROJECT ?? "clubos-web",
+  hideSourceMaps: true,
+  telemetry: false,
+  dryRun: !process.env.SENTRY_AUTH_TOKEN,
+});

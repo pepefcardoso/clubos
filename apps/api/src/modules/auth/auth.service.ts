@@ -11,6 +11,7 @@ import {
 } from "../../lib/tokens.js";
 import { storeRefreshToken, revokeRefreshToken } from "../../lib/redis.js";
 import type { RefreshTokenPayload } from "../../types/fastify.js";
+import { UnauthorizedError, NotFoundError } from "../../lib/errors.js";
 
 /**
  * Dummy hash used to perform a constant-time compare when the email is not
@@ -116,12 +117,12 @@ export async function logoutUser(
   if (rawToken) {
     try {
       const payload = (
-  fastify as FastifyInstance & {
-    refresh: { verify: (token: string) => unknown };
-  }
-).refresh.verify(rawToken) as RefreshTokenPayload;
+        fastify as FastifyInstance & {
+          refresh: { verify: (token: string) => unknown };
+        }
+      ).refresh.verify(rawToken) as RefreshTokenPayload;
 
-await revokeRefreshToken(redis, payload.jti);
+      await revokeRefreshToken(redis, payload.jti);
     } catch {
       // Token already expired or invalid — no action needed; it's useless anyway.
     }
@@ -130,17 +131,15 @@ await revokeRefreshToken(redis, payload.jti);
   clearRefreshTokenCookie(reply);
 }
 
-export class InvalidCredentialsError extends Error {
+export class InvalidCredentialsError extends UnauthorizedError {
   constructor() {
     super("Invalid credentials");
-    this.name = "InvalidCredentialsError";
   }
 }
 
-export class UserNotFoundError extends Error {
+export class UserNotFoundError extends NotFoundError {
   constructor() {
     super("User not found");
-    this.name = "UserNotFoundError";
   }
 }
 

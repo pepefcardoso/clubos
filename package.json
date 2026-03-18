@@ -13,7 +13,8 @@
     "typecheck": "turbo typecheck",
     "db:up": "docker compose up -d",
     "db:migrate": "pnpm --filter api run db:migrate",
-    "db:studio": "pnpm --filter api run db:studio"
+    "db:studio": "pnpm --filter api run db:studio",
+    "test:e2e": "pnpm --filter=web test:e2e"
   },
   "devDependencies": {
     "prettier": "^3.8.1",

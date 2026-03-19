@@ -134,6 +134,9 @@ enum AuditAction {
   CONTRACT_CREATED
   CONTRACT_UPDATED
   CONTRACT_TERMINATED
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGIN_LOCKED
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.

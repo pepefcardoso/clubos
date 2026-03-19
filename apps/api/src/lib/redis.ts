@@ -1,6 +1,22 @@
-import { Redis } from 'ioredis';
+import { Redis } from "ioredis";
 
 let _redis: Redis | null = null;
+
+/**
+ * Returns true for Redis server errors that indicate a non-recoverable
+ * authentication or configuration failure. These require process exit —
+ * a server running with a broken Redis connection would silently fail
+ * refresh-token rotation, rate limiting, and job enqueueing.
+ */
+export function _isAuthError(err: Error): boolean {
+  const msg = err.message ?? "";
+  return (
+    msg.includes("WRONGPASS") ||
+    msg.includes("NOAUTH") ||
+    msg.includes("ERR invalid password") ||
+    msg.includes("invalid username-password pair")
+  );
+}
 
 export function getRedisClient(): Redis {
   if (!_redis) {
@@ -10,13 +26,35 @@ export function getRedisClient(): Redis {
         "Missing required env var: REDIS_URL. Check your .env file.",
       );
     }
+
     _redis = new Redis(url, {
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
+      lazyConnect: true,
     });
 
     _redis.on("error", (err: Error) => {
+      if (_isAuthError(err)) {
+        console.error(
+          "[Redis] Authentication failed. Check REDIS_URL password. " +
+            "Process will exit. Error:",
+          err.message,
+        );
+        process.exit(1);
+      }
       console.error("[Redis] connection error:", err);
+    });
+
+    _redis.connect().catch((err: Error) => {
+      if (_isAuthError(err)) {
+        console.error(
+          "[Redis] Startup authentication failed. Check REDIS_URL. " +
+            "Process will exit. Error:",
+          err.message,
+        );
+        process.exit(1);
+      }
+      console.error("[Redis] Initial connection error (will retry):", err);
     });
   }
 

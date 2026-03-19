@@ -3,6 +3,7 @@ import {
   storeRefreshToken,
   consumeRefreshToken,
   revokeRefreshToken,
+  _isAuthError,
 } from "../lib/redis.js";
 
 function makeMockRedis() {
@@ -120,5 +121,112 @@ describe("revokeRefreshToken", () => {
     await expect(
       revokeRefreshToken(redis as never, "never-existed"),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("_isAuthError", () => {
+  it("returns true for WRONGPASS errors", () => {
+    expect(
+      _isAuthError(new Error("WRONGPASS invalid username-password pair")),
+    ).toBe(true);
+  });
+
+  it("returns true for NOAUTH errors", () => {
+    expect(_isAuthError(new Error("NOAUTH Authentication required"))).toBe(
+      true,
+    );
+  });
+
+  it("returns true for ERR invalid password", () => {
+    expect(_isAuthError(new Error("ERR invalid password"))).toBe(true);
+  });
+
+  it("returns true for 'invalid username-password pair' wording", () => {
+    expect(
+      _isAuthError(
+        new Error("invalid username-password pair or user is disabled."),
+      ),
+    ).toBe(true);
+  });
+
+  it("returns false for ECONNREFUSED (transient network error)", () => {
+    expect(_isAuthError(new Error("connect ECONNREFUSED 127.0.0.1:6379"))).toBe(
+      false,
+    );
+  });
+
+  it("returns false for ETIMEDOUT", () => {
+    expect(_isAuthError(new Error("connect ETIMEDOUT"))).toBe(false);
+  });
+
+  it("returns false for generic errors", () => {
+    expect(_isAuthError(new Error("Something went wrong"))).toBe(false);
+  });
+
+  it("returns false for an empty message", () => {
+    expect(_isAuthError(new Error(""))).toBe(false);
+  });
+});
+
+describe("getRedisClient() auth-error handling", () => {
+  it("calls process.exit(1) when the Redis error event fires with a WRONGPASS error", async () => {
+    const exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation((_code?: number | string | null | undefined) => {
+        throw new Error("process.exit called");
+      });
+
+    const { EventEmitter } = await import("events");
+    const emitter = new EventEmitter();
+
+    const connectError = new Error("WRONGPASS invalid username-password pair");
+
+    const { _isAuthError: isAuth } = await import("../lib/redis.js");
+
+    const handler = (err: Error) => {
+      if (isAuth(err)) {
+        console.error(
+          "[Redis] Authentication failed. Check REDIS_URL password. Process will exit.",
+          err.message,
+        );
+        process.exit(1);
+      }
+    };
+
+    emitter.on("error", handler);
+
+    expect(() => emitter.emit("error", connectError)).toThrow(
+      "process.exit called",
+    );
+    expect(exitSpy).toHaveBeenCalledWith(1);
+
+    exitSpy.mockRestore();
+  });
+
+  it("does NOT call process.exit(1) when the error event fires with a transient network error", async () => {
+    const exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation((_code?: number | string | null | undefined) => {
+        throw new Error("process.exit called");
+      });
+
+    const { EventEmitter } = await import("events");
+    const emitter = new EventEmitter();
+
+    const { _isAuthError: isAuth } = await import("../lib/redis.js");
+
+    const handler = (err: Error) => {
+      if (isAuth(err)) {
+        process.exit(1);
+      }
+    };
+
+    emitter.on("error", handler);
+    expect(() =>
+      emitter.emit("error", new Error("ECONNREFUSED")),
+    ).not.toThrow();
+    expect(exitSpy).not.toHaveBeenCalled();
+
+    exitSpy.mockRestore();
   });
 });

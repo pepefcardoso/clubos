@@ -12,8 +12,12 @@
  *      — accepted: verify-ca, verify-full + sslrootcert
  *      — rejected: require, prefer, allow, missing, verify-full without sslrootcert
  *   4. SSL is NOT enforced in development / test (local Docker)
- *   5. Caching behaviour — validateEnv() returns the same object reference
- *   6. Error message readability — all failing fields listed at once
+ *   5. Redis TLS enforcement in production (L-08)
+ *      — accepted: rediss:// with password
+ *      — rejected: redis://, rediss:// without password, non-redis schemes
+ *   6. Redis scheme is NOT enforced in development / test
+ *   7. Caching behaviour — validateEnv() returns the same object reference
+ *   8. Error message readability — all failing fields listed at once
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -29,6 +33,10 @@ const VALID_BASE_ENV: Record<string, string> = {
   JWT_REFRESH_SECRET: "b".repeat(32),
   MEMBER_ENCRYPTION_KEY: "c".repeat(32),
 };
+
+/** A valid production DATABASE_URL (verify-full + sslrootcert). */
+const PROD_DATABASE_URL =
+  "postgresql://user:pass@host:5432/db?schema=public&sslmode=verify-full&sslrootcert=/etc/ssl/ca.pem";
 
 /**
  * Temporarily merges `overrides` into process.env (on top of VALID_BASE_ENV)
@@ -192,6 +200,7 @@ describe("validateEnv()", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db",
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       expect(() => validateEnv()).toThrow(/sslmode/);
@@ -204,6 +213,7 @@ describe("validateEnv()", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=disable",
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       expect(() => validateEnv()).toThrow(/sslmode/);
@@ -216,6 +226,7 @@ describe("validateEnv()", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=prefer",
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       expect(() => validateEnv()).toThrow(/sslmode/);
@@ -228,6 +239,7 @@ describe("validateEnv()", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=allow",
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       expect(() => validateEnv()).toThrow(/sslmode/);
@@ -240,6 +252,7 @@ describe("validateEnv()", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=require",
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       expect(() => validateEnv()).toThrow(/sslmode/);
@@ -252,6 +265,7 @@ describe("validateEnv()", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=verify-full",
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       expect(() => validateEnv()).toThrow(/sslrootcert/);
@@ -264,6 +278,7 @@ describe("validateEnv()", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=verify-ca",
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       expect(() => validateEnv()).not.toThrow();
@@ -275,8 +290,8 @@ describe("validateEnv()", () => {
   it("succeeds in production when sslmode=verify-full with sslrootcert", () => {
     const restore = withEnv({
       NODE_ENV: "production",
-      DATABASE_URL:
-        "postgresql://user:pass@host:5432/db?sslmode=verify-full&sslrootcert=/etc/ssl/certs/ca-certificates.crt",
+      DATABASE_URL: PROD_DATABASE_URL,
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       expect(() => validateEnv()).not.toThrow();
@@ -383,6 +398,7 @@ describe("validateEnv()", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=disable",
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       let errorMessage = "";
@@ -402,6 +418,7 @@ describe("validateEnv()", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=verify-full",
+      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       let errorMessage = "";
@@ -413,6 +430,215 @@ describe("validateEnv()", () => {
       expect(errorMessage).toMatch(/sslrootcert/);
       expect(errorMessage).toMatch(/security-guidelines/);
       expect(errorMessage).toMatch(/L-14/);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("validateEnv() — REDIS_URL (L-08)", () => {
+  beforeEach(() => _resetEnvCache());
+  afterEach(() => _resetEnvCache());
+
+  it("accepts redis:// in development (Docker default)", () => {
+    const restore = withEnv({ REDIS_URL: "redis://localhost:6379" });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("accepts rediss:// without a password in development", () => {
+    const restore = withEnv({ REDIS_URL: "rediss://localhost:6380" });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("accepts rediss:// with a password in development", () => {
+    const restore = withEnv({
+      REDIS_URL: "rediss://:strongpassword@host:6380",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("accepts redis:// in test environment (CI)", () => {
+    const restore = withEnv({
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://clubos:clubos@localhost:5432/clubos_test",
+      REDIS_URL: "redis://localhost:6379",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when REDIS_URL is not a valid URL", () => {
+    const restore = withEnv({ REDIS_URL: "not-a-url" });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/REDIS_URL/);
+      expect(msg).toMatch(/not a valid URL/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when REDIS_URL uses an unsupported scheme (http://)", () => {
+    const restore = withEnv({ REDIS_URL: "http://localhost:6379" });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/REDIS_URL/);
+      expect(msg).toMatch(/redis:\/\/ or rediss:\/\//);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when REDIS_URL uses an unsupported scheme (tcp://)", () => {
+    const restore = withEnv({ REDIS_URL: "tcp://localhost:6379" });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/redis:\/\/ or rediss:\/\//);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws in production when REDIS_URL uses plain redis:// (no TLS)", () => {
+    const restore = withEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: PROD_DATABASE_URL,
+      REDIS_URL: "redis://localhost:6379",
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/REDIS_URL/);
+      expect(msg).toMatch(/rediss:\/\//);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws in production when REDIS_URL is rediss:// but has no password", () => {
+    const restore = withEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: PROD_DATABASE_URL,
+      REDIS_URL: "rediss://host:6380",
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/REDIS_URL/);
+      expect(msg).toMatch(/password/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("accepts rediss:// with a password in production", () => {
+    const restore = withEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: PROD_DATABASE_URL,
+      REDIS_URL: "rediss://:strongpassword@host:6380",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("error message for redis:// in production references security guidelines (L-08)", () => {
+    const restore = withEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: PROD_DATABASE_URL,
+      REDIS_URL: "redis://localhost:6379",
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/security-guidelines/);
+      expect(msg).toMatch(/L-08/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("error message for missing password references security guidelines (L-08)", () => {
+    const restore = withEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: PROD_DATABASE_URL,
+      REDIS_URL: "rediss://host:6380",
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/security-guidelines/);
+      expect(msg).toMatch(/L-08/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("lists both DATABASE_URL and REDIS_URL failures together when both are misconfigured in production", () => {
+    const restore = withEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=disable",
+      REDIS_URL: "redis://localhost:6379",
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/DATABASE_URL/);
+      expect(msg).toMatch(/REDIS_URL/);
+      expect(msg).toMatch(/L-14/);
+      expect(msg).toMatch(/L-08/);
     } finally {
       restore();
     }

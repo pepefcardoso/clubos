@@ -17,7 +17,12 @@ import { z } from "zod";
  *   Local development with Docker (sslmode=disable or no sslmode) remains
  *   valid when NODE_ENV !== "production".
  *
- * See docs/security-guidelines.md §3 (L-14).
+ * Redis TLS enforcement (L-08):
+ *   In production, REDIS_URL must use the rediss:// scheme (TLS) and include
+ *   a password. The plain redis:// scheme transmits data in cleartext and
+ *   allows unauthenticated access to refresh tokens and BullMQ job data.
+ *   Development and test environments accept redis:// for Docker compatibility.
+ *
  */
 
 const DatabaseUrlSchema = z.string().superRefine((url, ctx) => {
@@ -73,6 +78,56 @@ const DatabaseUrlSchema = z.string().superRefine((url, ctx) => {
   }
 });
 
+const RedisUrlSchema = z.string().superRefine((url, ctx) => {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    ctx.addIssue({
+      code: "custom",
+      message: "REDIS_URL is not a valid URL.",
+    });
+    return;
+  }
+
+  const validSchemes = ["redis:", "rediss:"];
+  if (!validSchemes.includes(parsed.protocol)) {
+    ctx.addIssue({
+      code: "custom",
+      message:
+        `REDIS_URL must start with redis:// or rediss://. ` +
+        `Got: "${parsed.protocol.replace(":", "")}"`,
+    });
+    return;
+  }
+
+  if (process.env["NODE_ENV"] === "production") {
+    if (parsed.protocol !== "rediss:") {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          `REDIS_URL must use the rediss:// scheme in production to enforce TLS. ` +
+          `Current scheme: "${parsed.protocol.replace(":", "")}". ` +
+          `Plain redis:// transmits refresh tokens and BullMQ job data in cleartext. ` +
+          `Example: rediss://:STRONG_PASSWORD@host:6380 ` +
+          `See docs/security-guidelines.md §3 (L-08).`,
+      });
+      return;
+    }
+
+    if (!parsed.password) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          `REDIS_URL must include a password in production: rediss://:PASSWORD@host:port. ` +
+          `A password-less Redis instance is not acceptable for production workloads — ` +
+          `it allows unauthenticated access to refresh tokens and rate-limit buckets. ` +
+          `See docs/security-guidelines.md §3 (L-08).`,
+      });
+    }
+  }
+});
+
 export const EnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -80,7 +135,7 @@ export const EnvSchema = z.object({
 
   DATABASE_URL: DatabaseUrlSchema,
 
-  REDIS_URL: z.url({ message: "REDIS_URL must be a valid URL" }),
+  REDIS_URL: RedisUrlSchema,
 
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
 

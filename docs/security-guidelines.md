@@ -90,9 +90,44 @@ await assertMemberBelongsToClub(prisma, request.params.memberId, clubId);
 
 ### `[OBRIGATÓRIO]` SSL no PostgreSQL (L-14)
 
+A conexão com o banco em produção deve **criptografar o canal e autenticar o certificado do servidor**. O `sslmode=require` apenas criptografa — ele não valida o certificado, deixando a conexão vulnerável a ataques man-in-the-middle. Por isso, **`sslmode=require` é proibido em produção**.
+
+#### Configuração recomendada — verify-full + sslrootcert
+
 ```
-DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=require&sslrootcert=/etc/ssl/certs/ca-certificates.crt"
+DATABASE_URL="postgresql://user:pass@host:5432/clubos_prod?schema=public&sslmode=verify-full&sslrootcert=/path/to/ca-bundle.pem"
 ```
+
+Baixe o CA bundle do seu provedor de banco gerenciado:
+
+| Provedor  | CA bundle                                                         |
+| --------- | ----------------------------------------------------------------- |
+| RDS       | https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem |
+| Supabase  | Settings → Database → SSL certificate → Download                  |
+| Neon      | https://neon.tech/docs/connect/connect-securely                   |
+| Cloud SQL | https://cloud.google.com/sql/docs/postgres/connect-auth-proxy     |
+
+#### Alternativa aceita — verify-ca
+
+Quando o provedor não disponibiliza um CA bundle separado, `verify-ca` é o mínimo aceito:
+
+```
+DATABASE_URL="postgresql://user:pass@host:5432/clubos_prod?schema=public&sslmode=verify-ca"
+```
+
+#### Modos rejeitados pelo validador de startup
+
+| sslmode       | Produção | Motivo da rejeição                               |
+| ------------- | -------- | ------------------------------------------------ |
+| `verify-full` | ✅       | Aceito — requer `sslrootcert`                    |
+| `verify-ca`   | ✅       | Aceito                                           |
+| `require`     | ❌       | Criptografa o canal mas não valida o certificado |
+| `prefer`      | ❌       | Não garante criptografia                         |
+| `allow`       | ❌       | Não garante criptografia                         |
+| `disable`     | ❌       | Sem criptografia                                 |
+| ausente       | ❌       | Comportamento do driver não é garantido          |
+
+O validador em `src/lib/env.ts` detecta `sslmode=verify-full` sem `sslrootcert` e trava o processo com mensagem de erro detalhada antes de qualquer conexão ser aberta.
 
 ### `[OBRIGATÓRIO]` Redis com TLS e Autenticação (L-08)
 
@@ -249,20 +284,21 @@ Obrigatórios em produção: `X-Frame-Options: DENY`, `X-Content-Type-Options: n
 
 ## 10. O Que Nunca Fazer (Resumo)
 
-| ❌ Proibido                                 | ✅ Correto                                                   |
-| ------------------------------------------- | ------------------------------------------------------------ |
-| `any` explícito em módulos financeiros      | Definir tipo correto ou `unknown` com type guard             |
-| `origin: '*'` no CORS com cookies           | Lista explícita de origens                                   |
-| Stack trace em resposta de erro (produção)  | Mensagem genérica para 5xx                                   |
-| `req.body` direto em query sem Zod          | `Schema.parse(request.body)`                                 |
-| Nome original do arquivo em upload          | `randomUUID()` + extensão validada                           |
-| Validar MIME só pelo `Content-Type`         | Verificar magic bytes com `file-type`                        |
-| Dados pessoais em payload de job BullMQ     | Apenas IDs; dados buscados no worker                         |
-| `localStorage`/`sessionStorage` para tokens | Memória do AuthProvider (access) + httpOnly cookie (refresh) |
-| Logar CPF, telefone ou tokens em texto puro | `pino-redact` com campos sensíveis configurados              |
-| Mesmas chaves JWT em staging e produção     | Chaves únicas por ambiente                                   |
-| `npm audit` com HIGH/CRITICAL no CI         | Corrigir ou documentar exceção com justificativa             |
-| `@ts-ignore` sem comentário explicando      | Corrigir o tipo ou documentar o motivo                       |
+| ❌ Proibido                                 | ✅ Correto                                                      |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| `any` explícito em módulos financeiros      | Definir tipo correto ou `unknown` com type guard                |
+| `origin: '*'` no CORS com cookies           | Lista explícita de origens                                      |
+| Stack trace em resposta de erro (produção)  | Mensagem genérica para 5xx                                      |
+| `req.body` direto em query sem Zod          | `Schema.parse(request.body)`                                    |
+| Nome original do arquivo em upload          | `randomUUID()` + extensão validada                              |
+| Validar MIME só pelo `Content-Type`         | Verificar magic bytes com `file-type`                           |
+| Dados pessoais em payload de job BullMQ     | Apenas IDs; dados buscados no worker                            |
+| `localStorage`/`sessionStorage` para tokens | Memória do AuthProvider (access) + httpOnly cookie (refresh)    |
+| Logar CPF, telefone ou tokens em texto puro | `pino-redact` com campos sensíveis configurados                 |
+| Mesmas chaves JWT em staging e produção     | Chaves únicas por ambiente                                      |
+| `npm audit` com HIGH/CRITICAL no CI         | Corrigir ou documentar exceção com justificativa                |
+| `@ts-ignore` sem comentário explicando      | Corrigir o tipo ou documentar o motivo                          |
+| `sslmode=require` em produção               | `sslmode=verify-full&sslrootcert=<path>` ou `sslmode=verify-ca` |
 
 ---
 
@@ -272,7 +308,8 @@ Obrigatórios em produção: `X-Frame-Options: DENY`, `X-Content-Type-Options: n
 
 - [ ] Todas as variáveis do `.env.example` configuradas no painel de hospedagem
 - [ ] `NODE_ENV=production` definido
-- [ ] `DATABASE_URL` inclui `?sslmode=require`
+- [ ] `DATABASE_URL` inclui `sslmode=verify-full&sslrootcert=<path>` (ou `sslmode=verify-ca`)
+- [ ] CA bundle do provedor de banco baixado e acessível no path configurado em `sslrootcert`
 - [ ] `REDIS_URL` usa `rediss://` e inclui senha forte
 - [ ] `JWT_SECRET` e `JWT_REFRESH_SECRET` ≥ 32 chars, únicos para produção
 - [ ] `ASAAS_WEBHOOK_SECRET` ≥ 32 chars

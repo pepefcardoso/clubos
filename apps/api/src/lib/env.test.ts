@@ -9,6 +9,8 @@
  *   1. Required-field presence (DATABASE_URL, JWT_SECRET, etc.)
  *   2. Minimum-length guards (secrets ≥ 32 chars)
  *   3. SSL enforcement logic in production (L-14)
+ *      — accepted: verify-ca, verify-full + sslrootcert
+ *      — rejected: require, prefer, allow, missing, verify-full without sslrootcert
  *   4. SSL is NOT enforced in development / test (local Docker)
  *   5. Caching behaviour — validateEnv() returns the same object reference
  *   6. Error message readability — all failing fields listed at once
@@ -234,13 +236,25 @@ describe("validateEnv()", () => {
     }
   });
 
-  it("succeeds in production when sslmode=require", () => {
+  it("throws in production when sslmode=require (does not authenticate server cert)", () => {
     const restore = withEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=require",
     });
     try {
-      expect(() => validateEnv()).not.toThrow();
+      expect(() => validateEnv()).toThrow(/sslmode/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws in production when sslmode=verify-full but sslrootcert is absent", () => {
+    const restore = withEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=verify-full",
+    });
+    try {
+      expect(() => validateEnv()).toThrow(/sslrootcert/);
     } finally {
       restore();
     }
@@ -377,6 +391,26 @@ describe("validateEnv()", () => {
       } catch (e) {
         errorMessage = (e as Error).message;
       }
+      expect(errorMessage).toMatch(/security-guidelines/);
+      expect(errorMessage).toMatch(/L-14/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("error message for verify-full without sslrootcert references security guidelines", () => {
+    const restore = withEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=verify-full",
+    });
+    try {
+      let errorMessage = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        errorMessage = (e as Error).message;
+      }
+      expect(errorMessage).toMatch(/sslrootcert/);
       expect(errorMessage).toMatch(/security-guidelines/);
       expect(errorMessage).toMatch(/L-14/);
     } finally {

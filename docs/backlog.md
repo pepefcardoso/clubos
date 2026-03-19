@@ -226,7 +226,7 @@
 | **T-065** | **[L-12]** Error Handler: Ocultar stack traces em produção             | 🔴 Alta    | S5     | ⬜     |
 | **T-066** | **[L-04]** Autorização em Nível de Objeto (Prevenção de IDOR)          | 🔴 Alta    | S5     | ⬜     |
 | **T-067** | **[L-05]** Validação de Magic Bytes e sanitização de nomes de arquivos | 🔴 Alta    | S5     | ⬜     |
-| **T-068** | **[L-14]** SSL/TLS obrigatório na conexão com PostgreSQL               | 🔴 Alta    | S5     | ⬜     |
+| **T-068** | **[L-14]** SSL/TLS obrigatório na conexão com PostgreSQL               | 🔴 Alta    | S5     | ✅     |
 | **T-069** | **[L-08]** Redis com TLS e Autenticação ativa                          | 🔴 Alta    | S5     | ⬜     |
 | **T-071** | **[L-11]** Proteção contra Replay em Webhooks (Timestamp check)        | 🟡 Média   | S5     | ⬜     |
 | **T-072** | **[L-07]** Sanitização contra Injeção de CSV (prefixo `'`)             | 🟡 Média   | S5     | ⬜     |
@@ -288,7 +288,7 @@
 
 ### Sprint 5 — Hardening de Segurança
 
-1. **Infra Primeiro (T-068, T-069):** Garantir que o banco e o Redis estão seguros.
+1. **Infra Primeiro (T-069):** Garantir que o banco e o Redis estão seguros.
 2. **Acesso (T-061, T-063, T-065):** Fechar as portas de entrada da API.
 3. **Isolamento (T-066):** Garantir que um clube não veja dados de outro (IDOR).
 4. **Paralelos (T-071 a T-075):** Reforços contra ataques específicos (Replay, CSV Injection, CSRF, auditoria de deps).

@@ -8,10 +8,14 @@ import { z } from "zod";
  * or plugin registration is attempted.
  *
  * SSL enforcement (L-14):
- *   In production, DATABASE_URL must include ?sslmode=require (or
- *   sslmode=verify-full for stricter certificate validation).
- *   Local development with Docker (sslmode=disable) remains valid
- *   when NODE_ENV !== "production".
+ *   In production, DATABASE_URL must include ?sslmode=verify-full plus
+ *   sslrootcert (recommended for managed DBs such as RDS, Supabase, Neon)
+ *   or ?sslmode=verify-ca at minimum. Bare sslmode=require no longer
+ *   satisfies the production gate — it encrypts the channel but does not
+ *   authenticate the server certificate, leaving the connection vulnerable
+ *   to man-in-the-middle attacks.
+ *   Local development with Docker (sslmode=disable or no sslmode) remains
+ *   valid when NODE_ENV !== "production".
  *
  * See docs/security-guidelines.md §3 (L-14).
  */
@@ -38,14 +42,31 @@ const DatabaseUrlSchema = z.string().superRefine((url, ctx) => {
     }
 
     const sslMode = parsed.searchParams.get("sslmode");
-    const acceptedSslModes = ["require", "verify-ca", "verify-full"];
+
+    const acceptedSslModes = ["verify-ca", "verify-full"];
 
     if (!sslMode || !acceptedSslModes.includes(sslMode)) {
       ctx.addIssue({
         code: "custom",
         message:
-          `DATABASE_URL must include ?sslmode=require (or verify-ca / verify-full) ` +
-          `in production. Current sslmode: "${sslMode ?? "not set"}". ` +
+          `DATABASE_URL must include ?sslmode=verify-full&sslrootcert=<path> ` +
+          `(or sslmode=verify-ca) in production. ` +
+          `Current sslmode: "${sslMode ?? "not set"}". ` +
+          `Bare sslmode=require is no longer accepted — it does not authenticate ` +
+          `the server certificate. ` +
+          `See docs/security-guidelines.md §3 (L-14).`,
+      });
+      return;
+    }
+
+    if (sslMode === "verify-full" && !parsed.searchParams.get("sslrootcert")) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          `DATABASE_URL with sslmode=verify-full must also include ` +
+          `sslrootcert=<path-to-ca-bundle> so the server certificate can be ` +
+          `fully validated. Download the CA bundle from your managed DB provider ` +
+          `(RDS, Supabase, Neon, Cloud SQL) and set the path here. ` +
           `See docs/security-guidelines.md §3 (L-14).`,
       });
     }

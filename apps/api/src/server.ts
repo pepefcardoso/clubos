@@ -6,7 +6,7 @@ import fastifyCors from "@fastify/cors";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import { Queue } from "bullmq";
-import { validateEnv } from "./lib/env.js";
+import { validateEnv, getEnv } from "./lib/env.js";
 import sentryPlugin from "./plugins/sentry.plugin.js";
 import authPlugin from "./plugins/auth.plugin.js";
 import sensiblePlugin from "./plugins/sensible.plugin.js";
@@ -28,16 +28,18 @@ import { registerWhatsAppProvider } from "./modules/whatsapp/providers/index.js"
 export async function buildApp() {
   validateEnv();
 
+  const env = getEnv();
+
   const loggerOptions =
-    process.env["NODE_ENV"] === "test"
+    env.NODE_ENV === "test"
       ? (false as const)
-      : process.env["NODE_ENV"] === "development"
+      : env.NODE_ENV === "development"
         ? ({
-            level: process.env["LOG_LEVEL"] ?? "info",
+            level: env.LOG_LEVEL,
             transport: { target: "pino-pretty" },
           } as const)
         : {
-            level: process.env["LOG_LEVEL"] ?? "info",
+            level: env.LOG_LEVEL,
             redact: ["req.query.token"] as string[],
           };
 
@@ -61,12 +63,50 @@ export async function buildApp() {
 
   await fastify.register(sentryPlugin);
 
+  const allowedOrigins: string[] =
+    env.NODE_ENV === "production"
+      ? (env.ALLOWED_ORIGINS ?? "")
+          .split(",")
+          .map((o) => o.trim())
+          .filter(Boolean)
+      : [];
+
   await fastify.register(fastifyCors, {
-    origin:
-      process.env["NODE_ENV"] === "production"
-        ? (process.env["ALLOWED_ORIGINS"] ?? "").split(",")
-        : true,
-    credentials: true,
+    /**
+     * Function-based origin instead of a static string or array gives us:
+     *
+     *   1. Per-request warn log for every rejected origin — essential for
+     *      detecting misconfigured clients or active probing in production.
+     *   2. Transparent  with no Origin header
+     *      (same-origin browser requests, curl, server-to-server calls).
+     *      CORS policy only restricts cross-origin browser requests.
+     *   3. Full allow-all for development without using `origin: true` or
+     *      `origin: '*'` — both of which @fastify/cors would pair with
+     *      credentials=true, causing browsers to reject the response.
+     *
+     * Security rule (L-03):
+     *   - NEVER set `origin: '*'` — browsers block it when credentials=true.
+     *   - NEVER set `origin: true` in production — it reflects every Origin.
+     *   - Any rejection MUST be logged with the offending origin so security
+     *     teams can investigate unexpected CORS probing.
+     */
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+
+      if (env.NODE_ENV !== "production") return cb(null, true);
+
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+
+      fastify.log.warn(
+        { origin, allowedOrigins },
+        "[cors] Cross-origin request rejected — origin not in ALLOWED_ORIGINS",
+      );
+
+      return cb(
+        new Error(`Origin "${origin}" is not permitted by CORS policy.`),
+        false,
+      );
+    },
   });
 
   await fastify.register(fastifyRateLimit, {

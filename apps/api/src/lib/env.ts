@@ -23,6 +23,13 @@ import { z } from "zod";
  *   allows unauthenticated access to refresh tokens and BullMQ job data.
  *   Development and test environments accept redis:// for Docker compatibility.
  *
+ * CORS origins enforcement (L-03):
+ *   In production, ALLOWED_ORIGINS must be set to a non-empty comma-separated
+ *   list of https:// origins. http:// origins are forbidden — the application
+ *   relies on httpOnly cookies that browsers only transmit over secure
+ *   connections. Missing or http:// origins crash the process at startup.
+ *   Development and test environments accept any value (or none) for
+ *   compatibility with local Next.js dev servers and API clients.
  */
 
 const DatabaseUrlSchema = z.string().superRefine((url, ctx) => {
@@ -128,6 +135,67 @@ const RedisUrlSchema = z.string().superRefine((url, ctx) => {
   }
 });
 
+/**
+ * Validates ALLOWED_ORIGINS for CORS enforcement (L-03).
+ *
+ * Production rules:
+ *   - Must be set and non-empty.
+ *   - Every entry in the comma-separated list must use https://.
+ *   - http:// origins are rejected — the application uses httpOnly cookies
+ *     which browsers only send over secure connections.
+ *
+ * Development / test:
+ *   - Optional. Any value (including http://localhost:*) is accepted so local
+ *     Next.js dev servers and API clients (Insomnia, Postman) work without
+ *     additional configuration.
+ */
+const AllowedOriginsSchema = z
+  .string()
+  .optional()
+  .superRefine((val, ctx) => {
+    if (process.env["NODE_ENV"] !== "production") return;
+
+    if (!val || val.trim() === "") {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "ALLOWED_ORIGINS must be set in production with at least one " +
+          "https:// origin (comma-separated). " +
+          "Example: ALLOWED_ORIGINS=https://app.clubos.com.br,https://clubos.com.br " +
+          "See docs/security-guidelines.md §4 (L-03).",
+      });
+      return;
+    }
+
+    const origins = val
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean);
+
+    if (origins.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "ALLOWED_ORIGINS must contain at least one non-empty origin in production. " +
+          "See docs/security-guidelines.md §4 (L-03).",
+      });
+      return;
+    }
+
+    for (const origin of origins) {
+      if (!origin.startsWith("https://")) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            `ALLOWED_ORIGINS: "${origin}" must use the https:// scheme in production. ` +
+            `Plain http:// origins are forbidden — the application uses httpOnly cookies ` +
+            `which are only transmitted over secure connections. ` +
+            `See docs/security-guidelines.md §4 (L-03).`,
+        });
+      }
+    }
+  });
+
 export const EnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -155,7 +223,8 @@ export const EnvSchema = z.object({
 
   ASAAS_API_KEY: z.string().optional(),
   ASAAS_WEBHOOK_SECRET: z.string().optional(),
-  SENTRY_DSN: z.string().url().optional().or(z.literal("")),
+  SENTRY_DSN: z.url().optional().or(z.literal("")),
+  ALLOWED_ORIGINS: AllowedOriginsSchema,
 });
 
 export type Env = z.infer<typeof EnvSchema>;

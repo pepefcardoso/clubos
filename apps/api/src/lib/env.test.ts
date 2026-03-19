@@ -16,8 +16,12 @@
  *      — accepted: rediss:// with password
  *      — rejected: redis://, rediss:// without password, non-redis schemes
  *   6. Redis scheme is NOT enforced in development / test
- *   7. Caching behaviour — validateEnv() returns the same object reference
- *   8. Error message readability — all failing fields listed at once
+ *   7. CORS origins enforcement in production (L-03)
+ *      — accepted: https:// origins (single or comma-separated)
+ *      — rejected: missing, empty, any http:// origin
+ *   8. CORS origins are NOT enforced in development / test
+ *   9. Caching behaviour — validateEnv() returns the same object reference
+ *  10. Error message readability — all failing fields listed at once
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -38,6 +42,17 @@ const VALID_BASE_ENV: Record<string, string> = {
 const PROD_DATABASE_URL =
   "postgresql://user:pass@host:5432/db?schema=public&sslmode=verify-full&sslrootcert=/etc/ssl/ca.pem";
 
+/** A minimal valid production env (all three security constraints satisfied). */
+const VALID_PROD_ENV: Record<string, string> = {
+  NODE_ENV: "production",
+  DATABASE_URL: PROD_DATABASE_URL,
+  REDIS_URL: "rediss://:strongpassword@host:6380",
+  JWT_SECRET: "a".repeat(32),
+  JWT_REFRESH_SECRET: "b".repeat(32),
+  MEMBER_ENCRYPTION_KEY: "c".repeat(32),
+  ALLOWED_ORIGINS: "https://app.clubos.com.br",
+};
+
 /**
  * Temporarily merges `overrides` into process.env (on top of VALID_BASE_ENV)
  * and returns a teardown function that restores the original values.
@@ -47,6 +62,36 @@ const PROD_DATABASE_URL =
  */
 function withEnv(overrides: Record<string, string | undefined>): () => void {
   const merged = { ...VALID_BASE_ENV, ...overrides };
+  const original: Record<string, string | undefined> = {};
+
+  for (const key of Object.keys(merged)) {
+    original[key] = process.env[key];
+  }
+
+  for (const [key, value] of Object.entries(merged)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  return () => {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  };
+}
+
+/** Like withEnv but starts from VALID_PROD_ENV instead of VALID_BASE_ENV. */
+function withProdEnv(
+  overrides: Record<string, string | undefined>,
+): () => void {
+  const merged = { ...VALID_PROD_ENV, ...overrides };
   const original: Record<string, string | undefined> = {};
 
   for (const key of Object.keys(merged)) {
@@ -275,10 +320,8 @@ describe("validateEnv()", () => {
   });
 
   it("succeeds in production when sslmode=verify-ca", () => {
-    const restore = withEnv({
-      NODE_ENV: "production",
+    const restore = withProdEnv({
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=verify-ca",
-      REDIS_URL: "rediss://:strongpassword@host:6380",
     });
     try {
       expect(() => validateEnv()).not.toThrow();
@@ -288,11 +331,7 @@ describe("validateEnv()", () => {
   });
 
   it("succeeds in production when sslmode=verify-full with sslrootcert", () => {
-    const restore = withEnv({
-      NODE_ENV: "production",
-      DATABASE_URL: PROD_DATABASE_URL,
-      REDIS_URL: "rediss://:strongpassword@host:6380",
-    });
+    const restore = withProdEnv({});
     try {
       expect(() => validateEnv()).not.toThrow();
     } finally {
@@ -530,11 +569,7 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
   });
 
   it("throws in production when REDIS_URL uses plain redis:// (no TLS)", () => {
-    const restore = withEnv({
-      NODE_ENV: "production",
-      DATABASE_URL: PROD_DATABASE_URL,
-      REDIS_URL: "redis://localhost:6379",
-    });
+    const restore = withProdEnv({ REDIS_URL: "redis://localhost:6379" });
     try {
       let msg = "";
       try {
@@ -550,11 +585,7 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
   });
 
   it("throws in production when REDIS_URL is rediss:// but has no password", () => {
-    const restore = withEnv({
-      NODE_ENV: "production",
-      DATABASE_URL: PROD_DATABASE_URL,
-      REDIS_URL: "rediss://host:6380",
-    });
+    const restore = withProdEnv({ REDIS_URL: "rediss://host:6380" });
     try {
       let msg = "";
       try {
@@ -570,11 +601,7 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
   });
 
   it("accepts rediss:// with a password in production", () => {
-    const restore = withEnv({
-      NODE_ENV: "production",
-      DATABASE_URL: PROD_DATABASE_URL,
-      REDIS_URL: "rediss://:strongpassword@host:6380",
-    });
+    const restore = withProdEnv({});
     try {
       expect(() => validateEnv()).not.toThrow();
     } finally {
@@ -583,11 +610,7 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
   });
 
   it("error message for redis:// in production references security guidelines (L-08)", () => {
-    const restore = withEnv({
-      NODE_ENV: "production",
-      DATABASE_URL: PROD_DATABASE_URL,
-      REDIS_URL: "redis://localhost:6379",
-    });
+    const restore = withProdEnv({ REDIS_URL: "redis://localhost:6379" });
     try {
       let msg = "";
       try {
@@ -603,11 +626,7 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
   });
 
   it("error message for missing password references security guidelines (L-08)", () => {
-    const restore = withEnv({
-      NODE_ENV: "production",
-      DATABASE_URL: PROD_DATABASE_URL,
-      REDIS_URL: "rediss://host:6380",
-    });
+    const restore = withProdEnv({ REDIS_URL: "rediss://host:6380" });
     try {
       let msg = "";
       try {
@@ -623,8 +642,7 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
   });
 
   it("lists both DATABASE_URL and REDIS_URL failures together when both are misconfigured in production", () => {
-    const restore = withEnv({
-      NODE_ENV: "production",
+    const restore = withProdEnv({
       DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=disable",
       REDIS_URL: "redis://localhost:6379",
     });
@@ -639,6 +657,229 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
       expect(msg).toMatch(/REDIS_URL/);
       expect(msg).toMatch(/L-14/);
       expect(msg).toMatch(/L-08/);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("validateEnv() — ALLOWED_ORIGINS (L-03)", () => {
+  beforeEach(() => _resetEnvCache());
+  afterEach(() => _resetEnvCache());
+
+  it("accepts a single valid https:// origin in production", () => {
+    const restore = withProdEnv({
+      ALLOWED_ORIGINS: "https://app.clubos.com.br",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("accepts multiple comma-separated https:// origins in production", () => {
+    const restore = withProdEnv({
+      ALLOWED_ORIGINS: "https://app.clubos.com.br,https://clubos.com.br",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("accepts origins with spaces around commas (trimmed) in production", () => {
+    const restore = withProdEnv({
+      ALLOWED_ORIGINS: "https://app.clubos.com.br , https://clubos.com.br",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when ALLOWED_ORIGINS is missing in production", () => {
+    const restore = withProdEnv({ ALLOWED_ORIGINS: undefined });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/ALLOWED_ORIGINS/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when ALLOWED_ORIGINS is an empty string in production", () => {
+    const restore = withProdEnv({ ALLOWED_ORIGINS: "" });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/ALLOWED_ORIGINS/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when ALLOWED_ORIGINS is whitespace-only in production", () => {
+    const restore = withProdEnv({ ALLOWED_ORIGINS: "   " });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/ALLOWED_ORIGINS/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when an http:// origin is present in production", () => {
+    const restore = withProdEnv({
+      ALLOWED_ORIGINS: "http://app.clubos.com.br",
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/https:\/\//);
+      expect(msg).toMatch(/L-03/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when a mixed list contains even one http:// origin in production", () => {
+    const restore = withProdEnv({
+      ALLOWED_ORIGINS: "https://app.clubos.com.br,http://other.com",
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/http:\/\/other\.com/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("error for http:// origin references security guidelines (L-03)", () => {
+    const restore = withProdEnv({
+      ALLOWED_ORIGINS: "http://app.clubos.com.br",
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/security-guidelines/);
+      expect(msg).toMatch(/L-03/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("error for missing ALLOWED_ORIGINS references security guidelines (L-03)", () => {
+    const restore = withProdEnv({ ALLOWED_ORIGINS: undefined });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/security-guidelines/);
+      expect(msg).toMatch(/L-03/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("does NOT throw when ALLOWED_ORIGINS is absent in development", () => {
+    const restore = withEnv({ ALLOWED_ORIGINS: undefined });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("does NOT throw when ALLOWED_ORIGINS is http://localhost:3000 in development", () => {
+    const restore = withEnv({
+      NODE_ENV: "development",
+      ALLOWED_ORIGINS: "http://localhost:3000",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("does NOT throw when ALLOWED_ORIGINS is absent in test environment", () => {
+    const restore = withEnv({
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://clubos:clubos@localhost:5432/clubos_test",
+      ALLOWED_ORIGINS: undefined,
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("does NOT throw when ALLOWED_ORIGINS is an http:// URL in test", () => {
+    const restore = withEnv({
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://clubos:clubos@localhost:5432/clubos_test",
+      ALLOWED_ORIGINS: "http://localhost:3000",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("lists DATABASE_URL, REDIS_URL, and ALLOWED_ORIGINS failures together in production", () => {
+    const restore = withProdEnv({
+      DATABASE_URL: "postgresql://user:pass@host:5432/db?sslmode=disable",
+      REDIS_URL: "redis://localhost:6379",
+      ALLOWED_ORIGINS: undefined,
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/DATABASE_URL/);
+      expect(msg).toMatch(/REDIS_URL/);
+      expect(msg).toMatch(/ALLOWED_ORIGINS/);
+      expect(msg).toMatch(/L-14/);
+      expect(msg).toMatch(/L-08/);
+      expect(msg).toMatch(/L-03/);
     } finally {
       restore();
     }

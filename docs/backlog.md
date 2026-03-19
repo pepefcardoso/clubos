@@ -149,7 +149,7 @@
 | **T-045** | HTTPS obrigatório, headers HSTS e CSP básico no Next.js             | 0.25d   | S1     | ✅     |
 | **T-046** | Criptografia em repouso de CPF e Telefone (pgcrypto AES-256)        | 1d      | S1     | ✅     |
 | **T-047** | Pipeline CI: GitHub Actions (Lint, Typecheck, Test, Build)          | 0.5d    | S1     | ✅     |
-| **T-048** | Testes E2E (Playwright): Fluxos críticos de login e cobrança        | 2d      | S3     | ⬜     |
+| **T-048** | Testes E2E (Playwright): Fluxos críticos de login e cobrança        | 2d      | S3     | ✅     |
 
 ---
 
@@ -284,13 +284,7 @@
 
 ---
 
-## Ordem de Execução Recomendada (Sprint 4 e 5)
-
-### Sprint 4 — Fechamento v1.0 (Foco em Funcionalidades MUST)
-
-**Bloco 3 — Qualidade (fechar Sprint 3 pendente)**
-
-16. **T-048:** Testes E2E Playwright (fluxos de login e cobrança).
+## Ordem de Execução (Sprint 5)
 
 ### Sprint 5 — Hardening de Segurança
 

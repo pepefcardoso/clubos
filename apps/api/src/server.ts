@@ -6,6 +6,7 @@ import fastifyCors from "@fastify/cors";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import { Queue } from "bullmq";
+import { validateEnv } from "./lib/env.js";
 import sentryPlugin from "./plugins/sentry.plugin.js";
 import authPlugin from "./plugins/auth.plugin.js";
 import sensiblePlugin from "./plugins/sensible.plugin.js";
@@ -25,6 +26,8 @@ import { registerJobs, closeJobs } from "./jobs/index.js";
 import { registerWhatsAppProvider } from "./modules/whatsapp/providers/index.js";
 
 export async function buildApp() {
+  validateEnv();
+
   const loggerOptions =
     process.env["NODE_ENV"] === "test"
       ? (false as const)

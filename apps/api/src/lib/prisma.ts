@@ -2,6 +2,18 @@ import { PrismaClient } from "../../generated/prisma/index.js";
 
 let _client: PrismaClient | null = null;
 
+/**
+ * Returns the singleton PrismaClient instance.
+ *
+ * SSL enforcement is guaranteed upstream by validateEnv() — DATABASE_URL
+ * must carry ?sslmode=require (or verify-ca / verify-full) in production
+ * before this function is ever reached. Prisma v7 reads the URL directly
+ * from the DATABASE_URL env var; the `datasources` constructor option was
+ * removed in that version.
+ *
+ * For sslrootcert (custom CA), set it directly in the URL query string:
+ *   ?sslmode=verify-full&sslrootcert=/path/to/ca.crt
+ */
 export function getPrismaClient(): PrismaClient {
   if (!_client) {
     _client = new PrismaClient({

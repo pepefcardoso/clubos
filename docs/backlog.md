@@ -225,7 +225,7 @@
 | **T-063** | **[L-03]** CORS restrito (remover wildcards em produção)               | 🔴 Alta    | S5     | ✅     |
 | **T-065** | **[L-12]** Error Handler: Ocultar stack traces em produção             | 🔴 Alta    | S5     | ✅     |
 | **T-066** | **[L-04]** Autorização em Nível de Objeto (Prevenção de IDOR)          | 🔴 Alta    | S5     | ✅     |
-| **T-067** | **[L-05]** Validação de Magic Bytes e sanitização de nomes de arquivos | 🔴 Alta    | S5     | ⬜     |
+| **T-067** | **[L-05]** Validação de Magic Bytes e sanitização de nomes de arquivos | 🔴 Alta    | S5     | ✅     |
 | **T-068** | **[L-14]** SSL/TLS obrigatório na conexão com PostgreSQL               | 🔴 Alta    | S5     | ✅     |
 | **T-069** | **[L-08]** Redis com TLS e Autenticação ativa                          | 🔴 Alta    | S5     | ✅     |
 | **T-071** | **[L-11]** Proteção contra Replay em Webhooks (Timestamp check)        | 🟡 Média   | S5     | ⬜     |
@@ -288,9 +288,6 @@
 
 ### Sprint 5 — Hardening de Segurança
 
-1. **[L-05] Upload Seguro (T-067):** Validação de magic bytes + sanitização
-   de nomes de arquivo. Prioridade 🔴 Alta — deve preceder qualquer deploy
-   com upload ativo em produção.
 2. **[L-11] Replay em Webhooks (T-071):** Proteção por timestamp (±5 min).
 3. **[L-07] CSV Injection (T-072):** Prefixo `'` em exportações e rejeição
    na importação.

@@ -9,15 +9,15 @@
 
 ## Resumo por Sprint
 
-| Sprint                   | Foco Principal                                                                           | Tarefas                                       | Esforço  | Status      | Critérios de "Pronto" (Done)                                                              |
-| ------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------- | -------- | ----------- | ----------------------------------------------------------------------------------------- |
-| **Sprint 1 (Sem 3–4)**   | Fundação: Autenticação, Onboarding, Segurança base, CI/CD e Landing Page                 | T-001 a T-019 + T-044 a T-047 + T-049 a T-056 | ~14d dev | ✅ Feito    | O Clube consegue logar e cadastrar sócios/atletas; site no ar.                            |
-| **Sprint 2 (Sem 5–6)**   | Core Financeiro: Cobranças via Pix, Webhooks e Régua WhatsApp (D-3/D0)                   | T-020 a T-035 + T-037 a T-041                 | ~12d dev | ✅ Feito    | Primeira cobrança Pix gerada e confirmada de ponta a ponta.                               |
-| **Sprint 3 (Sem 7–8)**   | Polimento e Confiabilidade: SSE, Testes E2E e Contingência de E-mail                     | T-036 + T-042 + T-043 + T-048                 | ~5d dev  | ⚠️ Parcial  | Sistema rodando 1 semana em produção sem incidentes críticos.                             |
-| **Sprint 4 (Sem 9–10)**  | Fechamento v1.0: Stub atletas + Contratos/BID + Multi-Acquiring + Telas MUST             | T-054 a T-060 + T-076 a T-084                 | ~12d dev | ⚠️ Parcial  | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
-| **Sprint 5 (Sem 11–12)** | Hardening de Segurança: Correção de lacunas críticas e médias (`security-guidelines.md`) | T-061 a T-075                                 | ~8d dev  | ⬜ Pendente | Checklist de deploy (`security-guidelines.md §13`) 100% aprovado; zero falhas 🔴 abertas. |
+| Sprint                   | Foco Principal                                                                           | Tarefas                                       | Esforço  | Status     | Critérios de "Pronto" (Done)                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------- | -------- | ---------- | ----------------------------------------------------------------------------------------- |
+| **Sprint 1 (Sem 3–4)**   | Fundação: Autenticação, Onboarding, Segurança base, CI/CD e Landing Page                 | T-001 a T-019 + T-044 a T-047 + T-049 a T-056 | ~14d dev | ✅ Feito   | O Clube consegue logar e cadastrar sócios/atletas; site no ar.                            |
+| **Sprint 2 (Sem 5–6)**   | Core Financeiro: Cobranças via Pix, Webhooks e Régua WhatsApp (D-3/D0)                   | T-020 a T-035 + T-037 a T-041                 | ~12d dev | ✅ Feito   | Primeira cobrança Pix gerada e confirmada de ponta a ponta.                               |
+| **Sprint 3 (Sem 7–8)**   | Polimento e Confiabilidade: SSE, Testes E2E e Contingência de E-mail                     | T-036 + T-042 + T-043 + T-048                 | ~5d dev  | ✅ Feito   | Sistema rodando 1 semana em produção sem incidentes críticos.                             |
+| **Sprint 4 (Sem 9–10)**  | Fechamento v1.0: Stub atletas + Contratos/BID + Multi-Acquiring + Telas MUST             | T-054 a T-060 + T-076 a T-084                 | ~12d dev | ⚠️ Parcial | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
+| **Sprint 5 (Sem 11–12)** | Hardening de Segurança: Correção de lacunas críticas e médias (`security-guidelines.md`) | T-061 a T-075                                 | ~8d dev  | ⚠️ Parcial | Checklist de deploy (`security-guidelines.md §13`) 100% aprovado; zero falhas 🔴 abertas. |
 
-> **Nota Sprint 3:** T-036 ✅ (fallback e-mail) e T-042 ✅ (SSE) entregues. T-043 (Sentry) e T-048 (E2E) permanecem ⬜.
+> **Nota Sprint 3:** T-036 ✅ (fallback e-mail) e T-042 ✅ (SSE) entregues. T-043 (Sentry) e T-048 (E2E) permanecem ✅.
 > **Nota Sprint 4:** T-054 ✅ (schema athletes), T-055 ✅ (CRUD /api/athletes + AuditLog) e T-056 ✅ (frontend atletas + sidebar) entregues. Tarefas T-057 a T-060 e T-076 a T-084 permanecem ⬜.
 
 ---
@@ -224,7 +224,7 @@
 | **T-061** | **[L-01]** Proteção contra Força Bruta (Redis Lockout 15min)           | 🔴 Alta    | S5     | ✅     |
 | **T-063** | **[L-03]** CORS restrito (remover wildcards em produção)               | 🔴 Alta    | S5     | ✅     |
 | **T-065** | **[L-12]** Error Handler: Ocultar stack traces em produção             | 🔴 Alta    | S5     | ✅     |
-| **T-066** | **[L-04]** Autorização em Nível de Objeto (Prevenção de IDOR)          | 🔴 Alta    | S5     | ⬜     |
+| **T-066** | **[L-04]** Autorização em Nível de Objeto (Prevenção de IDOR)          | 🔴 Alta    | S5     | ✅     |
 | **T-067** | **[L-05]** Validação de Magic Bytes e sanitização de nomes de arquivos | 🔴 Alta    | S5     | ⬜     |
 | **T-068** | **[L-14]** SSL/TLS obrigatório na conexão com PostgreSQL               | 🔴 Alta    | S5     | ✅     |
 | **T-069** | **[L-08]** Redis com TLS e Autenticação ativa                          | 🔴 Alta    | S5     | ✅     |
@@ -288,5 +288,11 @@
 
 ### Sprint 5 — Hardening de Segurança
 
-3. **Isolamento (T-066):** Garantir que um clube não veja dados de outro (IDOR).
-4. **Paralelos (T-071 a T-075):** Reforços contra ataques específicos (Replay, CSV Injection, CSRF, auditoria de deps).
+1. **[L-05] Upload Seguro (T-067):** Validação de magic bytes + sanitização
+   de nomes de arquivo. Prioridade 🔴 Alta — deve preceder qualquer deploy
+   com upload ativo em produção.
+2. **[L-11] Replay em Webhooks (T-071):** Proteção por timestamp (±5 min).
+3. **[L-07] CSV Injection (T-072):** Prefixo `'` em exportações e rejeição
+   na importação.
+4. **[L-10] Auditoria de Deps (T-074):** `npm audit` no CI.
+5. **[L-15] CSRF em API Routes (T-075):** Proteção nas rotas de marketing.

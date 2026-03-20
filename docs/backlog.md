@@ -229,7 +229,7 @@
 | **T-068** | **[L-14]** SSL/TLS obrigatório na conexão com PostgreSQL               | 🔴 Alta    | S5     | ✅     |
 | **T-069** | **[L-08]** Redis com TLS e Autenticação ativa                          | 🔴 Alta    | S5     | ✅     |
 | **T-071** | **[L-11]** Proteção contra Replay em Webhooks (Timestamp check)        | 🟡 Média   | S5     | ✅     |
-| **T-072** | **[L-07]** Sanitização contra Injeção de CSV (prefixo `'`)             | 🟡 Média   | S5     | ⬜     |
+| **T-072** | **[L-07]** Sanitização contra Injeção de CSV (prefixo `'`)             | 🟡 Média   | S5     | ✅     |
 | **T-074** | **[L-10]** Auditoria de dependências no CI (`npm audit`)               | 🟡 Média   | S5     | ⬜     |
 | **T-075** | **[L-15]** Proteção CSRF em API Routes de marketing                    | 🟡 Média   | S5     | ⬜     |
 
@@ -288,7 +288,5 @@
 
 ### Sprint 5 — Hardening de Segurança
 
-3. **[L-07] CSV Injection (T-072):** Prefixo `'` em exportações e rejeição
-   na importação.
 4. **[L-10] Auditoria de Deps (T-074):** `npm audit` no CI.
 5. **[L-15] CSRF em API Routes (T-075):** Proteção nas rotas de marketing.

@@ -2,6 +2,7 @@ import Papa from "papaparse";
 import type { PrismaClient } from "../../../generated/prisma/index.js";
 import { withTenantSchema } from "../../lib/prisma.js";
 import { encryptField, findMemberByCpf } from "../../lib/crypto.js";
+import { hasCsvInjection } from "../../lib/csv-sanitize.js";
 import type { ImportRowError } from "./members.schema.js";
 
 interface ParsedRow {
@@ -26,7 +27,7 @@ const MAX_ROWS = 5000;
 const BATCH_SIZE = 500;
 
 function stripMask(value: string): string {
-  return value.replace(/[\s.()\-]/g, "");
+  return value.replace(/[\s.()-]/g, "");
 }
 
 function parseDate(value: string): Date | undefined {
@@ -102,6 +103,14 @@ export function validateRow(
       field: "nome",
       message: "Nome deve ter entre 2 e 120 caracteres",
     });
+  } else if (hasCsvInjection(name)) {
+    errors.push({
+      row: rowNumber,
+      cpf: raw.cpf,
+      field: "nome",
+      message:
+        "Nome contém caractere inválido no início (possível injeção de fórmula)",
+    });
   }
 
   const cpfRaw = raw.cpf?.trim() ?? "";
@@ -129,16 +138,26 @@ export function validateRow(
   const emailRaw = raw.email?.trim();
   let email: string | undefined;
   if (emailRaw && emailRaw !== "") {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailRaw)) {
+    if (hasCsvInjection(emailRaw)) {
       errors.push({
         row: rowNumber,
         cpf: cpfRaw,
         field: "email",
-        message: "Formato de e-mail inválido",
+        message:
+          "E-mail contém caractere inválido no início (possível injeção de fórmula)",
       });
     } else {
-      email = emailRaw;
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailRaw)) {
+        errors.push({
+          row: rowNumber,
+          cpf: cpfRaw,
+          field: "email",
+          message: "Formato de e-mail inválido",
+        });
+      } else {
+        email = emailRaw;
+      }
     }
   }
 
@@ -178,65 +197,59 @@ async function processBatch(
   prisma: PrismaClient,
   clubId: string,
   batch: ValidatedRow[],
-  rowErrors: ImportRowError[],
   counters: { created: number; updated: number },
-  batchStartIndex: number,
 ): Promise<void> {
   await withTenantSchema(prisma, clubId, async (tx) => {
     for (let i = 0; i < batch.length; i++) {
       const row = batch[i]!;
 
-      try {
-        const existing = await findMemberByCpf(tx, row.cpf);
+      const existing = await findMemberByCpf(tx, row.cpf);
 
-        const [encryptedCpf, encryptedPhone] = await Promise.all([
-          encryptField(tx, row.cpf),
-          encryptField(tx, row.phone),
-        ]);
+      const [encryptedCpf, encryptedPhone] = await Promise.all([
+        encryptField(tx, row.cpf),
+        encryptField(tx, row.phone),
+      ]);
 
-        let member: { id: string };
+      let member: { id: string };
 
-        if (existing) {
-          member = await tx.member.update({
-            where: { id: existing.id },
-            data: {
-              name: row.name,
-              phone: Buffer.from(encryptedPhone),
-              email: row.email ?? null,
+      if (existing) {
+        member = await tx.member.update({
+          where: { id: existing.id },
+          data: {
+            name: row.name,
+            phone: Buffer.from(encryptedPhone),
+            email: row.email ?? null,
+          },
+        });
+        counters.updated++;
+      } else {
+        member = await tx.member.create({
+          data: {
+            name: row.name,
+            cpf: Buffer.from(encryptedCpf),
+            phone: Buffer.from(encryptedPhone),
+            email: row.email ?? null,
+            ...(row.joinedAt ? { joinedAt: row.joinedAt } : {}),
+          },
+        });
+        counters.created++;
+      }
+
+      if (row.planId) {
+        const plan = await tx.plan.findUnique({
+          where: { id: row.planId },
+          select: { id: true, isActive: true },
+        });
+
+        if (plan && plan.isActive) {
+          await tx.memberPlan.upsert({
+            where: {
+              memberId_planId: { memberId: member.id, planId: row.planId },
             },
+            create: { memberId: member.id, planId: row.planId },
+            update: {},
           });
-          counters.updated++;
-        } else {
-          member = await tx.member.create({
-            data: {
-              name: row.name,
-              cpf: Buffer.from(encryptedCpf),
-              phone: Buffer.from(encryptedPhone),
-              email: row.email ?? null,
-              ...(row.joinedAt ? { joinedAt: row.joinedAt } : {}),
-            },
-          });
-          counters.created++;
         }
-
-        if (row.planId) {
-          const plan = await tx.plan.findUnique({
-            where: { id: row.planId },
-            select: { id: true, isActive: true },
-          });
-
-          if (plan && plan.isActive) {
-            await tx.memberPlan.upsert({
-              where: {
-                memberId_planId: { memberId: member.id, planId: row.planId },
-              },
-              create: { memberId: member.id, planId: row.planId },
-              update: {},
-            });
-          }
-        }
-      } catch (err) {
-        throw err;
       }
     }
   });
@@ -257,7 +270,6 @@ export async function importMembersFromCsv(
 
   const errors: ImportRowError[] = [];
   const validRows: ValidatedRow[] = [];
-  const validRowOriginalIndices: number[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const result = validateRow(rows[i]!, i);
@@ -265,7 +277,6 @@ export async function importMembersFromCsv(
       errors.push(...result.errors);
     } else {
       validRows.push(result.row);
-      validRowOriginalIndices.push(i);
     }
   }
 
@@ -286,17 +297,8 @@ export async function importMembersFromCsv(
     batchStart += BATCH_SIZE
   ) {
     const batch = validRows.slice(batchStart, batchStart + BATCH_SIZE);
-    const batchOriginalStart =
-      validRowOriginalIndices[batchStart] ?? batchStart;
 
-    await processBatch(
-      prisma,
-      clubId,
-      batch,
-      errors,
-      counters,
-      batchOriginalStart,
-    );
+    await processBatch(prisma, clubId, batch, counters);
   }
 
   await withTenantSchema(prisma, clubId, async (tx) => {

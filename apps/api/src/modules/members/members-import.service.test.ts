@@ -253,6 +253,123 @@ describe("validateRow", () => {
   });
 });
 
+describe("validateRow — CSV injection guard (L-07)", () => {
+  const validBase = {
+    nome: "João Silva",
+    cpf: "12345678901",
+    telefone: "11999990000",
+  };
+
+  it.each([
+    ['=HYPERLINK("http://evil.com","Click")', "equals sign"],
+    ["+cmd|calc", "plus sign"],
+    ["-1+1", "minus sign"],
+    ["@SUM(A1:A10)", "at sign"],
+    ["\tTabShift", "tab character"],
+    ["\rCarriageReturn", "carriage return"],
+    ["|DDE|cmd|...", "pipe"],
+  ])('rejects nome starting with injection trigger "%s" (%s)', (nome) => {
+    const result = validateRow({ ...validBase, nome }, 0);
+    expect("errors" in result).toBe(true);
+    if ("errors" in result) {
+      const nameErrors = result.errors.filter((e) => e.field === "nome");
+      expect(nameErrors).toHaveLength(1);
+      expect(nameErrors[0]?.message).toMatch(
+        /injeção de fórmula|caractere inválido/i,
+      );
+    }
+  });
+
+  it("accepts a name that contains = in a non-leading position", () => {
+    const result = validateRow({ ...validBase, nome: "Maria = Silva" }, 0);
+    expect("row" in result).toBe(true);
+  });
+
+  it("accepts a name that contains + in a non-leading position", () => {
+    const result = validateRow({ ...validBase, nome: "José+Maria" }, 0);
+    expect("row" in result).toBe(true);
+  });
+
+  it("accepts a name that contains @ in a non-leading position", () => {
+    const result = validateRow({ ...validBase, nome: "User@Domain" }, 0);
+    expect("row" in result).toBe(true);
+  });
+
+  it("reports injection error (not length error) when name is valid length but starts with =", () => {
+    const result = validateRow({ ...validBase, nome: "=AB" }, 0);
+    expect("errors" in result).toBe(true);
+    if ("errors" in result) {
+      const nameErrors = result.errors.filter((e) => e.field === "nome");
+      expect(nameErrors).toHaveLength(1);
+      expect(nameErrors[0]?.message).toMatch(/injeção de fórmula/i);
+    }
+  });
+
+  it("reports length error (not injection error) when name is too short and starts with =", () => {
+    const result = validateRow({ ...validBase, nome: "=" }, 0);
+    expect("errors" in result).toBe(true);
+    if ("errors" in result) {
+      const nameErrors = result.errors.filter((e) => e.field === "nome");
+      expect(nameErrors).toHaveLength(1);
+      expect(nameErrors[0]?.message).toMatch(/2 e 120 caracteres/i);
+    }
+  });
+
+  it("rejects email starting with injection trigger character", () => {
+    const result = validateRow(
+      { ...validBase, email: "=HYPERLINK@evil.com" },
+      0,
+    );
+    expect("errors" in result).toBe(true);
+    if ("errors" in result) {
+      const emailErrors = result.errors.filter((e) => e.field === "email");
+      expect(emailErrors).toHaveLength(1);
+      expect(emailErrors[0]?.message).toMatch(/injeção de fórmula/i);
+    }
+  });
+
+  it("rejects email starting with + trigger char", () => {
+    const result = validateRow({ ...validBase, email: "+1FORMULA" }, 0);
+    expect("errors" in result).toBe(true);
+    if ("errors" in result) {
+      const emailErrors = result.errors.filter((e) => e.field === "email");
+      expect(emailErrors).toHaveLength(1);
+    }
+  });
+
+  it("accepts email that starts with a letter even if @ appears later", () => {
+    const result = validateRow({ ...validBase, email: "joao@example.com" }, 0);
+    expect("row" in result).toBe(true);
+    if ("row" in result) {
+      expect(result.row.email).toBe("joao@example.com");
+    }
+  });
+
+  it("does not report both injection error and format error for the same email", () => {
+    const result = validateRow({ ...validBase, email: "=notanemail" }, 0);
+    expect("errors" in result).toBe(true);
+    if ("errors" in result) {
+      const emailErrors = result.errors.filter((e) => e.field === "email");
+      expect(emailErrors).toHaveLength(1);
+      expect(emailErrors[0]?.message).toMatch(/injeção de fórmula/i);
+    }
+  });
+
+  it("injection error for nome does not suppress other field errors on the same row", () => {
+    const result = validateRow(
+      { nome: "=BadFormula", cpf: "BADCPF", telefone: "bad" },
+      0,
+    );
+    expect("errors" in result).toBe(true);
+    if ("errors" in result) {
+      const fields = result.errors.map((e) => e.field);
+      expect(fields).toContain("nome");
+      expect(fields).toContain("cpf");
+      expect(fields).toContain("telefone");
+    }
+  });
+});
+
 describe("importMembersFromCsv", () => {
   const clubId = "club-001";
   const actorId = "actor-001";
@@ -460,5 +577,47 @@ J,INVALIDO,bad`;
     expect(auditCall.data.metadata).toHaveProperty("created");
     expect(auditCall.data.metadata).toHaveProperty("updated");
     expect(auditCall.data.metadata).toHaveProperty("skipped");
+  });
+
+  it("skips row with formula injection in nome and processes remaining valid rows", async () => {
+    const csv = `nome,cpf,telefone
+=HYPERLINK("http://evil.com","Click"),12345678901,11999990000
+Maria Souza,98765432100,21988881111`;
+    const prisma = buildMockPrisma();
+    const result = await importMembersFromCsv(prisma, clubId, actorId, csv);
+    expect("error" in result).toBe(false);
+    if (!("error" in result)) {
+      expect(result.created).toBe(1);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]?.field).toBe("nome");
+      expect(result.errors[0]?.message).toMatch(/injeção de fórmula/i);
+    }
+  });
+
+  it("skips row with formula injection in email and processes remaining valid rows", async () => {
+    const csv = `nome,cpf,telefone,email
+João Silva,12345678901,11999990000,=FORMULA@evil.com
+Maria Souza,98765432100,21988881111,maria@ok.com`;
+    const prisma = buildMockPrisma();
+    const result = await importMembersFromCsv(prisma, clubId, actorId, csv);
+    expect("error" in result).toBe(false);
+    if (!("error" in result)) {
+      expect(result.created).toBe(1);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]?.field).toBe("email");
+    }
+  });
+
+  it("reports injection in imported count but not in created count", async () => {
+    const csv = `nome,cpf,telefone
+=BAD,12345678901,11999990000
+Good Name,98765432100,21988881111`;
+    const prisma = buildMockPrisma();
+    const result = await importMembersFromCsv(prisma, clubId, actorId, csv);
+    if ("imported" in result) {
+      expect(result.imported).toBe(2);
+      expect(result.created).toBe(1);
+      expect(result.errors).toHaveLength(1);
+    }
   });
 });

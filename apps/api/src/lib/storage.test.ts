@@ -4,10 +4,16 @@
  * fs/promises is mocked so no real file-system operations occur.
  * All expected paths are built with node:path's join() so the tests
  * pass on both POSIX (forward slashes) and Windows (backslashes).
+ *
+ * file-type is mocked (passthrough) because storage.ts imports
+ * file-validation.ts which in turn imports file-type. Only assertSafePath
+ * is exercised here; magic-bytes tests live in file-validation.test.ts.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { join } from "node:path";
+
+vi.mock("file-type", () => ({ fileTypeFromBuffer: vi.fn() }));
 
 const mockMkdir = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const mockWriteFile = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
@@ -150,5 +156,32 @@ describe("saveFile()", () => {
 
     const [filePath] = mockWriteFile.mock.calls[0]!;
     expect(filePath).toBe(join(customDir, "photo.png"));
+  });
+
+  it("throws when filename contains path traversal (../)", async () => {
+    await expect(saveFile("../etc/passwd", buffer)).rejects.toThrow(
+      /traversal/i,
+    );
+  });
+
+  it("throws when filename is an absolute path escaping the upload dir", async () => {
+    await expect(saveFile("/etc/passwd", buffer)).rejects.toThrow();
+  });
+
+  it("does not call writeFile when path traversal is detected", async () => {
+    await saveFile("../etc/passwd", buffer).catch(() => {});
+    expect(mockWriteFile).not.toHaveBeenCalled();
+  });
+
+  it("does not call mkdir when path traversal is detected", async () => {
+    await saveFile("../../outside", buffer).catch(() => {});
+    expect(mockMkdir).not.toHaveBeenCalled();
+  });
+
+  it("accepts the standard deterministic logo filename without throwing", async () => {
+    const logoFilename = "logo-clxyz1234567890abcdef.webp";
+    await expect(saveFile(logoFilename, buffer)).resolves.toContain(
+      logoFilename,
+    );
   });
 });

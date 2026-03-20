@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { assertSafePath } from "./file-validation.js";
 
 /**
  * Returns the absolute path to the upload directory.
@@ -24,6 +25,10 @@ export function getStorageBaseUrl(): string {
 /**
  * Ensures the upload directory exists, then writes the buffer to disk.
  *
+ * A path-traversal guard is applied before any filesystem I/O — if the
+ * composed path escapes the upload directory, a hard (non-operational)
+ * Error is thrown so Sentry captures it and the client receives a 500.
+ *
  * @param filename  - Final filename including extension (e.g. "logo-abc123.webp")
  * @param buffer    - File contents to persist
  * @returns         The public URL to the saved file
@@ -33,6 +38,9 @@ export async function saveFile(
   buffer: Buffer,
 ): Promise<string> {
   const dir = getUploadDir();
+
+  assertSafePath(dir, filename);
+
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, filename), buffer);
   return `${getStorageBaseUrl()}/uploads/${filename}`;

@@ -1,9 +1,7 @@
 /**
- * All external I/O (sharp, prisma, saveFile, sendEmail) is mocked so tests
- * run without a real database, filesystem, native binaries, or email provider.
- *
- * Existing createClub tests live in a sibling describe block so both service
- * functions are covered in one file.
+ * All external I/O (sharp, prisma, saveFile, sendEmail, file-type) is mocked
+ * so tests run without a real database, filesystem, native binaries, or
+ * email provider.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -35,6 +33,11 @@ vi.mock("../../lib/storage.js", () => ({
 
 vi.mock("../../lib/email.js", () => ({
   sendEmail: vi.fn().mockResolvedValue(undefined),
+}));
+
+const mockFileTypeFromBuffer = vi.hoisted(() => vi.fn());
+vi.mock("file-type", () => ({
+  fileTypeFromBuffer: mockFileTypeFromBuffer,
 }));
 
 const sharpInstance = {
@@ -110,6 +113,8 @@ beforeEach(() => {
   sharpInstance.metadata.mockResolvedValue({ width: 500, height: 500 });
   sharpInstance.toBuffer.mockResolvedValue(Buffer.from("processed-webp"));
   vi.mocked(sharp).mockReturnValue(sharpInstance as never);
+
+  mockFileTypeFromBuffer.mockResolvedValue({ mime: "image/jpeg", ext: "jpg" });
 });
 
 describe("createClub", () => {
@@ -386,6 +391,10 @@ describe("uploadClubLogo", () => {
     });
 
     it("accepts image/png", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue({
+        mime: "image/png",
+        ext: "png",
+      });
       const prisma = makePrisma();
       await expect(
         uploadClubLogo(
@@ -399,6 +408,10 @@ describe("uploadClubLogo", () => {
     });
 
     it("accepts image/webp", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue({
+        mime: "image/webp",
+        ext: "webp",
+      });
       const prisma = makePrisma();
       await expect(
         uploadClubLogo(
@@ -412,6 +425,10 @@ describe("uploadClubLogo", () => {
     });
 
     it("accepts image/gif (animation stripped by sharp — acceptable for logos)", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue({
+        mime: "image/gif",
+        ext: "gif",
+      });
       const prisma = makePrisma();
       await expect(
         uploadClubLogo(
@@ -512,6 +529,132 @@ describe("uploadClubLogo", () => {
 
       expect(err).toBeInstanceOf(InvalidImageError);
       expect((err as InvalidImageError).message).toMatch(/JPG|PNG|WebP|GIF/);
+    });
+  });
+
+  describe("magic bytes validation", () => {
+    it("rejects when file-type detects a non-image MIME (e.g. PDF disguised as JPEG)", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue({
+        mime: "application/pdf",
+        ext: "pdf",
+      });
+      const prisma = makePrisma();
+
+      await expect(
+        uploadClubLogo(
+          prisma,
+          CLUB_ID,
+          ACTOR_CLUB_ID,
+          "image/jpeg",
+          validJpegBuffer,
+        ),
+      ).rejects.toBeInstanceOf(InvalidImageError);
+    });
+
+    it("rejects when file-type returns undefined (unrecognized binary format)", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue(undefined);
+      const prisma = makePrisma();
+
+      await expect(
+        uploadClubLogo(
+          prisma,
+          CLUB_ID,
+          ACTOR_CLUB_ID,
+          "image/jpeg",
+          Buffer.from("garbage"),
+        ),
+      ).rejects.toBeInstanceOf(InvalidImageError);
+    });
+
+    it("accepts a JPEG buffer verified by magic bytes", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue({
+        mime: "image/jpeg",
+        ext: "jpg",
+      });
+      const prisma = makePrisma();
+
+      await expect(
+        uploadClubLogo(
+          prisma,
+          CLUB_ID,
+          ACTOR_CLUB_ID,
+          "image/jpeg",
+          validJpegBuffer,
+        ),
+      ).resolves.toHaveProperty("logoUrl");
+    });
+
+    it("does not reach sharp when magic bytes check fails", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue({
+        mime: "text/html",
+        ext: "html",
+      });
+      const prisma = makePrisma();
+
+      await uploadClubLogo(
+        prisma,
+        CLUB_ID,
+        ACTOR_CLUB_ID,
+        "image/jpeg",
+        validJpegBuffer,
+      ).catch(() => {});
+
+      expect(sharp).not.toHaveBeenCalled();
+    });
+
+    it("rejects SVG (image/svg+xml) even though it is an image subtype", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue({
+        mime: "image/svg+xml",
+        ext: "svg",
+      });
+      const prisma = makePrisma();
+
+      await expect(
+        uploadClubLogo(
+          prisma,
+          CLUB_ID,
+          ACTOR_CLUB_ID,
+          "image/svg+xml",
+          validJpegBuffer,
+        ),
+      ).rejects.toBeInstanceOf(InvalidImageError);
+    });
+
+    it("error message from magic bytes failure mentions allowed formats", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue({
+        mime: "application/pdf",
+        ext: "pdf",
+      });
+      const prisma = makePrisma();
+
+      const err = await uploadClubLogo(
+        prisma,
+        CLUB_ID,
+        ACTOR_CLUB_ID,
+        "image/jpeg",
+        validJpegBuffer,
+      ).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(InvalidImageError);
+      expect((err as InvalidImageError).message).toMatch(/JPG|PNG|WebP|GIF/);
+    });
+
+    it("does not update the DB when magic bytes check fails", async () => {
+      mockFileTypeFromBuffer.mockResolvedValue({
+        mime: "application/pdf",
+        ext: "pdf",
+      });
+      const prisma = makePrisma();
+
+      await uploadClubLogo(
+        prisma,
+        CLUB_ID,
+        ACTOR_CLUB_ID,
+        "image/jpeg",
+        validJpegBuffer,
+      ).catch(() => {});
+
+      expect(prisma.club.update).not.toHaveBeenCalled();
     });
   });
 

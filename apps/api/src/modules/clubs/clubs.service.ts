@@ -11,6 +11,10 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../lib/errors.js";
+import {
+  validateImageMagicBytes,
+  InvalidMagicBytesError,
+} from "../../lib/file-validation.js";
 
 export class DuplicateSlugError extends ConflictError {
   constructor() {
@@ -92,20 +96,17 @@ export async function createClub(
  *
  * This is fire-and-forget from the perspective of the HTTP handler —
  * a send failure logs a warning but does NOT roll back the club creation.
- * The club exists and is fully provisioned regardless of email delivery.
  */
 export async function sendWelcomeEmail(
   adminEmail: string,
   clubName: string,
 ): Promise<void> {
   const dashboardUrl = process.env["APP_URL"] ?? "https://app.clubos.com.br";
-
   const { subject, html, text } = buildWelcomeEmail({
     clubName,
     adminEmail,
     dashboardUrl,
   });
-
   await sendEmail({ to: adminEmail, subject, html, text });
 }
 
@@ -113,6 +114,11 @@ export interface UploadLogoResult {
   logoUrl: string;
 }
 
+/**
+ * Declared MIME type allowlist — fast early-exit before the async
+ * magic bytes check. Must stay in sync with ALLOWED_IMAGE_MIME_TYPES
+ * in file-validation.ts.
+ */
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -128,11 +134,13 @@ const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
  * Pipeline:
  *  1. Tenant boundary guard — actorClubId (from JWT) must match clubId
  *  2. File-size check (belt-and-suspenders; multipart plugin already limits)
- *  3. MIME type allowlist
- *  4. sharp.metadata() probe — rejects disguised non-images
- *  5. Resize to 200×200px WebP (cover fit, quality 85)
- *  6. Persist via saveFile() — deterministic filename overwrites previous logo
- *  7. Update club.logoUrl in the database
+ *  3. MIME type allowlist — declared Content-Type fast-fail
+ *  4. Magic bytes check — validates binary content, not client-declared MIME
+ *     (catches disguised files: HTML/PDF/SVG sent as image/jpeg)
+ *  5. sharp.metadata() probe — rejects corrupt/truncated images
+ *  6. Resize to 200×200px WebP (cover fit, quality 85)
+ *  7. Persist via saveFile() — deterministic filename overwrites previous logo
+ *  8. Update club.logoUrl in the database
  *
  * @throws ClubNotFoundError  when clubId ≠ actorClubId or club row is missing
  * @throws InvalidImageError  on size/format/decode failures
@@ -156,6 +164,15 @@ export async function uploadClubLogo(
     throw new InvalidImageError(
       "Formato inválido. Envie uma imagem JPG, PNG, WebP ou GIF",
     );
+  }
+
+  try {
+    await validateImageMagicBytes(buffer);
+  } catch (err) {
+    if (err instanceof InvalidMagicBytesError) {
+      throw new InvalidImageError(err.message);
+    }
+    throw err;
   }
 
   try {

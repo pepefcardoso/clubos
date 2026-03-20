@@ -17,11 +17,15 @@ vi.mock("../payments/gateway.registry.js", () => ({
 
 vi.mock("./webhooks.service.js", () => ({
   enqueueWebhookEvent: vi.fn().mockResolvedValue(undefined),
+  checkAndMarkWebhookDedup: vi.fn().mockResolvedValue(true),
 }));
 
 import { GatewayRegistry } from "../payments/gateway.registry.js";
 import { WebhookSignatureError } from "../payments/gateway.interface.js";
-import { enqueueWebhookEvent } from "./webhooks.service.js";
+import {
+  enqueueWebhookEvent,
+  checkAndMarkWebhookDedup,
+} from "./webhooks.service.js";
 import { webhookRoutes } from "./webhooks.routes.js";
 
 const VALID_SECRET = "test-webhook-secret-value";
@@ -50,7 +54,7 @@ async function buildTestApp(): Promise<FastifyInstance> {
 
   const mockRedis = {
     get: vi.fn(),
-    set: vi.fn(),
+    set: vi.fn().mockResolvedValue("OK"),
     del: vi.fn(),
   } as unknown as Redis;
 
@@ -90,6 +94,7 @@ describe("POST /webhooks/:gateway", () => {
   beforeEach(async () => {
     app = await buildTestApp();
     vi.clearAllMocks();
+    vi.mocked(checkAndMarkWebhookDedup).mockResolvedValue(true);
   });
 
   afterEach(async () => {
@@ -363,5 +368,69 @@ describe("POST /webhooks/:gateway", () => {
     });
 
     expect(res.json()).toStrictEqual({ received: true });
+  });
+
+  it("W-9: duplicate event (dedup returns false) → 200 { received: true }, enqueueWebhookEvent NOT called", async () => {
+    const gateway = buildMockGateway();
+    vi.mocked(GatewayRegistry.get).mockReturnValue(gateway as never);
+    vi.mocked(checkAndMarkWebhookDedup).mockResolvedValueOnce(false);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": VALID_SECRET,
+      },
+      payload: VALID_ASAAS_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ received: true });
+    expect(enqueueWebhookEvent).not.toHaveBeenCalled();
+  });
+
+  it("W-10: first valid event → checkAndMarkWebhookDedup called with correct gateway and gatewayTxId", async () => {
+    const gateway = buildMockGateway();
+    vi.mocked(GatewayRegistry.get).mockReturnValue(gateway as never);
+    vi.mocked(checkAndMarkWebhookDedup).mockResolvedValueOnce(true);
+
+    await app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": VALID_SECRET,
+      },
+      payload: VALID_ASAAS_PAYLOAD,
+    });
+
+    expect(checkAndMarkWebhookDedup).toHaveBeenCalledOnce();
+    expect(checkAndMarkWebhookDedup).toHaveBeenCalledWith(
+      expect.anything(),
+      "asaas",
+      MOCK_EVENT.gatewayTxId,
+    );
+  });
+
+  it("W-11: Redis dedup throws → fail open, enqueueWebhookEvent still called once", async () => {
+    const gateway = buildMockGateway();
+    vi.mocked(GatewayRegistry.get).mockReturnValue(gateway as never);
+    vi.mocked(checkAndMarkWebhookDedup).mockRejectedValueOnce(
+      new Error("Redis connection lost"),
+    );
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": VALID_SECRET,
+      },
+      payload: VALID_ASAAS_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(enqueueWebhookEvent).toHaveBeenCalledOnce();
   });
 });

@@ -4,9 +4,10 @@
  * GatewayRegistry so that the full path is exercised:
  *
  *   HTTP request → webhookRoutes → GatewayRegistry.get() → AsaasGateway.parseWebhook()
- *   → signature validation (timingSafeEqual) → enqueueWebhookEvent
+ *   → signature validation (timingSafeEqual) → checkAndMarkWebhookDedup → enqueueWebhookEvent
  *
- * Only infrastructure (Redis, BullMQ queue) is mocked — the crypto layer is not.
+ * Only infrastructure (Redis, BullMQ queue, dedup service) is mocked — the crypto
+ * layer is not.
  */
 
 import {
@@ -31,9 +32,17 @@ vi.mock("../../lib/redis.js", () => ({
 
 vi.mock("./webhooks.service.js", () => ({
   enqueueWebhookEvent: vi.fn().mockResolvedValue(undefined),
+  checkAndMarkWebhookDedup: vi
+    .fn()
+    .mockResolvedValueOnce(true)
+    .mockResolvedValueOnce(false)
+    .mockResolvedValue(true),
 }));
 
-import { enqueueWebhookEvent } from "./webhooks.service.js";
+import {
+  enqueueWebhookEvent,
+  checkAndMarkWebhookDedup,
+} from "./webhooks.service.js";
 import { webhookRoutes } from "./webhooks.routes.js";
 import { GatewayRegistry } from "../payments/gateway.registry.js";
 import { registerGateways } from "../payments/gateways/index.js";
@@ -68,7 +77,7 @@ async function buildIntegrationApp(): Promise<FastifyInstance> {
 
   const mockRedis = {
     get: vi.fn(),
-    set: vi.fn(),
+    set: vi.fn().mockResolvedValue("OK"),
     del: vi.fn(),
   } as unknown as Redis;
 
@@ -101,6 +110,7 @@ describe("POST /webhooks/asaas", () => {
   beforeEach(async () => {
     app = await buildIntegrationApp();
     vi.clearAllMocks();
+    vi.mocked(checkAndMarkWebhookDedup).mockResolvedValue(true);
   });
 
   afterEach(async () => {
@@ -411,5 +421,61 @@ describe("POST /webhooks/asaas", () => {
     const res = await responsePromise;
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ received: true });
+  });
+
+  it("I-17: duplicate payload (same gatewayTxId) → 200 on both calls but enqueueWebhookEvent called only once", async () => {
+    vi.mocked(checkAndMarkWebhookDedup)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+
+    await app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": ASAAS_WEBHOOK_SECRET,
+      },
+      payload: buildAsaasPayload({ nossoNumero: "txid-replay-001" }),
+    });
+
+    const secondResponse = await app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": ASAAS_WEBHOOK_SECRET,
+      },
+      payload: buildAsaasPayload({ nossoNumero: "txid-replay-001" }),
+    });
+
+    expect(secondResponse.statusCode).toBe(200);
+    expect(secondResponse.json()).toEqual({ received: true });
+    expect(enqueueWebhookEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("I-18: two different gatewayTxIds in sequence → enqueueWebhookEvent called twice", async () => {
+    vi.mocked(checkAndMarkWebhookDedup).mockResolvedValue(true);
+
+    await app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": ASAAS_WEBHOOK_SECRET,
+      },
+      payload: buildAsaasPayload({ nossoNumero: "txid-unique-A" }),
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/webhooks/asaas",
+      headers: {
+        "content-type": "application/json",
+        "asaas-access-token": ASAAS_WEBHOOK_SECRET,
+      },
+      payload: buildAsaasPayload({ nossoNumero: "txid-unique-B" }),
+    });
+
+    expect(enqueueWebhookEvent).toHaveBeenCalledTimes(2);
   });
 });

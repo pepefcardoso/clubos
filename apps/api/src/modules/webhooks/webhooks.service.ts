@@ -1,4 +1,5 @@
 import type { Queue } from "bullmq";
+import type { Redis } from "ioredis";
 import type { PrismaClient } from "../../../generated/prisma/index.js";
 import type { WebhookEvent } from "../payments/gateway.interface.js";
 import { withTenantSchema } from "../../lib/prisma.js";
@@ -75,6 +76,49 @@ export async function enqueueWebhookEvent(
       removeOnFail: { age: 7 * 86_400 },
     },
   );
+}
+
+/** TTL for the Redis webhook deduplication key — matches BullMQ removeOnComplete.age */
+const WEBHOOK_DEDUP_TTL_SECONDS = 24 * 60 * 60;
+
+/**
+ * Atomic check-and-mark for webhook replay protection at the HTTP boundary.
+ *
+ * Uses Redis SET NX so only the first call for a given (gatewayName, gatewayTxId)
+ * pair within WEBHOOK_DEDUP_TTL_SECONDS (24 h) returns `true`.
+ * Every subsequent call returns `false` — the caller should return HTTP 200
+ * immediately without enqueuing.
+ *
+ * Fail-open contract: if gatewayTxId is empty/unknown, or if the Redis call
+ * throws, this function returns `true` (treat as new). The BullMQ jobId dedup
+ * and DB-level `hasExistingPayment()` remain active as secondary guards.
+ *
+ * Redis key format: `webhook:dedup:{gatewayName}:{gatewayTxId}`
+ * TTL: 24 hours — aligned with `removeOnComplete.age` in enqueueWebhookEvent.
+ *
+ * @param redis       ioredis client from `fastify.redis`.
+ * @param gatewayName Canonical gateway name, e.g. "asaas".
+ * @param gatewayTxId PSP transaction identifier from the normalised event.
+ * @returns           `true`  → first occurrence, safe to enqueue.
+ *                    `false` → duplicate, caller should skip enqueue.
+ */
+export async function checkAndMarkWebhookDedup(
+  redis: Redis,
+  gatewayName: string,
+  gatewayTxId: string,
+): Promise<boolean> {
+  if (!gatewayTxId) {
+    return true;
+  }
+  const key = `webhook:dedup:${gatewayName}:${gatewayTxId}`;
+  const result = await redis.set(
+    key,
+    "1",
+    "EX",
+    WEBHOOK_DEDUP_TTL_SECONDS,
+    "NX",
+  );
+  return result === "OK";
 }
 
 /**

@@ -4,6 +4,7 @@ import { GatewayRegistry } from "../payments/gateway.registry.js";
 import { WebhookSignatureError } from "../payments/gateway.interface.js";
 import {
   enqueueWebhookEvent,
+  checkAndMarkWebhookDedup,
   type WebhookJobData,
 } from "./webhooks.service.js";
 
@@ -16,11 +17,12 @@ import {
  * Authentication is performed exclusively via HMAC/token validation inside
  * PaymentGateway.parseWebhook().
  *
- * Four-step flow:
+ * Five-step flow:
  *   1. Resolve the gateway from GatewayRegistry (404 → unknown provider)
  *   2. Validate signature via parseWebhook()       (401 → tampered/missing)
- *   3. Enqueue the normalised event in BullMQ      (500 → infrastructure failure)
- *   4. Respond HTTP 200 immediately                (PSP must never time out)
+ *   3. Redis SET NX dedup check (T-071 / L-11)     (200 → duplicate, no enqueue)
+ *   4. Enqueue the normalised event in BullMQ      (500 → infrastructure failure)
+ *   5. Respond HTTP 200 immediately                (PSP must never time out)
  *
  * Raw-body capture:
  *   Signature validation requires the exact bytes that were sent over the wire.
@@ -28,6 +30,15 @@ import {
  *   as a Buffer before Fastify's default JSON parser can mutate it.
  *   This override is scoped to this plugin only (Fastify encapsulation model) —
  *   all other routes keep standard JSON parsing.
+ *
+ * Replay protection (L-11):
+ *   After successful signature validation, a Redis SET NX gate prevents the same
+ *   (gateway, gatewayTxId) pair from being enqueued more than once within 24 hours.
+ *   This is layer 1 of a three-layer defence:
+ *     L1 — Redis SET NX (this file)
+ *     L2 — BullMQ deterministic jobId (webhooks.service.ts)
+ *     L3 — DB unique constraint on gatewayTxid (webhooks.worker.ts)
+ *   Fail-open: if Redis is temporarily unavailable, layers L2 and L3 remain active.
  */
 export async function webhookRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.addContentTypeParser(
@@ -71,6 +82,28 @@ export async function webhookRoutes(fastify: FastifyInstance): Promise<void> {
           });
         }
         throw err;
+      }
+
+      let isNewEvent = true;
+      try {
+        isNewEvent = await checkAndMarkWebhookDedup(
+          fastify.redis,
+          gateway,
+          event.gatewayTxId,
+        );
+      } catch (dedupErr) {
+        fastify.log.warn(
+          { gateway, gatewayTxId: event.gatewayTxId, err: dedupErr },
+          "[webhook] Redis dedup check failed — proceeding without HTTP-boundary guard",
+        );
+      }
+
+      if (!isNewEvent) {
+        fastify.log.warn(
+          { gateway, gatewayTxId: event.gatewayTxId },
+          "[webhook] Replay detected at HTTP boundary — duplicate event discarded",
+        );
+        return reply.status(200).send({ received: true });
       }
 
       const webhookQueue = fastify.webhookQueue as Queue<WebhookJobData>;

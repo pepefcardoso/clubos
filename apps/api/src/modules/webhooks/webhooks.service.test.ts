@@ -2,22 +2,14 @@
  * webhooks.service.test.ts
  *
  * Unit tests for the functions exported by webhooks.service.ts.
- *
- * Coverage scope:
- *   ✅ enqueueWebhookEvent   — fully covered here (not tested anywhere else)
- *   ✅ ChargeNotFoundError   — smoke-checked here; full coverage in handlepayment.test
- *   ✅ WebhookJobData shape  — validated via enqueueWebhookEvent call assertions
- *
- * Out of scope (covered in dedicated test files):
- *   - hasExistingPayment      → webhooks.worker.test.ts
- *   - resolveClubIdFromChargeId → webhooks.worker.test.ts
- *   - handlePaymentReceived   → webhooks.service.handlepayment.test.ts
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Queue } from "bullmq";
+import type { Redis } from "ioredis";
 import {
   enqueueWebhookEvent,
+  checkAndMarkWebhookDedup,
   ChargeNotFoundError,
   type WebhookJobData,
 } from "./webhooks.service.js";
@@ -44,6 +36,12 @@ function buildMockQueue(
   return {
     add: vi.fn().mockImplementation(addImpl),
   } as unknown as Queue<WebhookJobData>;
+}
+
+function buildMockRedis(setResult: "OK" | null = "OK"): Redis {
+  return {
+    set: vi.fn().mockResolvedValue(setResult),
+  } as unknown as Redis;
 }
 
 describe("enqueueWebhookEvent — jobId", () => {
@@ -328,6 +326,72 @@ describe("enqueueWebhookEvent — amountCents in event data", () => {
 
     const [, data] = vi.mocked(queue.add).mock.calls[0]!;
     expect((data as WebhookJobData).event.amountCents).toBeUndefined();
+  });
+});
+
+describe("checkAndMarkWebhookDedup()", () => {
+  it("returns true when Redis SET NX succeeds (new event)", async () => {
+    const redis = buildMockRedis("OK");
+    const result = await checkAndMarkWebhookDedup(redis, "asaas", "txid-001");
+    expect(result).toBe(true);
+  });
+
+  it("calls SET with the correct key format webhook:dedup:{gateway}:{txId}", async () => {
+    const redis = buildMockRedis("OK");
+    await checkAndMarkWebhookDedup(redis, "asaas", "txid-abc");
+    expect(redis.set).toHaveBeenCalledWith(
+      "webhook:dedup:asaas:txid-abc",
+      "1",
+      "EX",
+      86400,
+      "NX",
+    );
+  });
+
+  it("calls SET with TTL of exactly 86400 seconds (24 hours)", async () => {
+    const redis = buildMockRedis("OK");
+    await checkAndMarkWebhookDedup(redis, "pagarme", "txid-xyz");
+    const args = (redis.set as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(args[2]).toBe("EX");
+    expect(args[3]).toBe(86400);
+    expect(args[4]).toBe("NX");
+  });
+
+  it("returns false when Redis SET NX returns null (duplicate)", async () => {
+    const redis = buildMockRedis(null);
+    const result = await checkAndMarkWebhookDedup(redis, "asaas", "txid-dup");
+    expect(result).toBe(false);
+  });
+
+  it("returns true without calling Redis when gatewayTxId is empty string", async () => {
+    const redis = buildMockRedis("OK");
+    const result = await checkAndMarkWebhookDedup(redis, "asaas", "");
+    expect(result).toBe(true);
+    expect(redis.set).not.toHaveBeenCalled();
+  });
+
+  it("key includes gatewayName to prevent cross-gateway collisions", async () => {
+    const asaasRedis = buildMockRedis("OK");
+    const pagarmeRedis = buildMockRedis("OK");
+    await checkAndMarkWebhookDedup(asaasRedis, "asaas", "txid-shared");
+    await checkAndMarkWebhookDedup(pagarmeRedis, "pagarme", "txid-shared");
+    const asaasKey = (asaasRedis.set as ReturnType<typeof vi.fn>).mock
+      .calls[0]![0];
+    const pagarmeKey = (pagarmeRedis.set as ReturnType<typeof vi.fn>).mock
+      .calls[0]![0];
+    expect(asaasKey).not.toBe(pagarmeKey);
+    expect(asaasKey).toContain("asaas");
+    expect(pagarmeKey).toContain("pagarme");
+  });
+
+  it("two calls with the same args produce the same Redis key (deterministic)", async () => {
+    const redis1 = buildMockRedis("OK");
+    const redis2 = buildMockRedis("OK");
+    await checkAndMarkWebhookDedup(redis1, "asaas", "txid-det");
+    await checkAndMarkWebhookDedup(redis2, "asaas", "txid-det");
+    const key1 = (redis1.set as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    const key2 = (redis2.set as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(key1).toBe(key2);
   });
 });
 

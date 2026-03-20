@@ -14,7 +14,9 @@
     "db:up": "docker compose up -d",
     "db:migrate": "pnpm --filter api run db:migrate",
     "db:studio": "pnpm --filter api run db:studio",
-    "test:e2e": "pnpm --filter=web test:e2e"
+    "test:e2e": "pnpm --filter=web test:e2e",
+    "audit": "pnpm audit --audit-level=high",
+    "audit:fix": "pnpm audit --fix"
   },
   "devDependencies": {
     "prettier": "^3.8.1",
@@ -32,6 +34,9 @@
       "@types/react": "^19",
       "@types/react-dom": "^19",
       "ioredis": "5.10.0"
+    },
+    "auditConfig": {
+      "ignoreCves": []
     }
   }
 }

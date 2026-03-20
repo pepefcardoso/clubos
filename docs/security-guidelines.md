@@ -258,7 +258,7 @@ Sempre resolver o path final e verificar que começa com o diretório de uploads
 
 ### CI/CD
 
-- `npm audit --audit-level=high` nos dois apps (`apps/api` e `apps/web`) — falha o pipeline se houver vulnerabilidade HIGH/CRITICAL.
+- `pnpm audit --audit-level=high` runs at the workspace root in CI — fails on HIGH/CRITICAL. Exceptions require an entry in `.audit-exceptions.json` and `pnpm.auditConfig.ignoreCves` in root `package.json`, both committed together with a written justification and ticket reference.
 - Secrets via variáveis do GitHub Actions. **Nunca** hardcoded em YAML ou código.
 - Chaves criptográficas únicas por ambiente (dev/staging/prod nunca compartilham segredos).
 
@@ -284,21 +284,21 @@ Obrigatórios em produção: `X-Frame-Options: DENY`, `X-Content-Type-Options: n
 
 ## 10. O Que Nunca Fazer (Resumo)
 
-| ❌ Proibido                                 | ✅ Correto                                                      |
-| ------------------------------------------- | --------------------------------------------------------------- |
-| `any` explícito em módulos financeiros      | Definir tipo correto ou `unknown` com type guard                |
-| `origin: '*'` no CORS com cookies           | Lista explícita de origens                                      |
-| Stack trace em resposta de erro (produção)  | Mensagem genérica para 5xx                                      |
-| `req.body` direto em query sem Zod          | `Schema.parse(request.body)`                                    |
-| Nome original do arquivo em upload          | `randomUUID()` + extensão validada                              |
-| Validar MIME só pelo `Content-Type`         | Verificar magic bytes com `file-type`                           |
-| Dados pessoais em payload de job BullMQ     | Apenas IDs; dados buscados no worker                            |
-| `localStorage`/`sessionStorage` para tokens | Memória do AuthProvider (access) + httpOnly cookie (refresh)    |
-| Logar CPF, telefone ou tokens em texto puro | `pino-redact` com campos sensíveis configurados                 |
-| Mesmas chaves JWT em staging e produção     | Chaves únicas por ambiente                                      |
-| `npm audit` com HIGH/CRITICAL no CI         | Corrigir ou documentar exceção com justificativa                |
-| `@ts-ignore` sem comentário explicando      | Corrigir o tipo ou documentar o motivo                          |
-| `sslmode=require` em produção               | `sslmode=verify-full&sslrootcert=<path>` ou `sslmode=verify-ca` |
+| ❌ Proibido                                 | ✅ Correto                                                       |
+| ------------------------------------------- | ---------------------------------------------------------------- |
+| `any` explícito em módulos financeiros      | Definir tipo correto ou `unknown` com type guard                 |
+| `origin: '*'` no CORS com cookies           | Lista explícita de origens                                       |
+| Stack trace em resposta de erro (produção)  | Mensagem genérica para 5xx                                       |
+| `req.body` direto em query sem Zod          | `Schema.parse(request.body)`                                     |
+| Nome original do arquivo em upload          | `randomUUID()` + extensão validada                               |
+| Validar MIME só pelo `Content-Type`         | Verificar magic bytes com `file-type`                            |
+| Dados pessoais em payload de job BullMQ     | Apenas IDs; dados buscados no worker                             |
+| `localStorage`/`sessionStorage` para tokens | Memória do AuthProvider (access) + httpOnly cookie (refresh)     |
+| Logar CPF, telefone ou tokens em texto puro | `pino-redact` com campos sensíveis configurados                  |
+| Mesmas chaves JWT em staging e produção     | Chaves únicas por ambiente                                       |
+| HIGH/CRITICAL abertos no `pnpm audit`       | Corrigir, fazer override ou documentar exceção com justificativa |
+| `@ts-ignore` sem comentário explicando      | Corrigir o tipo ou documentar o motivo                           |
+| `sslmode=require` em produção               | `sslmode=verify-full&sslrootcert=<path>` ou `sslmode=verify-ca`  |
 
 ---
 
@@ -317,7 +317,7 @@ Obrigatórios em produção: `X-Frame-Options: DENY`, `X-Content-Type-Options: n
 
 ### Código
 
-- [ ] `npm audit --audit-level=high` passa sem falhas nos dois apps
+- [ ] `pnpm audit --audit-level=high` passa sem falhas (todos os workspaces)
 - [ ] Error handler configurado — sem stack traces em 5xx
 - [ ] CORS com lista de origens explícita (sem wildcard)
 - [ ] Todo endpoint de recurso único usa `assertXBelongsToClub`

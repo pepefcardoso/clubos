@@ -59,15 +59,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # ── Lint ────────────────────────────────────────────────────
+      - name: Audit dependencies (HIGH/CRITICAL)
+        run: pnpm audit --audit-level=high
+
       - name: Lint (all packages)
         run: pnpm turbo lint
 
-      # ── Typecheck ───────────────────────────────────────────────
       - name: Typecheck (all packages)
         run: pnpm turbo typecheck
 
-      # ── API Tests ───────────────────────────────────────────────
       - name: Run migrations (test DB)
         working-directory: apps/api
         env:
@@ -85,14 +85,12 @@ jobs:
           NODE_ENV: test
         run: pnpm test --coverage
 
-      # ── Build ───────────────────────────────────────────────────
       - name: Build (all packages)
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
           NEXT_PUBLIC_DOMAIN: localhost
         run: pnpm turbo build
 
-      # ── Coverage gate ───────────────────────────────────────────
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: always()

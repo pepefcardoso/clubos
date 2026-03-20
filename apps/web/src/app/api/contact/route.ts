@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { z } from "zod";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -49,6 +50,15 @@ function isRateLimited(ip: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
+  const csrf = verifyCsrfOrigin({ headers: request.headers });
+  if (!csrf.ok) {
+    console.warn("[contact-route] CSRF check failed:", csrf.reason);
+    return NextResponse.json(
+      { error: "Requisição inválida." },
+      { status: 403 },
+    );
+  }
+
   const ip = getClientIp(request);
 
   if (isRateLimited(ip)) {

@@ -14,11 +14,8 @@
 | **Sprint 1 (Sem 3–4)**   | Fundação: Autenticação, Onboarding, Segurança base, CI/CD e Landing Page                 | T-001 a T-019 + T-044 a T-047 + T-049 a T-056 | ~14d dev | ✅ Feito   | O Clube consegue logar e cadastrar sócios/atletas; site no ar.                            |
 | **Sprint 2 (Sem 5–6)**   | Core Financeiro: Cobranças via Pix, Webhooks e Régua WhatsApp (D-3/D0)                   | T-020 a T-035 + T-037 a T-041                 | ~12d dev | ✅ Feito   | Primeira cobrança Pix gerada e confirmada de ponta a ponta.                               |
 | **Sprint 3 (Sem 7–8)**   | Polimento e Confiabilidade: SSE, Testes E2E e Contingência de E-mail                     | T-036 + T-042 + T-043 + T-048                 | ~5d dev  | ✅ Feito   | Sistema rodando 1 semana em produção sem incidentes críticos.                             |
-| **Sprint 4 (Sem 9–10)**  | Fechamento v1.0: Stub atletas + Contratos/BID + Multi-Acquiring + Telas MUST             | T-054 a T-060 + T-076 a T-084                 | ~12d dev | ⚠️ Parcial | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
-| **Sprint 5 (Sem 11–12)** | Hardening de Segurança: Correção de lacunas críticas e médias (`security-guidelines.md`) | T-061 a T-075                                 | ~8d dev  | ⚠️ Parcial | Checklist de deploy (`security-guidelines.md §13`) 100% aprovado; zero falhas 🔴 abertas. |
-
-> **Nota Sprint 3:** T-036 ✅ (fallback e-mail) e T-042 ✅ (SSE) entregues. T-043 (Sentry) e T-048 (E2E) permanecem ✅.
-> **Nota Sprint 4:** T-054 ✅ (schema athletes), T-055 ✅ (CRUD /api/athletes + AuditLog) e T-056 ✅ (frontend atletas + sidebar) entregues. Tarefas T-057 a T-060 e T-076 a T-084 permanecem ⬜.
+| **Sprint 4 (Sem 9–10)**  | Fechamento v1.0: Stub atletas + Contratos/BID + Multi-Acquiring + Telas MUST             | T-054 a T-060 + T-076 a T-084                 | ~12d dev | ✅ Feito | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
+| **Sprint 5 (Sem 11–12)** | Hardening de Segurança: Correção de lacunas críticas e médias (`security-guidelines.md`) | T-061 a T-075                                 | ~8d dev  | ✅ Feito | Checklist de deploy (`security-guidelines.md §13`) 100% aprovado; zero falhas 🔴 abertas. |
 
 ---
 
@@ -231,7 +228,7 @@
 | **T-071** | **[L-11]** Proteção contra Replay em Webhooks (Timestamp check)        | 🟡 Média   | S5     | ✅     |
 | **T-072** | **[L-07]** Sanitização contra Injeção de CSV (prefixo `'`)             | 🟡 Média   | S5     | ✅     |
 | **T-074** | **[L-10]** Auditoria de dependências no CI (`npm audit`)               | 🟡 Média   | S5     | ✅     |
-| **T-075** | **[L-15]** Proteção CSRF em API Routes de marketing                    | 🟡 Média   | S5     | ⬜     |
+| **T-075** | **[L-15]** Proteção CSRF em API Routes de marketing                    | 🟡 Média   | S5     | ✅     |
 
 ---
 
@@ -281,11 +278,3 @@
 | ID        | Tarefa Técnica                                                                                                                                   | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
 | **T-084** | Job D-0: dispatch + worker BullMQ (cron `0 8 * * *`, fila `due-today-notices`, `sendDueTodayNoticesForClub`) — mesmo padrão fan-out de D-3 e D+3 | 0.5d    | S4     | ✅     |
-
----
-
-## Ordem de Execução (Sprint 5)
-
-### Sprint 5 — Hardening de Segurança
-
-5. **[L-15] CSRF em API Routes (T-075):** Proteção nas rotas de marketing.

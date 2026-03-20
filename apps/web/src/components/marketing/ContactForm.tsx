@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 const schema = z.object({
   name: z.string().min(2, "Informe seu nome completo"),
-  email: z.string().email("Informe um e-mail válido"),
+  email: z.email("Informe um e-mail válido"),
   message: z
     .string()
     .min(10, "A mensagem deve ter ao menos 10 caracteres"),
@@ -35,7 +35,10 @@ export function ContactForm() {
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
         body: JSON.stringify(data),
       });
 

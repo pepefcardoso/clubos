@@ -50,8 +50,6 @@ export async function chargeRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/charges/:chargeId
-   * L-04: assertChargeExists inside withTenantSchema ensures the charge belongs
-   * to the authenticated club's schema.
    */
   fastify.get("/:chargeId", async (request, reply) => {
     const { chargeId } = request.params as { chargeId: string };
@@ -79,7 +77,6 @@ export async function chargeRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /api/charges/:chargeId/cancel
-   * L-04: assertChargeExists runs before the cancellation mutation.
    */
   fastify.post(
     "/:chargeId/cancel",

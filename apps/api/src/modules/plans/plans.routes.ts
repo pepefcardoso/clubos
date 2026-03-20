@@ -79,7 +79,6 @@ export async function planRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PUT /api/plans/:planId
-   * L-04: assertPlanExists inside withTenantSchema.
    */
   fastify.put(
     "/:planId",
@@ -136,7 +135,6 @@ export async function planRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * DELETE /api/plans/:planId
-   * L-04: assertPlanExists before deletion.
    */
   fastify.delete(
     "/:planId",

@@ -74,7 +74,6 @@ export async function athleteRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/athletes/:athleteId
-   * L-04: assertAthleteExists inside withTenantSchema.
    */
   fastify.get("/:athleteId", async (request, reply) => {
     const { athleteId } = request.params as { athleteId: string };
@@ -104,7 +103,6 @@ export async function athleteRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PUT /api/athletes/:athleteId
-   * L-04: assertAthleteExists before mutation.
    * Restricted to ADMIN role.
    */
   fastify.put(

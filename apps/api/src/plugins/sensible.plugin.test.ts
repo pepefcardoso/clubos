@@ -276,7 +276,7 @@ describe("setErrorHandler — development environment", () => {
   });
 });
 
-describe("setErrorHandler — production environment [L-12 critical]", () => {
+describe("setErrorHandler — production environment", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {

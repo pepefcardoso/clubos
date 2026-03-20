@@ -93,8 +93,6 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/members/:memberId
-   * L-04: assertMemberExists inside withTenantSchema scopes the check to the
-   * authenticated club's schema — cross-tenant IDs return 404.
    */
   fastify.get("/:memberId", async (request, reply) => {
     const { memberId } = request.params as { memberId: string };
@@ -124,7 +122,6 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PUT /api/members/:memberId
-   * L-04: existence check runs before any mutation.
    */
   fastify.put(
     "/:memberId",
@@ -174,9 +171,6 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /api/members/:memberId/remind
-   * L-04: The existing withTenantSchema + member.findUnique inside the handler
-   * already provides schema-scoped ownership. assertMemberExists is called
-   * first as an explicit defense-in-depth guard.
    */
   fastify.post("/:memberId/remind", async (request, reply) => {
     const { clubId } = request.user as AccessTokenPayload;

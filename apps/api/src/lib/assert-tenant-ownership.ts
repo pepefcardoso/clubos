@@ -2,8 +2,6 @@ import type { PrismaClient } from "../../generated/prisma/index.js";
 import { NotFoundError } from "./errors.js";
 
 /**
- * Object-Level Authorization helpers — T-066 / L-04
- *
  * Each function asserts that a resource with the given ID exists within
  * the CURRENT tenant schema. They MUST be called inside a `withTenantSchema`
  * callback so `search_path` is already scoped to the authenticated club.
@@ -16,7 +14,6 @@ import { NotFoundError } from "./errors.js";
  *
  * Security note: always return 404, never 403. Returning 403 would confirm that
  * the resource exists in another tenant, leaking cross-tenant structure.
- * See docs/security-guidelines.md §2 (L-04).
  */
 
 export async function assertMemberExists(

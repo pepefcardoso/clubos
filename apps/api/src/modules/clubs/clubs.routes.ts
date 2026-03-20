@@ -54,11 +54,6 @@ export async function clubRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /api/clubs/:clubId/logo
-   *
-   * L-04: assertClubBelongsToUser ensures the :clubId param equals the
-   * authenticated user's clubId from the JWT. An admin from Club A cannot
-   * overwrite Club B's logo by guessing its ID.
-   *
    * Authorization: ADMIN role required.
    */
   fastify.post(

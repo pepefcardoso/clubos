@@ -36,7 +36,6 @@ export async function rulesConfigRoutes(
 
   /**
    * GET /api/rules-config/:configId
-   * L-04: assertRulesConfigExists inside withTenantSchema.
    */
   fastify.get("/:configId", async (request, reply) => {
     const { configId } = request.params as { configId: string };
@@ -106,7 +105,6 @@ export async function rulesConfigRoutes(
 
   /**
    * PUT /api/rules-config/:configId
-   * L-04: assertRulesConfigExists before mutation.
    * Restricted to ADMIN.
    */
   fastify.put(
@@ -151,7 +149,6 @@ export async function rulesConfigRoutes(
 
   /**
    * POST /api/rules-config/:configId/validate
-   * L-04: assertRulesConfigExists before athlete validation.
    */
   fastify.post("/:configId/validate", async (request, reply) => {
     const { configId } = request.params as { configId: string };

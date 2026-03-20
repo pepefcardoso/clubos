@@ -84,7 +84,7 @@ export async function buildApp() {
      *      `origin: '*'` — both of which @fastify/cors would pair with
      *      credentials=true, causing browsers to reject the response.
      *
-     * Security rule (L-03):
+     * Security rule:
      *   - NEVER set `origin: '*'` — browsers block it when credentials=true.
      *   - NEVER set `origin: true` in production — it reflects every Origin.
      *   - Any rejection MUST be logged with the offending origin so security

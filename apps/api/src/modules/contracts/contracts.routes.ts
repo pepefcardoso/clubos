@@ -44,7 +44,6 @@ export async function contractRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/contracts/:contractId
-   * L-04: assertContractExists inside withTenantSchema.
    */
   fastify.get("/:contractId", async (request, reply) => {
     const { contractId } = request.params as { contractId: string };
@@ -122,7 +121,6 @@ export async function contractRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PUT /api/contracts/:contractId
-   * L-04: assertContractExists before mutation.
    * Restricted to ADMIN.
    */
   fastify.put(

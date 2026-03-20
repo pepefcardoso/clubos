@@ -1,6 +1,4 @@
 /**
- * IDOR Integration Tests — T-066 / L-04
- *
  * Simulates a cross-tenant attack: Club B's JWT attempts to access resources
  * that belong to Club A. Every cross-tenant request must return 404 (not 200,
  * not 403 — returning 403 would confirm the resource exists).

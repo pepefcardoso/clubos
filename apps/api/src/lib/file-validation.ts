@@ -39,7 +39,6 @@ export class InvalidMagicBytesError extends ValidationError {
  *   Magic bytes are part of the file's binary structure and cannot be
  *   faked without also making the file parseable as that format —
  *   which is exactly what we want to verify.
- *   See docs/security-guidelines.md §7 (L-05).
  *
  * @throws {InvalidMagicBytesError} when the buffer does not match any
  *   allowed image format.

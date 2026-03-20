@@ -8,15 +8,15 @@
  * Coverage priorities:
  *   1. Required-field presence (DATABASE_URL, JWT_SECRET, etc.)
  *   2. Minimum-length guards (secrets ≥ 32 chars)
- *   3. SSL enforcement logic in production (L-14)
+ *   3. SSL enforcement logic in production
  *      — accepted: verify-ca, verify-full + sslrootcert
  *      — rejected: require, prefer, allow, missing, verify-full without sslrootcert
  *   4. SSL is NOT enforced in development / test (local Docker)
- *   5. Redis TLS enforcement in production (L-08)
+ *   5. Redis TLS enforcement in production
  *      — accepted: rediss:// with password
  *      — rejected: redis://, rediss:// without password, non-redis schemes
  *   6. Redis scheme is NOT enforced in development / test
- *   7. CORS origins enforcement in production (L-03)
+ *   7. CORS origins enforcement in production
  *      — accepted: https:// origins (single or comma-separated)
  *      — rejected: missing, empty, any http:// origin
  *   8. CORS origins are NOT enforced in development / test
@@ -475,7 +475,7 @@ describe("validateEnv()", () => {
   });
 });
 
-describe("validateEnv() — REDIS_URL (L-08)", () => {
+describe("validateEnv() — REDIS_URL", () => {
   beforeEach(() => _resetEnvCache());
   afterEach(() => _resetEnvCache());
 
@@ -609,7 +609,7 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
     }
   });
 
-  it("error message for redis:// in production references security guidelines (L-08)", () => {
+  it("error message for redis:// in production references security guidelines", () => {
     const restore = withProdEnv({ REDIS_URL: "redis://localhost:6379" });
     try {
       let msg = "";
@@ -625,7 +625,7 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
     }
   });
 
-  it("error message for missing password references security guidelines (L-08)", () => {
+  it("error message for missing password references security guidelines", () => {
     const restore = withProdEnv({ REDIS_URL: "rediss://host:6380" });
     try {
       let msg = "";
@@ -663,7 +663,7 @@ describe("validateEnv() — REDIS_URL (L-08)", () => {
   });
 });
 
-describe("validateEnv() — ALLOWED_ORIGINS (L-03)", () => {
+describe("validateEnv() — ALLOWED_ORIGINS", () => {
   beforeEach(() => _resetEnvCache());
   afterEach(() => _resetEnvCache());
 
@@ -780,7 +780,7 @@ describe("validateEnv() — ALLOWED_ORIGINS (L-03)", () => {
     }
   });
 
-  it("error for http:// origin references security guidelines (L-03)", () => {
+  it("error for http:// origin references security guidelines", () => {
     const restore = withProdEnv({
       ALLOWED_ORIGINS: "http://app.clubos.com.br",
     });
@@ -798,7 +798,7 @@ describe("validateEnv() — ALLOWED_ORIGINS (L-03)", () => {
     }
   });
 
-  it("error for missing ALLOWED_ORIGINS references security guidelines (L-03)", () => {
+  it("error for missing ALLOWED_ORIGINS references security guidelines", () => {
     const restore = withProdEnv({ ALLOWED_ORIGINS: undefined });
     try {
       let msg = "";

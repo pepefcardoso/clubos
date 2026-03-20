@@ -7,7 +7,7 @@ import { z } from "zod";
  * surfaces immediately — before any DB connection, Redis connection,
  * or plugin registration is attempted.
  *
- * SSL enforcement (L-14):
+ * SSL enforcement:
  *   In production, DATABASE_URL must include ?sslmode=verify-full plus
  *   sslrootcert (recommended for managed DBs such as RDS, Supabase, Neon)
  *   or ?sslmode=verify-ca at minimum. Bare sslmode=require no longer
@@ -17,13 +17,13 @@ import { z } from "zod";
  *   Local development with Docker (sslmode=disable or no sslmode) remains
  *   valid when NODE_ENV !== "production".
  *
- * Redis TLS enforcement (L-08):
+ * Redis TLS enforcement:
  *   In production, REDIS_URL must use the rediss:// scheme (TLS) and include
  *   a password. The plain redis:// scheme transmits data in cleartext and
  *   allows unauthenticated access to refresh tokens and BullMQ job data.
  *   Development and test environments accept redis:// for Docker compatibility.
  *
- * CORS origins enforcement (L-03):
+ * CORS origins enforcement:
  *   In production, ALLOWED_ORIGINS must be set to a non-empty comma-separated
  *   list of https:// origins. http:// origins are forbidden — the application
  *   relies on httpOnly cookies that browsers only transmit over secure
@@ -65,8 +65,7 @@ const DatabaseUrlSchema = z.string().superRefine((url, ctx) => {
           `(or sslmode=verify-ca) in production. ` +
           `Current sslmode: "${sslMode ?? "not set"}". ` +
           `Bare sslmode=require is no longer accepted — it does not authenticate ` +
-          `the server certificate. ` +
-          `See docs/security-guidelines.md §3 (L-14).`,
+          `the server certificate. `
       });
       return;
     }
@@ -78,8 +77,7 @@ const DatabaseUrlSchema = z.string().superRefine((url, ctx) => {
           `DATABASE_URL with sslmode=verify-full must also include ` +
           `sslrootcert=<path-to-ca-bundle> so the server certificate can be ` +
           `fully validated. Download the CA bundle from your managed DB provider ` +
-          `(RDS, Supabase, Neon, Cloud SQL) and set the path here. ` +
-          `See docs/security-guidelines.md §3 (L-14).`,
+          `(RDS, Supabase, Neon, Cloud SQL) and set the path here. `
       });
     }
   }
@@ -116,8 +114,7 @@ const RedisUrlSchema = z.string().superRefine((url, ctx) => {
           `REDIS_URL must use the rediss:// scheme in production to enforce TLS. ` +
           `Current scheme: "${parsed.protocol.replace(":", "")}". ` +
           `Plain redis:// transmits refresh tokens and BullMQ job data in cleartext. ` +
-          `Example: rediss://:STRONG_PASSWORD@host:6380 ` +
-          `See docs/security-guidelines.md §3 (L-08).`,
+          `Example: rediss://:STRONG_PASSWORD@host:6380 `,
       });
       return;
     }
@@ -128,15 +125,14 @@ const RedisUrlSchema = z.string().superRefine((url, ctx) => {
         message:
           `REDIS_URL must include a password in production: rediss://:PASSWORD@host:port. ` +
           `A password-less Redis instance is not acceptable for production workloads — ` +
-          `it allows unauthenticated access to refresh tokens and rate-limit buckets. ` +
-          `See docs/security-guidelines.md §3 (L-08).`,
+          `it allows unauthenticated access to refresh tokens and rate-limit buckets. `,
       });
     }
   }
 });
 
 /**
- * Validates ALLOWED_ORIGINS for CORS enforcement (L-03).
+ * Validates ALLOWED_ORIGINS for CORS enforcement.
  *
  * Production rules:
  *   - Must be set and non-empty.
@@ -161,8 +157,7 @@ const AllowedOriginsSchema = z
         message:
           "ALLOWED_ORIGINS must be set in production with at least one " +
           "https:// origin (comma-separated). " +
-          "Example: ALLOWED_ORIGINS=https://app.clubos.com.br,https://clubos.com.br " +
-          "See docs/security-guidelines.md §4 (L-03).",
+          "Example: ALLOWED_ORIGINS=https://app.clubos.com.br,https://clubos.com.br ",
       });
       return;
     }
@@ -176,8 +171,7 @@ const AllowedOriginsSchema = z
       ctx.addIssue({
         code: "custom",
         message:
-          "ALLOWED_ORIGINS must contain at least one non-empty origin in production. " +
-          "See docs/security-guidelines.md §4 (L-03).",
+          "ALLOWED_ORIGINS must contain at least one non-empty origin in production. ",
       });
       return;
     }
@@ -189,8 +183,7 @@ const AllowedOriginsSchema = z
           message:
             `ALLOWED_ORIGINS: "${origin}" must use the https:// scheme in production. ` +
             `Plain http:// origins are forbidden — the application uses httpOnly cookies ` +
-            `which are only transmitted over secure connections. ` +
-            `See docs/security-guidelines.md §4 (L-03).`,
+            `which are only transmitted over secure connections. `,
         });
       }
     }

@@ -1,6 +1,4 @@
 /**
- * Unit tests for src/lib/assert-tenant-ownership.ts — T-066 / L-04
- *
  * All Prisma interaction is mocked with a minimal fake client. Tests verify:
  *   1. Resolves (void) when the resource exists
  *   2. Throws NotFoundError when the resource is absent

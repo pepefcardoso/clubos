@@ -14,29 +14,16 @@ import {
   DuplicateRulesConfigError,
   RulesConfigAthleteNotFoundError,
 } from "./rules-config.service.js";
+import { withTenantSchema } from "../../lib/prisma.js";
+import { assertRulesConfigExists } from "../../lib/assert-tenant-ownership.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 
-/**
- * Fastify plugin that registers rules-config CRUD routes under the prefix
- * configured in protectedRoutes (e.g. /api/rules-config).
- *
- * All routes are protected by verifyAccessToken via the protectedRoutes
- * plugin-level hook — no additional auth setup needed here.
- *
- * RBAC:
- *   GET  /                  → ADMIN + TREASURER
- *   GET  /:configId         → ADMIN + TREASURER
- *   POST /                  → ADMIN only
- *   PUT  /:configId         → ADMIN only
- *   POST /:configId/validate → ADMIN + TREASURER
- */
 export async function rulesConfigRoutes(
   fastify: FastifyInstance,
 ): Promise<void> {
   /**
    * GET /api/rules-config
-   * Returns all rule sets for the authenticated club.
-   * Pass ?onlyActive=true to filter to active rule sets only.
+   * List — no single-resource ID.
    */
   fastify.get("/", async (request, reply) => {
     const { clubId } = request.user as AccessTokenPayload;
@@ -49,15 +36,21 @@ export async function rulesConfigRoutes(
 
   /**
    * GET /api/rules-config/:configId
-   * Returns a single rule set by id.
-   * Accessible by both ADMIN and TREASURER.
+   * L-04: assertRulesConfigExists inside withTenantSchema.
    */
   fastify.get("/:configId", async (request, reply) => {
     const { configId } = request.params as { configId: string };
     const { clubId } = request.user as AccessTokenPayload;
 
     try {
-      const config = await getRulesConfigById(fastify.prisma, clubId, configId);
+      const config = await withTenantSchema(
+        fastify.prisma,
+        clubId,
+        async (tx) => {
+          await assertRulesConfigExists(tx, configId);
+          return getRulesConfigById(tx, clubId, configId);
+        },
+      );
       return reply.status(200).send(config);
     } catch (err) {
       if (err instanceof RulesConfigNotFoundError) {
@@ -73,14 +66,8 @@ export async function rulesConfigRoutes(
 
   /**
    * POST /api/rules-config
-   * Creates a new rule set for the authenticated club.
-   * Restricted to ADMIN role.
-   *
-   * Returns:
-   *   201 — created rule set
-   *   400 — invalid body
-   *   403 — insufficient role (TREASURER)
-   *   409 — rule set for this (season, league) already exists
+   * Create — no existing resource ID.
+   * Restricted to ADMIN.
    */
   fastify.post(
     "/",
@@ -119,15 +106,8 @@ export async function rulesConfigRoutes(
 
   /**
    * PUT /api/rules-config/:configId
-   * Partially updates a rule set (rules JSONB and/or isActive toggle).
-   * season and league are immutable post-creation — excluded from the schema.
-   * Restricted to ADMIN role.
-   *
-   * Returns:
-   *   200 — updated rule set
-   *   400 — invalid body
-   *   403 — insufficient role (TREASURER)
-   *   404 — rule set not found
+   * L-04: assertRulesConfigExists before mutation.
+   * Restricted to ADMIN.
    */
   fastify.put(
     "/:configId",
@@ -147,11 +127,13 @@ export async function rulesConfigRoutes(
       const { clubId } = request.user as AccessTokenPayload;
 
       try {
-        const config = await updateRulesConfig(
+        const config = await withTenantSchema(
           fastify.prisma,
           clubId,
-          configId,
-          parsed.data,
+          async (tx) => {
+            await assertRulesConfigExists(tx, configId);
+            return updateRulesConfig(tx, clubId, configId, parsed.data);
+          },
         );
         return reply.status(200).send(config);
       } catch (err) {
@@ -169,15 +151,7 @@ export async function rulesConfigRoutes(
 
   /**
    * POST /api/rules-config/:configId/validate
-   * On-demand eligibility check: validates a specific athlete against this rule set.
-   * Accessible by both ADMIN and TREASURER.
-   *
-   * Body: { athleteId: string }
-   *
-   * Returns:
-   *   200 — validation result (eligible flag + violations array)
-   *   400 — missing athleteId
-   *   404 — rule set or athlete not found
+   * L-04: assertRulesConfigExists before athlete validation.
    */
   fastify.post("/:configId/validate", async (request, reply) => {
     const { configId } = request.params as { configId: string };
@@ -194,11 +168,18 @@ export async function rulesConfigRoutes(
     const { clubId } = request.user as AccessTokenPayload;
 
     try {
-      const result = await validateAthleteAgainstRuleSet(
+      const result = await withTenantSchema(
         fastify.prisma,
         clubId,
-        configId,
-        parsed.data.athleteId,
+        async (tx) => {
+          await assertRulesConfigExists(tx, configId);
+          return validateAthleteAgainstRuleSet(
+            tx,
+            clubId,
+            configId,
+            parsed.data.athleteId,
+          );
+        },
       );
       return reply.status(200).send(result);
     } catch (err) {

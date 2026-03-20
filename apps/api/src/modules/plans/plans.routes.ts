@@ -13,14 +13,14 @@ import {
   DuplicatePlanNameError,
   PlanHasActiveMembersError,
 } from "./plans.service.js";
+import { withTenantSchema } from "../../lib/prisma.js";
+import { assertPlanExists } from "../../lib/assert-tenant-ownership.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 
 export async function planRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /api/plans
-   * Returns all plans for the authenticated club.
-   * Pass ?activeOnly=true to filter to active plans only (used by member assignment forms).
-   * Accessible by both ADMIN and TREASURER.
+   * List — no single-resource ID.
    */
   fastify.get("/", async (request, reply) => {
     const parsed = ListPlansQuerySchema.safeParse(request.query);
@@ -39,8 +39,7 @@ export async function planRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /api/plans
-   * Creates a new plan for the authenticated club.
-   * Restricted to ADMIN role.
+   * Create — no existing resource ID to check.
    */
   fastify.post(
     "/",
@@ -80,8 +79,7 @@ export async function planRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PUT /api/plans/:planId
-   * Updates an existing plan. Supports partial updates.
-   * Restricted to ADMIN role.
+   * L-04: assertPlanExists inside withTenantSchema.
    */
   fastify.put(
     "/:planId",
@@ -101,12 +99,19 @@ export async function planRoutes(fastify: FastifyInstance): Promise<void> {
       const user = request.user as AccessTokenPayload;
 
       try {
-        const plan = await updatePlan(
+        const plan = await withTenantSchema(
           fastify.prisma,
           user.clubId,
-          request.actorId,
-          planId,
-          parsed.data,
+          async (tx) => {
+            await assertPlanExists(tx, planId);
+            return updatePlan(
+              tx,
+              user.clubId,
+              request.actorId,
+              planId,
+              parsed.data,
+            );
+          },
         );
         return reply.status(200).send(plan);
       } catch (err) {
@@ -131,9 +136,7 @@ export async function planRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * DELETE /api/plans/:planId
-   * Soft-deletes a plan (sets isActive = false).
-   * Blocked if any active MemberPlan rows reference the plan.
-   * Restricted to ADMIN role.
+   * L-04: assertPlanExists before deletion.
    */
   fastify.delete(
     "/:planId",
@@ -143,7 +146,10 @@ export async function planRoutes(fastify: FastifyInstance): Promise<void> {
       const user = request.user as AccessTokenPayload;
 
       try {
-        await deletePlan(fastify.prisma, user.clubId, request.actorId, planId);
+        await withTenantSchema(fastify.prisma, user.clubId, async (tx) => {
+          await assertPlanExists(tx, planId);
+          return deletePlan(tx, user.clubId, request.actorId, planId);
+        });
         return reply.status(204).send();
       } catch (err) {
         if (err instanceof PlanNotFoundError) {

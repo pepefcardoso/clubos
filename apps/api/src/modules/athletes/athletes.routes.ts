@@ -12,20 +12,14 @@ import {
   DuplicateAthleteCpfError,
   AthleteNotFoundError,
 } from "./athletes.service.js";
+import { withTenantSchema } from "../../lib/prisma.js";
+import { assertAthleteExists } from "../../lib/assert-tenant-ownership.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 
-/**
- * Fastify plugin that registers athlete CRUD routes under the prefix
- * configured in protectedRoutes (e.g. /api/athletes).
- *
- * All routes are protected by verifyAccessToken via the protectedRoutes
- * plugin-level hook — no additional auth setup needed here.
- *
- */
 export async function athleteRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /api/athletes
-   * Returns a paginated, filterable list of athletes for the authenticated club.
+   * List — no single-resource ID.
    */
   fastify.get("/", async (request, reply) => {
     const parsed = ListAthletesQuerySchema.safeParse(request.query);
@@ -44,8 +38,7 @@ export async function athleteRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /api/athletes
-   * Creates a single athlete for the authenticated club.
-   * Accessible by both ADMIN and TREASURER.
+   * Create — no existing resource ID.
    */
   fastify.post("/", async (request, reply) => {
     const parsed = CreateAthleteSchema.safeParse(request.body);
@@ -81,18 +74,20 @@ export async function athleteRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/athletes/:athleteId
-   * Returns a single athlete by id.
-   * Accessible by both ADMIN and TREASURER.
+   * L-04: assertAthleteExists inside withTenantSchema.
    */
   fastify.get("/:athleteId", async (request, reply) => {
     const { athleteId } = request.params as { athleteId: string };
     const user = request.user as AccessTokenPayload;
 
     try {
-      const athlete = await getAthleteById(
+      const athlete = await withTenantSchema(
         fastify.prisma,
         user.clubId,
-        athleteId,
+        async (tx) => {
+          await assertAthleteExists(tx, athleteId);
+          return getAthleteById(tx, user.clubId, athleteId);
+        },
       );
       return reply.status(200).send(athlete);
     } catch (err) {
@@ -109,8 +104,7 @@ export async function athleteRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PUT /api/athletes/:athleteId
-   * Partially updates an athlete. Supports: name, birthDate, position, status.
-   * CPF is immutable — intentionally absent from the update schema.
+   * L-04: assertAthleteExists before mutation.
    * Restricted to ADMIN role.
    */
   fastify.put(
@@ -131,12 +125,19 @@ export async function athleteRoutes(fastify: FastifyInstance): Promise<void> {
       const user = request.user as AccessTokenPayload;
 
       try {
-        const athlete = await updateAthlete(
+        const athlete = await withTenantSchema(
           fastify.prisma,
           user.clubId,
-          request.actorId,
-          athleteId,
-          parsed.data,
+          async (tx) => {
+            await assertAthleteExists(tx, athleteId);
+            return updateAthlete(
+              tx,
+              user.clubId,
+              request.actorId,
+              athleteId,
+              parsed.data,
+            );
+          },
         );
         return reply.status(200).send(athlete);
       } catch (err) {

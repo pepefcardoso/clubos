@@ -8,16 +8,13 @@ import {
   ClubNotFoundError,
   InvalidImageError,
 } from "./clubs.service.js";
+import { assertClubBelongsToUser } from "../../lib/assert-tenant-ownership.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 
 export async function clubRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * POST /api/clubs
-   * Creates a new club and provisions its tenant PostgreSQL schema.
-   * Public endpoint — no JWT required (called during onboarding).
-   *
-   * Optional `adminEmail` field: when provided, a welcome email is sent
-   * via Resend after provisioning succeeds (fire-and-forget).
+   * Public endpoint — creates a club during onboarding. No JWT required.
    */
   fastify.post("/", async (request, reply) => {
     const parsed = CreateClubSchema.safeParse(request.body);
@@ -58,22 +55,11 @@ export async function clubRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * POST /api/clubs/:clubId/logo
    *
-   * Uploads, resizes (200×200px WebP), and persists the club's logo.
-   * The authenticated user's clubId (from JWT) must match the :clubId param —
-   * this enforces the tenant boundary without a separate DB lookup.
+   * L-04: assertClubBelongsToUser ensures the :clubId param equals the
+   * authenticated user's clubId from the JWT. An admin from Club A cannot
+   * overwrite Club B's logo by guessing its ID.
    *
-   * Authorization: Bearer token required (ADMIN role).
-   * Content-Type: multipart/form-data (field name: "file")
-   * Max file size: 5 MB
-   * Accepted formats: JPEG, PNG, WebP, GIF
-   *
-   * Responses:
-   *   200 { logoUrl }  — upload successful
-   *   400             — missing file or multipart parse error
-   *   401             — missing / expired access token
-   *   403             — authenticated user is not ADMIN
-   *   404             — clubId not found or belongs to another tenant
-   *   422             — unsupported format or corrupt image
+   * Authorization: ADMIN role required.
    */
   fastify.post(
     "/:clubId/logo",
@@ -83,6 +69,16 @@ export async function clubRoutes(fastify: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { clubId } = request.params as { clubId: string };
       const user = request.user as AccessTokenPayload;
+
+      try {
+        await assertClubBelongsToUser(fastify.prisma, clubId, user.clubId);
+      } catch {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: "Clube não encontrado",
+        });
+      }
 
       let data;
       try {

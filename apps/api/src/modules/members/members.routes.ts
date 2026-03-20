@@ -20,21 +20,19 @@ import { hasRecentMessage } from "../messages/messages.service.js";
 import { sendWhatsAppMessage } from "../whatsapp/whatsapp.service.js";
 import { buildRenderedMessage } from "../templates/templates.service.js";
 import { withTenantSchema } from "../../lib/prisma.js";
+import { assertMemberExists } from "../../lib/assert-tenant-ownership.js";
 import { TEMPLATE_KEYS } from "../templates/templates.constants.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 import { memberPaymentRoutes } from "./members.payments.routes.js";
 
 /**
  * Cooldown window (hours) for the manual remind endpoint.
- * Shorter than the 20h automated cron window — prevents accidental double-taps
- * from an admin clicking "Cobrar agora" twice in quick succession.
  */
 const MANUAL_REMIND_COOLDOWN_H = 4;
 
 export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /api/members
-   * Returns a paginated, filterable list of members for the authenticated club.
    */
   fastify.get("/", async (request, reply) => {
     const parsed = ListMembersQuerySchema.safeParse(request.query);
@@ -47,15 +45,12 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const user = request.user as AccessTokenPayload;
-
     const result = await listMembers(fastify.prisma, user.clubId, parsed.data);
     return reply.status(200).send(result);
   });
 
   /**
    * POST /api/members
-   * Creates a single member for the authenticated club.
-   * Accessible by both ADMIN and TREASURER.
    */
   fastify.post("/", async (request, reply) => {
     const parsed = CreateMemberSchema.safeParse(request.body);
@@ -98,15 +93,22 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/members/:memberId
-   * Returns a single member with their active plan.
-   * Accessible by both ADMIN and TREASURER.
+   * L-04: assertMemberExists inside withTenantSchema scopes the check to the
+   * authenticated club's schema — cross-tenant IDs return 404.
    */
   fastify.get("/:memberId", async (request, reply) => {
     const { memberId } = request.params as { memberId: string };
     const user = request.user as AccessTokenPayload;
 
     try {
-      const member = await getMemberById(fastify.prisma, user.clubId, memberId);
+      const member = await withTenantSchema(
+        fastify.prisma,
+        user.clubId,
+        async (tx) => {
+          await assertMemberExists(tx, memberId);
+          return getMemberById(tx, user.clubId, memberId);
+        },
+      );
       return reply.status(200).send(member);
     } catch (err) {
       if (err instanceof MemberNotFoundError) {
@@ -122,14 +124,7 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PUT /api/members/:memberId
-   * Partially updates a member. Supports: name, phone, email, planId, status.
-   * CPF is immutable — it is intentionally absent from the update schema.
-   * Restricted to ADMIN role.
-   *
-   * Plan assignment:
-   *   - planId present   → ends current active MemberPlan, creates new one
-   *   - planId: null     → ends current active MemberPlan (removes plan assignment)
-   *   - planId absent    → leaves plan unchanged
+   * L-04: existence check runs before any mutation.
    */
   fastify.put(
     "/:memberId",
@@ -149,12 +144,19 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
       const user = request.user as AccessTokenPayload;
 
       try {
-        const member = await updateMember(
+        const member = await withTenantSchema(
           fastify.prisma,
           user.clubId,
-          request.actorId,
-          memberId,
-          parsed.data,
+          async (tx) => {
+            await assertMemberExists(tx, memberId);
+            return updateMember(
+              tx,
+              user.clubId,
+              request.actorId,
+              memberId,
+              parsed.data,
+            );
+          },
         );
         return reply.status(200).send(member);
       } catch (err) {
@@ -172,22 +174,9 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /api/members/:memberId/remind
-   *
-   * Triggers an on-demand WhatsApp reminder for the given member's oldest OVERDUE charge.
-   * Accessible by both ADMIN and TREASURER — no requireRole guard needed beyond the
-   * verifyAccessToken already applied by protectedRoutes.
-   *
-   * Guards applied (in order):
-   *   1. Idempotency — 4-hour cooldown window via hasRecentMessage()
-   *   2. Rate limit  — 30 msg/min per club via checkAndConsumeWhatsAppRateLimit()
-   *   3. Existence   — member must exist and have at least one OVERDUE charge
-   *
-   * Returns:
-   *   200  { messageId, status: "SENT" | "FAILED", failReason? }
-   *   404  member not found or no OVERDUE charges
-   *   429  idempotency or rate limit exceeded (human-readable message)
-   *   502  WhatsApp provider threw unexpectedly (should not normally occur —
-   *        sendWhatsAppMessage captures provider errors into status="FAILED")
+   * L-04: The existing withTenantSchema + member.findUnique inside the handler
+   * already provides schema-scoped ownership. assertMemberExists is called
+   * first as an explicit defense-in-depth guard.
    */
   fastify.post("/:memberId/remind", async (request, reply) => {
     const { clubId } = request.user as AccessTokenPayload;
@@ -220,6 +209,8 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const row = await withTenantSchema(fastify.prisma, clubId, async (tx) => {
+      await assertMemberExists(tx, memberId);
+
       const charge = await tx.charge.findFirst({
         where: { memberId, status: "OVERDUE" },
         orderBy: { dueDate: "asc" },
@@ -282,7 +273,6 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /api/members/import
-   * Bulk-imports members from a CSV file.
    */
   fastify.post("/import", async (request, reply) => {
     let data;

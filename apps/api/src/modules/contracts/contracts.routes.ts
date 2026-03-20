@@ -14,26 +14,14 @@ import {
   ContractAlreadyTerminatedError,
   AthleteNotFoundError,
 } from "./contracts.service.js";
+import { withTenantSchema } from "../../lib/prisma.js";
+import { assertContractExists } from "../../lib/assert-tenant-ownership.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 
-/**
- * Fastify plugin that registers contract CRUD routes under the prefix
- * configured in protectedRoutes (e.g. /api/contracts).
- *
- * All routes are protected by verifyAccessToken via the protectedRoutes
- * plugin-level hook — no additional auth setup needed here.
- *
- * RBAC:
- *   GET  /           → ADMIN + TREASURER
- *   GET  /:id        → ADMIN + TREASURER
- *   POST /           → ADMIN only
- *   PUT  /:id        → ADMIN only
- */
 export async function contractRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /api/contracts
-   * Returns a paginated, filterable list of contracts for the authenticated club.
-   * Supports filters: ?athleteId=&status=&page=&limit=
+   * List — no single-resource ID.
    */
   fastify.get("/", async (request, reply) => {
     const parsed = ListContractsQuerySchema.safeParse(request.query);
@@ -56,18 +44,20 @@ export async function contractRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/contracts/:contractId
-   * Returns a single contract by id.
-   * Accessible by both ADMIN and TREASURER.
+   * L-04: assertContractExists inside withTenantSchema.
    */
   fastify.get("/:contractId", async (request, reply) => {
     const { contractId } = request.params as { contractId: string };
     const user = request.user as AccessTokenPayload;
 
     try {
-      const contract = await getContractById(
+      const contract = await withTenantSchema(
         fastify.prisma,
         user.clubId,
-        contractId,
+        async (tx) => {
+          await assertContractExists(tx, contractId);
+          return getContractById(tx, user.clubId, contractId);
+        },
       );
       return reply.status(200).send(contract);
     } catch (err) {
@@ -84,15 +74,8 @@ export async function contractRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /api/contracts
-   * Creates a new contract for an athlete in the authenticated club.
-   * Restricted to ADMIN role.
-   *
-   * Returns:
-   *   201 — created contract
-   *   400 — invalid body
-   *   403 — insufficient role (TREASURER)
-   *   404 — athlete not found
-   *   409 — athlete already has an ACTIVE contract
+   * Create — validates athleteId exists via service layer.
+   * Restricted to ADMIN.
    */
   fastify.post(
     "/",
@@ -139,20 +122,8 @@ export async function contractRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PUT /api/contracts/:contractId
-   * Partially updates a contract.
-   * Mutable fields: status, endDate, bidRegistered, federationCode, notes.
-   * athleteId and type are immutable post-creation — excluded from schema.
-   *
-   * Transitioning status to TERMINATED is permanent.
-   * Restricted to ADMIN role.
-   *
-   * Returns:
-   *   200 — updated contract
-   *   400 — invalid body
-   *   403 — insufficient role (TREASURER)
-   *   404 — contract not found
-   *   409 — setting status=ACTIVE when another active contract exists
-   *   422 — attempting to modify an already TERMINATED contract
+   * L-04: assertContractExists before mutation.
+   * Restricted to ADMIN.
    */
   fastify.put(
     "/:contractId",
@@ -172,12 +143,19 @@ export async function contractRoutes(fastify: FastifyInstance): Promise<void> {
       const user = request.user as AccessTokenPayload;
 
       try {
-        const contract = await updateContract(
+        const contract = await withTenantSchema(
           fastify.prisma,
           user.clubId,
-          request.actorId,
-          contractId,
-          parsed.data,
+          async (tx) => {
+            await assertContractExists(tx, contractId);
+            return updateContract(
+              tx,
+              user.clubId,
+              request.actorId,
+              contractId,
+              parsed.data,
+            );
+          },
         );
         return reply.status(200).send(contract);
       } catch (err) {

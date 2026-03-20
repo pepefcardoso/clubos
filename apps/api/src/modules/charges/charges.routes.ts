@@ -7,12 +7,13 @@ import {
   NoActivePlanError,
 } from "./charges.service.js";
 import { listCharges } from "./charges.list.service.js";
+import { withTenantSchema } from "../../lib/prisma.js";
+import { assertChargeExists } from "../../lib/assert-tenant-ownership.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 
 const ListChargesQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  /** YYYY-MM format — filters by calendar month of dueDate */
   month: z
     .string()
     .regex(/^\d{4}-\d{2}$/, "month must be in YYYY-MM format")
@@ -26,18 +27,7 @@ const ListChargesQuerySchema = z.object({
 export async function chargeRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /api/charges
-   *
-   * Returns a paginated list of charges for the authenticated club.
-   * Supports filtering by billing month (YYYY-MM), status, and memberId.
-   *
-   * Available to: ADMIN, TREASURER.
-   *
-   * Query params:
-   *   page     — 1-based page number (default: 1)
-   *   limit    — items per page, max 100 (default: 20)
-   *   month    — YYYY-MM filter on dueDate calendar month
-   *   status   — one of PENDING | PAID | OVERDUE | CANCELLED | PENDING_RETRY
-   *   memberId — restrict to a single member
+   * List charges — no single-resource ID, no IDOR risk.
    */
   fastify.get("/", async (request, reply) => {
     const parsed = ListChargesQuerySchema.safeParse(request.query);
@@ -59,29 +49,63 @@ export async function chargeRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   /**
+   * GET /api/charges/:chargeId
+   * L-04: assertChargeExists inside withTenantSchema ensures the charge belongs
+   * to the authenticated club's schema.
+   */
+  fastify.get("/:chargeId", async (request, reply) => {
+    const { chargeId } = request.params as { chargeId: string };
+    const { clubId } = request.user as AccessTokenPayload;
+
+    const charge = await withTenantSchema(
+      fastify.prisma,
+      clubId,
+      async (tx) => {
+        await assertChargeExists(tx, chargeId);
+        return tx.charge.findUnique({ where: { id: chargeId } });
+      },
+    );
+
+    if (!charge) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: "Not Found",
+        message: "Cobrança não encontrada.",
+      });
+    }
+
+    return reply.status(200).send(charge);
+  });
+
+  /**
+   * POST /api/charges/:chargeId/cancel
+   * L-04: assertChargeExists runs before the cancellation mutation.
+   */
+  fastify.post(
+    "/:chargeId/cancel",
+    { preHandler: [fastify.requireRole("ADMIN")] },
+    async (request, reply) => {
+      const { chargeId } = request.params as { chargeId: string };
+      const { clubId } = request.user as AccessTokenPayload;
+
+      const result = await withTenantSchema(
+        fastify.prisma,
+        clubId,
+        async (tx) => {
+          await assertChargeExists(tx, chargeId);
+          return tx.charge.update({
+            where: { id: chargeId },
+            data: { status: "CANCELLED" },
+          });
+        },
+      );
+
+      return reply.status(200).send(result);
+    },
+  );
+
+  /**
    * POST /api/charges/generate
-   *
-   * Manually triggers monthly charge generation for the authenticated club.
-   * Equivalent to the BullMQ cron job but HTTP-triggered, so a
-   * TREASURER can kick it off outside the scheduled window.
-   *
-   * Available to: ADMIN, TREASURER (both roles are valid — no requireRole guard
-   * needed beyond the verifyAccessToken already applied by protectedRoutes).
-   *
-   * Body (all fields optional):
-   *   billingPeriod — ISO datetime; only year/month are used. Defaults to the
-   *                   current UTC month.
-   *   dueDate       — ISO datetime override for the charge due date. Defaults to
-   *                   the last day of the billing month.
-   *
-   * Returns the full ChargeGenerationResult so the caller can immediately display
-   * QR codes and summaries without a second round-trip.
-   *
-   * Partial failure (some members errored, some gateway calls failed) still
-   * returns 200 — callers should inspect `errors[]` and `gatewayErrors[]`.
-   *
-   * Idempotent: calling this endpoint twice in the same month produces
-   * `generated: 0, skipped: N` on the second call (handled by the service layer).
    */
   fastify.post("/generate", async (request, reply) => {
     const parseResult = GenerateMonthlyChargesSchema.safeParse(request.body);

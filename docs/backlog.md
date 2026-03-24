@@ -33,14 +33,14 @@
 
 ## Épico 15 — Estrutura de Séries Temporais (BaseForte)
 
-**Como** desenvolvedor backend, **quero** configurar o banco de dados para lidar com inserções diárias maciças de RPE, **para** que as agregações de cálculo ACWR não degradem a performance.
+**Como** desenvolvedor backend, **quero** configurar o banco de dados para lidar com inserções diárias de RPE usando recursos nativos do PostgreSQL (BRIN e Materialized Views), **para** que as agregações de cálculo ACWR não degradem a performance e não exijam infraestrutura especializada.
 
-| ID        | Tarefa Técnica                                                                                                                    | Esforço | Sprint | Status |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-091** | Ativar/Provisionar a extensão `timescaledb` no PostgreSQL principal da infraestrutura                                             | 0.5d    | S6     | ⬜     |
-| **T-092** | Criar tabela de hypertable `workload_metrics` no Prisma (raw SQL query para conversão `create_hypertable`) com indexação por data | 1d      | S6     | ⬜     |
-| **T-093** | Criar view materializada contínua (CAGG) para agregação semanal de carga (Aguda vs Crônica)                                       | 1d      | S6     | ⬜     |
-| **T-094** | Configurar política de retenção e refresh automático da CAGG no TimescaleDB                                                       | 0.5d    | S6     | ⬜     |
+| ID        | Tarefa Técnica                                                                                                                  | Esforço | Sprint | Status |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
+| **T-091** | Configurar tabela `workload_metrics` com Índice BRIN na coluna de data e chaves estrangeiras apropriadas no Prisma.             | 0.5d    | S6     | ⬜     |
+| **T-092** | Criar `MATERIALIZED VIEW` para o cálculo agregado semanal do ACWR (Carga Aguda vs Crônica).                                     | 1d      | S6     | ⬜     |
+| **T-093** | Criar script SQL e rotina Prisma/Backend para permitir o `REFRESH MATERIALIZED VIEW CONCURRENTLY`.                              | 0.5d    | S6     | ⬜     |
+| **T-094** | Criar um job no BullMQ (`refresh-acwr-aggregates`) para rodar o refresh a cada 4 horas ou no fechamento do dia automaticamente. | 1d      | S6     | ⬜     |
 
 ---
 
@@ -95,11 +95,11 @@
 
 **Como** preparador físico, **quero** registrar a intensidade de cada atleta e ver o risco de lesão, **para** poupar jogadores na zona vermelha.
 
-| ID        | Tarefa Técnica                                                                                                  | Esforço | Sprint | Status |
-| --------- | --------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-107** | UI de registro RPE (1-10, padrão FIFA): Slider interativo otimizado para preenchimento rápido no PWA.           | 0.5d    | S7     | ⬜     |
-| **T-108** | Endpoints de Ingestão Externa: Setup seguro para receber payloads do HealthKit/Google Fit (hardware-agnostic).  | 1d      | S7     | ⬜     |
-| **T-109** | Dashboard de Risco ACWR: Componente visual que consome a CAGG (TimescaleDB) sinalizando Verde/Amarelo/Vermelho. | 1d      | S7     | ⬜     |
+| ID        | Tarefa Técnica                                                                                                 | Esforço | Sprint | Status |
+| --------- | -------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
+| **T-107** | UI de registro RPE (1-10, padrão FIFA): Slider interativo otimizado para preenchimento rápido no PWA.          | 0.5d    | S7     | ⬜     |
+| **T-108** | Endpoints de Ingestão Externa: Setup seguro para receber payloads do HealthKit/Google Fit (hardware-agnostic). | 1d      | S7     | ⬜     |
+| **T-109** | Dashboard de Risco ACWR: Componente visual que consome a Materialized View sinalizando Verde/Amarelo/Vermelho. | 1d      | S7     | ⬜     |
 
 ### US-34 — Relatório para Responsáveis
 
@@ -135,12 +135,17 @@
 
 **Fase 1: Fundações de Banco e Offline-First (Bloqueadores)**
 
-1. `T-091` e `T-092` — Setup TimescaleDB e Hypertable (Libera infra do Backend)
-2. `T-093` e `T-094` — Setup CAGG e Política de Retenção do TimescaleDB
+1. `T-091` — Setup da tabela `workload_metrics` e Índices BRIN (Libera infra do Backend)
+2. `T-092`, `T-093` e `T-094` — Setup Materialized View, Refresh SQL e job cron BullMQ
 3. `T-086` e `T-087` — Setup PWA e Workbox (Libera infra do Frontend)
 4. `T-088`, `T-089` e `T-090` — Dexie.js e Motor de Sincronização Local
 
-**Fase 2: UI e Componentes Desacoplados (Podem ser paralelizados com a Fase 1)** 5. `T-096` — Histórico de Pagamentos (Consome endpoint pronto) 6. `T-097` — Registro de Despesas 7. `T-098` e `T-099` — Módulo OFX (Upload, Parser e Match) 8. `T-095` — Carteirinha Digital 9. `T-100` — Painel SAF
+**Fase 2: UI e Componentes Desacoplados (Podem ser paralelizados com a Fase 1)** 
+5. `T-096` — Histórico de Pagamentos (Consome endpoint pronto) 
+6. `T-097` — Registro de Despesas 
+7. `T-098` e `T-099` — Módulo OFX (Upload, Parser e Match) 
+8. `T-095` — Carteirinha Digital 
+9. `T-100` — Painel SAF
 
 ### Sprint 7 (O Campo: Treino e Carga)
 
@@ -149,9 +154,16 @@
 1. `T-101` — Schema e CRUD de Exercícios
 2. `T-108` — Endpoints externos do HealthKit/GoogleFit
 
-**Fase 2: Interface Offline (Depende do PWA/Workbox da Sprint 6)** 3. `T-103` — UI de Chamada Digital 4. `T-104` — Integração Chamada/Sync Engine 5. `T-107` — UI de Registro RPE
+**Fase 2: Interface Offline (Depende do PWA/Workbox da Sprint 6)** 
+3. `T-103` — UI de Chamada Digital 
+4. `T-104` — Integração Chamada/Sync Engine 
+5. `T-107` — UI de Registro RPE
 
-**Fase 3: Agregações e Dashboards** 6. `T-105` — View de Ranking de Assiduidade 7. `T-109` — Dashboard de Risco ACWR (Depende do TimescaleDB da Sprint 6) 8. `T-102` — UI da Prancheta de Exercícios 9. `T-106` — Formulário de Avaliação e PDF
+**Fase 3: Agregações e Dashboards** 
+6. `T-105` — View de Ranking de Assiduidade 
+7. `T-109` — Dashboard de Risco ACWR (Depende da Materialized View da Sprint 6)
+8. `T-102` — UI da Prancheta de Exercícios 
+9. `T-106` — Formulário de Avaliação e PDF
 
 ### Sprint 8 (Compliance e Automação)
 

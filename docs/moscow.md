@@ -150,7 +150,7 @@ A tabela abaixo traz o status separado por camada: **API** (`apps/api`) e **Web*
 | --- | ------------------------------------------------------ | --------------------------------------------------------------- |
 | C1  | App mobile nativo (iOS/Android)                        | v1.5 — PWA resolve o MVP; loja exige mais maturidade de produto |
 | C2  | Planejador de treinos offline-first (TreinoOS)         | v1.5 — depende de stub de atleta estável (M9)                   |
-| C3  | Cálculo ACWR de carga por atleta (BaseForte)           | v1.5 — requer TimescaleDB e histórico mínimo de dados           |
+| C3  | Cálculo ACWR de carga por atleta (BaseForte)           | v1.5 — requer histórico mínimo de dados (Materialized Views)    |
 | C4  | Prontuário médico digital + Return to Play (FisioBase) | v2.0 — depende de dados de carga do BaseForte                   |
 | C5  | Módulo de peneiras com aceite parental LGPD            | v1.5 — Privacy by Design; hard stop no sistema                  |
 | C6  | Integração Apple Watch / wearable consumer             | v1.5 — hardware-agnostic; APIs HealthKit/Google Fit             |

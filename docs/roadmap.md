@@ -215,7 +215,7 @@ O stub de atleta criado na v1.0 é a espinha dorsal desta versão. Sem ele, há 
 
 - Registro de treino via app: tipo, intensidade RPE 1–10 (padrão FIFA), duração
 - Integração opcional com Apple Watch / Google Fit via HealthKit API (hardware-agnostic)
-- Cálculo automático de carga ACWR por atleta (timeseries no TimescaleDB)
+- Cálculo automático de carga ACWR por atleta (séries temporais com PostgreSQL nativo e Materialized Views)
 - Sinalização de zona de risco de lesão: verde (< 1.3), amarelo (1.3–1.5), vermelho (> 1.5)
 - Relatório semanal automático para pais/responsáveis via WhatsApp/e-mail (linguagem acessível, não técnica)
 - Preparação de dados para integração com FisioBase na v2.0

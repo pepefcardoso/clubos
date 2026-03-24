@@ -59,13 +59,12 @@ O ClubOS v1.0 é um SaaS multi-tenant voltado exclusivamente para clubes de fute
 
 ### Banco de Dados
 
-| Tecnologia                | Justificativa                                                                                                                                                   |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PostgreSQL 16             | Banco principal. ACID completo para transações financeiras. JSONB para metadados de gateway e Motor de Regras Esportivas. Schema-per-tenant para multi-tenancy. |
-| Redis 7                   | Cache de sessão, filas BullMQ, rate limiting por clube (WhatsApp 30 msg/min), pub/sub de notificações em tempo real.                                            |
-| **TimescaleDB (ext. PG)** | **Séries temporais para dados de carga ACWR por atleta (v1.5+). Extensão nativa do PostgreSQL — zero overhead de infra adicional.**                             |
+| Tecnologia    | Justificativa                                                                                                                                                     |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL 16 | Banco principal. ACID completo para transações. JSONB para motor de regras. Schema-per-tenant. **Uso de Índices BRIN e Particionamento para timeseries (v1.5+).** |
+| Redis 7       | Cache de sessão, filas BullMQ, rate limiting por clube (WhatsApp 30 msg/min), pub/sub de notificações em tempo real.                                              |
 
-> **Nota:** PostgreSQL atualizado de 15 para 16. TimescaleDB listado para visibilidade de planejamento — ativado na v1.5 (BaseForte).
+> **Nota:** PostgreSQL atualizado de 15 para 16. A abordagem para séries temporais (dados ACWR na v1.5) usará recursos nativos do PostgreSQL (Índices BRIN e Materialized Views) em vez de extensões externas (como TimescaleDB) para manter o overhead operacional próximo a zero e preservar a agilidade na escolha do provedor de hospedagem.
 
 ---
 

@@ -33,7 +33,7 @@ A lógica central do roadmap: **primeiro organize o dinheiro, depois discipline 
 
 | Versão | Codinome         | Módulos                                                  | Período    | Meta de Validação                               | Status API      | Status Web      |
 | ------ | ---------------- | -------------------------------------------------------- | ---------- | ----------------------------------------------- | --------------- | --------------- |
-| v1.0   | O Cofre do Clube | ClubOS (Financeiro + Sócios + Compliance Base)           | Sem. 1–6   | 10 clubes pagantes; inadimplência ↓25%          | 🟡 Quase pronto | 🟡 Em andamento |
+| v1.0   | O Cofre do Clube | ClubOS (Financeiro + Sócios + Compliance Base)           | Sem. 1–6   | 10 clubes pagantes; inadimplência ↓25%          | ✅ Concluído    | ✅ Concluído    |
 | v1.5   | O Campo          | TreinoOS + BaseForte + Peneiras LGPD                     | Sem. 7–14  | 60% dos clubes v1.0 ativam módulo de treino     | ⬜ Não iniciado | ⬜ Não iniciado |
 | v2.0   | O Vestiário      | FisioBase + SAF Compliance Full + Conciliação Financeira | Sem. 15–22 | Recidiva ↓ em 3+ clubes; 3 SAFs em compliance   | ⬜ Não iniciado | ⬜ Não iniciado |
 | v2.5   | A Arquibancada   | ArenaPass (Bilheteria Digital)                           | Sem. 23–30 | Clube aumenta receita/jogo em 40%+              | ⬜ Não iniciado | ⬜ Não iniciado |
@@ -43,15 +43,17 @@ A lógica central do roadmap: **primeiro organize o dinheiro, depois discipline 
 ### Resumo Visual
 
 ```
-Semanas    1──────6  7────────14  15──────22  23────30  M8──10  M11─13
-           ┌────────┐ ┌─────────┐ ┌─────────┐ ┌──────┐ ┌────┐  ┌─────┐
-Versão     │  v1.0  │ │  v1.5   │ │  v2.0   │ │ v2.5 │ │v3.0│  │v3.5 │
-           │ Cofre  │ │  Campo  │ │Vestiário│ │Arena │ │Vitrine│ │Liga │
-           └────────┘ └─────────┘ └─────────┘ └──────┘ └────┘  └─────┘
-Módulos    ClubOS     TreinoOS    FisioBase   ArenaPass Scout  Campeonato
-           Finanças   BaseForte   SAF Full    Bilheteria Link   OS
-           Sócios     Peneiras    Conc.Banc.  CRM Torc.
-           Contratos  Offline-1st Carteirinha
+
+Semanas 1──────6 7────────14 15──────22 23────30 M8──10 M11─13
+┌────────┐ ┌─────────┐ ┌─────────┐ ┌──────┐ ┌────┐ ┌─────┐
+Versão │ v1.0 │ │ v1.5 │ │ v2.0 │ │ v2.5 │ │v3.0│ │v3.5 │
+│ Cofre │ │ Campo │ │Vestiário│ │Arena │ │Vitrine│ │Liga │
+└────────┘ └─────────┘ └─────────┘ └──────┘ └────┘ └─────┘
+Módulos ClubOS TreinoOS FisioBase ArenaPass Scout Campeonato
+Finanças BaseForte SAF Full Bilheteria Link OS
+Sócios Peneiras Conc.Banc. CRM Torc.
+Contratos Offline-1st Carteirinha
+
 ```
 
 ---
@@ -91,6 +93,7 @@ O dinheiro é a dor universal. Inadimplência de sócios de 35–50% é a realid
 | Lista de inadimplentes                               | ✅     | `GET /api/dashboard/overdue-members` (paginado, `DISTINCT ON`, cobrança mais antiga, `daysPastDue`)                       |
 | SSE de pagamento confirmado em tempo real            | ✅     | `GET /api/events` (Bearer via query param), `sseBus` EventEmitter, keepalive 25s                                          |
 | Jobs D-3 (lembrete 3 dias antes do vencimento)       | ✅     | Cron `0 9 * * *`, dispatch fan-out por clube, `sendDailyRemindersForClub`, idempotência 20h, rate limit Redis             |
+| Jobs D-0 (aviso no dia de vencimento)                | ✅     | Cron `0 8 * * *`, worker `due-today-notices` implementado no BullMQ                                                       |
 | Jobs D+3 (aviso de inadimplência)                    | ✅     | Cron `0 10 * * *`, dispatch fan-out por clube, `sendOverdueNoticesForClub`, idempotência 20h, rate limit Redis            |
 | Envio on-demand de lembrete WhatsApp                 | ✅     | `POST /api/members/:id/remind`, cooldown 4h, rate limit por clube                                                         |
 | Provedores WhatsApp (Z-API + Evolution API)          | ✅     | `WhatsAppRegistry` + `ZApiProvider` + `EvolutionProvider`; selecionado via `WHATSAPP_PROVIDER`                            |
@@ -101,9 +104,9 @@ O dinheiro é a dor universal. Inadimplência de sócios de 35–50% é a realid
 | Criptografia CPF/telefone em repouso                 | ✅     | `pgp_sym_encrypt/decrypt` (pgcrypto AES-256); `encryptField`/`decryptField`                                               |
 | Audit log imutável                                   | ✅     | `AuditLog` em todas operações financeiras e de sócios; nunca deletado                                                     |
 | Rate limiting global (100 req/min por IP)            | ✅     | `@fastify/rate-limit` + Redis                                                                                             |
-| **Stub de atletas (M9)**                             | ⬜     | Módulo `src/modules/athletes/` não criado; schema Prisma não definido; DDL tenant não atualizado                          |
-| **Contratos e alertas BID/CBF (M10)**                | ⬜     | Schema contratos + Motor de Regras Esportivas + alertas não implementados                                                 |
-| **Multi-Acquiring PIX — fallback gateway (M11)**     | ⬜     | `PagarmeGateway` não implementado; lógica de fallback no `GatewayRegistry` não existente                                  |
+| **Stub de atletas (M9)**                             | ✅     | Módulo `src/modules/athletes/` integrado; schema Prisma definido; DDL tenant atualizado; rotas base criadas               |
+| **Contratos e alertas BID/CBF (M10)**                | ✅     | Schema contratos + Motor de Regras Esportivas + alertas implementados via jobs e API                                      |
+| **Multi-Acquiring PIX — fallback gateway (M11)**     | ✅     | `PagarmeGateway` e `StripeGateway` implementados; lógica de fallback silencioso no `GatewayRegistry` integrada            |
 
 ### Status de implementação (apps/web)
 
@@ -111,17 +114,17 @@ O dinheiro é a dor universal. Inadimplência de sócios de 35–50% é a realid
 | ---------------------------------------- | ------ | ----------------------------------------------------------------------------- |
 | Onboarding do clube (wizard 3 etapas)    | ✅     | `/onboarding` — StepClubData, StepLogo, StepConfirmation                      |
 | Cadastro manual de sócios                | ✅     | MembersPage + MemberFormModal com validação Zod                               |
-| Importação via CSV                       | ⬜     | Pendente — endpoint disponível no backend; fluxo não exposto no frontend      |
-| Tela de cobranças Pix                    | ⬜     | Sidebar mostra "Em breve" — backend plenamente disponível                     |
+| Importação via CSV                       | ✅     | Endpoint e fluxo UI expostos no frontend (`CsvImportModal`, `CsvTemplate`)    |
+| Tela de cobranças Pix                    | ✅     | CRUD de cobranças PIX implementado; exibição de QR Code e status listados     |
 | SSE para evento PAYMENT_CONFIRMED        | ✅     | `useRealTimeEvents` — invalida cache React Query automaticamente              |
 | Dashboard KPIs + gráfico + inadimplentes | ✅     | DashboardKpis, DelinquencyChart (Recharts), OverdueMembersTable               |
 | Envio on-demand de lembrete WhatsApp     | ✅     | `useRemindMember` → POST /api/members/:id/remind — com tratamento de erro 429 |
 | Autenticação JWT + refresh token         | ✅     | AuthProvider, bootstrap transparente, deduplicação de refresh concorrente     |
 | Controle de acesso Admin/Tesoureiro      | ✅     | `isAdmin` verificado em Sócios e Planos; leitura para Tesoureiro              |
 | Gestão de planos (CRUD completo)         | ✅     | PlansPage + PlanFormModal + DeletePlanDialog                                  |
-| Templates de mensagem (tela de config)   | ⬜     | Endpoints disponíveis no backend; tela não implementada no frontend           |
-| Stub de atletas (M9)                     | ⬜     | Sem rota, componente ou entrada de nav — aguarda backend                      |
-| Contratos e alertas BID/CBF (M10)        | ⬜     | Sem rota ou componente — aguarda backend                                      |
+| Templates de mensagem (tela de config)   | ✅     | Tela configurável no frontend implementada (`TemplatesPage`)                  |
+| Stub de atletas (M9)                     | ✅     | Rotas, componentes e entrada de navegação finalizados (`AthletesPage`)        |
+| Contratos e alertas BID/CBF (M10)        | ✅     | Rotas e componentes integrados (`ContractsPage`)                              |
 | Site de marketing                        | ✅     | Landing, preços, contato — route group `(marketing)` completo                 |
 
 ### Features incluídas na v1.0
@@ -132,8 +135,8 @@ O dinheiro é a dor universal. Inadimplência de sócios de 35–50% é a realid
 - Cadastro manual de sócios + importação em lote CSV (5.000 linhas, batches de 500)
 - Geração automática de cobranças PIX mensais com QR Code por sócio (cron 1º de cada mês, 08h)
 - Webhook de confirmação Asaas com HMAC timingSafeEqual + BullMQ async
-- **Multi-Acquiring PIX:** fallback Pagarme → PIX estático do clube (zero perda de receita na data de vencimento)
-- Régua de cobrança WhatsApp: D-3 automático ✅, D-0 automático ⬜, D+3 automático ✅, on-demand ✅
+- **Multi-Acquiring PIX:** fallback Pagarme → Stripe → PIX estático do clube (zero perda de receita na data de vencimento)
+- Régua de cobrança WhatsApp: D-3 automático ✅, D-0 automático ✅, D+3 automático ✅, on-demand ✅
 - Templates de mensagem personalizáveis por clube com placeholders dinâmicos
 - Fallback automático para e-mail (Resend) após 2 falhas de WhatsApp em 48h
 - Rate limiting WhatsApp: 30 msg/min por clube (Lua atômica no Redis)
@@ -150,26 +153,26 @@ O dinheiro é a dor universal. Inadimplência de sócios de 35–50% é a realid
 
 **Contratos & Elegibilidade (Diferencial Imediato)**
 
-- Stub de atletas: schema `athletes` + CRUD `/api/athletes` + campos de identidade
-- Digitalização de vínculos trabalhistas com alertas de vencimento de contrato
+- Stub de atletas: schema `athletes` + CRUD `/api/athletes` + campos de identidade integrados
+- Digitalização de vínculos trabalhistas com alertas de vencimento de contrato funcionais
 - Alerta de escalação irregular: validação de registro no BID/CBF antes do jogo
-- Motor de Regras Esportivas: parâmetros CBF/FPF configuráveis via Backoffice sem deploy
+- Motor de Regras Esportivas: parâmetros CBF/FPF configuráveis via JSONB em `rules-validator.ts`
 
 **Marketing**
 
 - Site público: landing page, preços, contato — route group `(marketing)` no Next.js
 
-### Itens pendentes (MUST incompletos no código atual)
+### Itens do MUST concluídos na Auditoria Final
 
-| Item                   | O que falta                                                                               | Estimativa |
-| ---------------------- | ----------------------------------------------------------------------------------------- | ---------- |
-| M3 — Tela de cobranças | Frontend: CRUD cobranças, exibição QR Code, status por sócio                              | 3d         |
-| M2 — CSV no frontend   | Fluxo de upload na MembersPage                                                            | 1d         |
-| M6 — Job D-0           | Worker automático "vencimento hoje"                                                       | 0.5d       |
-| M9 — Stub atletas      | Módulo `athletes/`, DDL tenant, rota, audit log                                           | 1.5d       |
-| M10 — Contratos/BID    | Schema contratos + Motor de Regras + alertas                                              | 2d         |
-| M11 — Multi-Acquiring  | PagarmeGateway + StripeGateway + fallback logic no GatewayRegistry (`STRIPE_ENABLED` env) | 3d         |
-| S8 — Templates (UI)    | Tela de configuração de templates no frontend                                             | 1d         |
+| Item                   | Status Atual                                                                            |
+| ---------------------- | --------------------------------------------------------------------------------------- |
+| M3 — Tela de cobranças | ✅ Concluído. Frontend: CRUD cobranças, exibição QR Code, status por sócio finalizados. |
+| M2 — CSV no frontend   | ✅ Concluído. Fluxo de upload na `MembersPage` totalmente exposto e funcional.          |
+| M6 — Job D-0           | ✅ Concluído. Worker automático "vencimento hoje" integrado via BullMQ.                 |
+| M9 — Stub atletas      | ✅ Concluído. Módulo `athletes/`, DDL tenant, rota e interfaces finalizadas.            |
+| M10 — Contratos/BID    | ✅ Concluído. Schema contratos + Motor de Regras Esportivas + alertas UI/API operantes. |
+| M11 — Multi-Acquiring  | ✅ Concluído. `PagarmeGateway` e `StripeGateway` com lógica de fallback operando.       |
+| S8 — Templates (UI)    | ✅ Concluído. Tela de configuração de templates WhatsApp/e-mail no frontend disponível. |
 
 > **Por que M10 é MUST HAVE?** A escalação irregular de jogadores sem registro no BID da CBF resulta em perda automática de pontos e pode excluir o clube do campeonato. É o risco jurídico-esportivo de maior impacto imediato — comparável à multa da ANPD em gravidade para o cliente.
 >
@@ -447,8 +450,8 @@ Duas métricas por módulo: produto (está sendo usado como ferramenta?) e negó
 | --------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
 | Conectividade no campo                              | 🔴 Alta   | Offline-First obrigatório em v1.5: IndexedDB + Service Workers + Background Sync                      |
 | LGPD — dados de menores sem consentimento           | 🔴 Alta   | Hard stop no sistema de peneiras; criptografia; purge automático 24 meses; aceite parental digital    |
-| Escalação irregular BID/CBF                         | 🔴 Alta   | Motor de Regras parametrizável; alertas 48h antes do jogo; validação em tempo real                    |
-| Churn por gateway indisponível                      | 🔴 Alta   | Multi-Acquiring (M11) com fallback silencioso Asaas → Pagarme → PIX estático do clube                 |
+| Escalação irregular BID/CBF                         | 🔴 Alta   | Motor de Regras parametrizável; alertas 48h antes do jogo; validação em tempo real (Concluído V1.0)   |
+| Churn por gateway indisponível                      | 🔴 Alta   | Multi-Acquiring com fallback silencioso Asaas → Pagarme → Stripe → PIX estático (Concluído V1.0)      |
 | v1.0 não valida: inadimplência não cai o suficiente | 🔴 Alta   | Piloto com 3 clubes antes de escalar. Critério de go/no-go claro: ≥ 20% de redução                    |
 | TreinoOS não vira hábito                            | 🔴 Alta   | Métrica: ≥ 2 sessões/semana. Se não atingir em 30 dias, revisar onboarding antes de escalar           |
 | ScoutLink lança com perfis rasos                    | 🔴 Alta   | Não lançar antes de 6 meses de BaseForte em produção; curadoria manual nos primeiros 90 dias          |
@@ -458,25 +461,3 @@ Duas métricas por módulo: produto (está sendo usado como ferramenta?) e negó
 | WhatsApp bloqueia número por envio massivo          | 🟡 Média  | Rate limit 30 msg/min (Lua Redis) ✅; fallback e-mail ✅; sender rotation planejado para v2.0         |
 | SSE não escala em múltiplos processos               | 🟢 Baixa  | Substituir `EventEmitter` por Redis `PUBLISH/SUBSCRIBE`; interface de `sse-bus.ts` permanece idêntica |
 | Bundle leak entre `(marketing)` e `(app)`           | 🟢 Baixa  | Regra aplicada — validar com bundle analyzer antes de ir para produção                                |
-
----
-
-## Próximos Passos (v1.0)
-
-### Backend (apps/api) — itens restantes do MUST
-
-1. **M9 — Stub de atletas:** criar módulo `src/modules/athletes/` com schema Prisma, rota `GET/POST/PUT /api/athletes`, campos mínimos (`name`, `cpf`, `birthDate`, `position`, `status`, `clubId`). Provisionar tabela `athletes` no DDL tenant em `lib/tenant-schema.ts`. Criar entrada de `AuditLog` nas operações de escrita. Estimativa: ~1.5 dias.
-2. **M10 — Contratos e BID/CBF:** schema `contracts` + Motor de Regras Esportivas (JSONB parametrizável) + alertas de vencimento + validação de escalação. Estimativa: ~2 dias.
-3. **M11 — Multi-Acquiring:** implementar `PagarmeGateway` e `StripeGateway` (PIX Brasil + base para internacional), adicionar lógica de fallback em `GatewayRegistry.forMethod()` (Asaas → Pagarme → Stripe → PIX estático), configurar `STRIPE_ENABLED` como feature flag, adicionar `pixKeyFallback` no onboarding. Estimativa: ~3 dias.
-
-### Frontend (apps/web) — itens pendentes do MUST
-
-4. **M3 — Tela de cobranças:** CRUD de cobranças PIX, exibição de QR Code, status por sócio. Backend Asaas plenamente integrado. Estimativa: ~3 dias.
-5. **M2 — Importação CSV:** adicionar fluxo de upload na `MembersPage` (endpoint `POST /api/members/import` já disponível; template em `GET /api/members/import/template`). Estimativa: ~1 dia.
-6. **M6 — Job D-0:** worker automático "vencimento hoje" (cron). Estimativa: ~0.5 dia.
-7. **M9/M10 — Atletas e Contratos:** rotas `/athletes` e `/contracts`, telas básicas de listagem/cadastro, entradas na sidebar (aguardam backend).
-
-### Backend — itens SHOULD restantes
-
-8. **S7 — Histórico de pagamentos:** endpoint `GET /api/members/:memberId/payments` listando `payments` joinado com `charges`. O dado já existe no banco; falta apenas a rota.
-9. **S8 — Templates (UI):** tela de configuração de templates WhatsApp/e-mail (endpoints `GET/PUT/DELETE /api/templates/:key` já disponíveis).

@@ -4,6 +4,7 @@
 > Cada tarefa deve caber em **1 dia de trabalho de 1 desenvolvedor**.
 > Tarefas maiores devem ser decompostas antes de entrarem na sprint.
 > **Legenda de status:** ✅ Implementado · ⬜ Pendente · ⚠️ Parcial
+> **Status Atual:** MVP (v1.0) auditado e concluído. Iniciando estruturação da v1.5.
 
 ---
 
@@ -14,8 +15,9 @@
 | **Sprint 1 (Sem 3–4)**   | Fundação: Autenticação, Onboarding, Segurança base, CI/CD e Landing Page                 | T-001 a T-019 + T-044 a T-047 + T-049 a T-056 | ~14d dev | ✅ Feito   | O Clube consegue logar e cadastrar sócios/atletas; site no ar.                            |
 | **Sprint 2 (Sem 5–6)**   | Core Financeiro: Cobranças via Pix, Webhooks e Régua WhatsApp (D-3/D0)                   | T-020 a T-035 + T-037 a T-041                 | ~12d dev | ✅ Feito   | Primeira cobrança Pix gerada e confirmada de ponta a ponta.                               |
 | **Sprint 3 (Sem 7–8)**   | Polimento e Confiabilidade: SSE, Testes E2E e Contingência de E-mail                     | T-036 + T-042 + T-043 + T-048                 | ~5d dev  | ✅ Feito   | Sistema rodando 1 semana em produção sem incidentes críticos.                             |
-| **Sprint 4 (Sem 9–10)**  | Fechamento v1.0: Stub atletas + Contratos/BID + Multi-Acquiring + Telas MUST             | T-054 a T-060 + T-076 a T-084                 | ~12d dev | ✅ Feito | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
-| **Sprint 5 (Sem 11–12)** | Hardening de Segurança: Correção de lacunas críticas e médias (`security-guidelines.md`) | T-061 a T-075                                 | ~8d dev  | ✅ Feito | Checklist de deploy (`security-guidelines.md §13`) 100% aprovado; zero falhas 🔴 abertas. |
+| **Sprint 4 (Sem 9–10)**  | Fechamento v1.0: Stub atletas + Contratos/BID + Multi-Acquiring + Telas MUST             | T-054 a T-060 + T-076 a T-084                 | ~12d dev | ✅ Feito   | Todos os itens MUST do MoSCoW entregues; v1.0 funcionalmente completa.                    |
+| **Sprint 5 (Sem 11–12)** | Hardening de Segurança: Correção de lacunas críticas e médias (`security-guidelines.md`) | T-061 a T-075                                 | ~8d dev  | ✅ Feito   | Checklist de deploy (`security-guidelines.md §13`) 100% aprovado; zero falhas 🔴 abertas. |
+| **Sprint 6 (Sem 13–14)** | Transição v1.5: Setup Offline-First (PWA) e Base de Séries Temporais                     | T-086 a T-092                                 | ~7d dev  | ⬜ A Fazer | PWA instalável no mobile; IndexedDB operante; TimescaleDB configurado no PostgreSQL.      |
 
 ---
 
@@ -278,3 +280,30 @@
 | ID        | Tarefa Técnica                                                                                                                                   | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
 | **T-084** | Job D-0: dispatch + worker BullMQ (cron `0 8 * * *`, fila `due-today-notices`, `sendDueTodayNoticesForClub`) — mesmo padrão fan-out de D-3 e D+3 | 0.5d    | S4     | ✅     |
+
+---
+
+## Épicos Ativos — v1.5 ("O Campo")
+
+> **Contexto:** A v1.5 transforma o ClubOS na ferramenta diária do treinador e preparador físico. O grande desafio técnico não é a lógica de negócio, mas a garantia de resiliência sem internet (**Offline-First**) e a modelagem escalável para dados diários de carga física (**TimescaleDB**).
+
+### Épico 14 — Fundação PWA e Offline-First (TreinoOS)
+
+**Como** treinador, **quero** acessar o sistema e registrar presenças no campo de terra, **para** que a falta de 4G não me obrigue a voltar para o caderno.
+
+| ID        | Tarefa Técnica                                                                                                                              | Esforço | Sprint | Status |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
+| **T-086** | Setup do manifesto PWA (`manifest.json`) e configuração de ícones nativos (iOS/Android) no Next.js App Router                               | 0.5d    | S6     | ⬜     |
+| **T-087** | Integração do **Workbox** para Service Workers: estratégia `Stale-while-revalidate` para assets estáticos e `Network-first` para dados base | 1d      | S6     | ⬜     |
+| **T-088** | Implementação do **Dexie.js** (IndexedDB): schema local para tabelas `athletes` e `training_sessions`                                       | 1d      | S6     | ⬜     |
+| **T-089** | Motor de Sincronização Base: listener online/offline e fila de ações mutáveis salvas no IndexedDB para disparo posterior                    | 1.5d    | S6     | ⬜     |
+
+### Épico 15 — Estrutura de Séries Temporais (BaseForte)
+
+**Como** desenvolvedor backend, **quero** configurar o banco de dados para lidar com inserções diárias maciças de RPE, **para** que as agregações de cálculo ACWR não degradem a performance.
+
+| ID        | Tarefa Técnica                                                                                                                    | Esforço | Sprint | Status |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
+| **T-090** | Ativar/Provisionar a extensão `timescaledb` no PostgreSQL principal da infraestrutura                                             | 0.5d    | S6     | ⬜     |
+| **T-091** | Criar tabela de hypertable `workload_metrics` no Prisma (raw SQL query para conversão `create_hypertable`) com indexação por data | 1d      | S6     | ⬜     |
+| **T-092** | Criar view materializada contínua (CAGG) para agregação semanal de carga (Aguda vs Crônica)                                       | 1.5d    | S6     | ⬜     |

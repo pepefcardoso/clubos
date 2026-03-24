@@ -108,7 +108,7 @@ describe.skipIf(!hasDatabase)(
       expect(result).toHaveLength(1);
     });
 
-    it("creates all expected tenant tables", async () => {
+    it("creates all expected tenant tables (12 total)", async () => {
       const clubId = makeTestClubId();
       const schemaName = `clube_${clubId}`;
       createdSchemas.push(schemaName);
@@ -123,19 +123,26 @@ describe.skipIf(!hasDatabase)(
         ORDER BY table_name
       `;
 
-      const tableNames = result.map((r) => r["table_name"] as string);
+      const tableNames = result.map(
+        (r: { table_name: string }) => r.table_name,
+      );
       expect(tableNames).toEqual(
         expect.arrayContaining([
+          "athletes",
           "audit_log",
           "charges",
+          "contracts",
           "member_plans",
           "members",
+          "message_templates",
           "messages",
           "payments",
           "plans",
+          "rules_config",
+          "workload_metrics",
         ]),
       );
-      expect(tableNames).toHaveLength(7);
+      expect(tableNames).toHaveLength(12);
     });
 
     it("creates members.cpf and members.phone as BYTEA columns", async () => {
@@ -210,7 +217,7 @@ describe.skipIf(!hasDatabase)(
         WHERE table_schema = ${schemaName}
           AND table_type = 'BASE TABLE'
       `;
-      expect(result).toHaveLength(7);
+      expect(result).toHaveLength(12);
     });
 
     it("pgcrypto extension is available after provisioning", async () => {
@@ -302,6 +309,232 @@ describe.skipIf(!hasDatabase)(
         WHERE schema_name IN (${`clube_${clubIdA}`}, ${`clube_${clubIdB}`})
       `;
       expect(result).toHaveLength(2);
+    });
+
+    it("creates the workload_metrics table", async () => {
+      const clubId = makeTestClubId();
+      const schemaName = `clube_${clubId}`;
+      createdSchemas.push(schemaName);
+
+      await provisionTenantSchema(prisma, clubId);
+
+      const result = await prisma.$queryRaw<Row[]>`
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = ${schemaName}
+          AND table_name   = 'workload_metrics'
+          AND table_type   = 'BASE TABLE'
+      `;
+      expect(result).toHaveLength(1);
+    });
+
+    it("workload_metrics has the correct column types", async () => {
+      const clubId = makeTestClubId();
+      const schemaName = `clube_${clubId}`;
+      createdSchemas.push(schemaName);
+
+      await provisionTenantSchema(prisma, clubId);
+
+      const result = await prisma.$queryRaw<
+        { column_name: string; data_type: string; is_nullable: string }[]
+      >`
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE table_schema = ${schemaName}
+          AND table_name   = 'workload_metrics'
+        ORDER BY ordinal_position
+      `;
+
+      const byName = Object.fromEntries(
+        result.map((r: { column_name: string; [key: string]: unknown }) => [
+          r.column_name,
+          r,
+        ]),
+      );
+
+      expect(byName["id"]?.data_type).toBe("text");
+      expect(byName["id"]?.is_nullable).toBe("NO");
+
+      expect(byName["athleteId"]?.data_type).toBe("text");
+      expect(byName["athleteId"]?.is_nullable).toBe("NO");
+
+      expect(byName["trainingSessionId"]?.data_type).toBe("text");
+      expect(byName["trainingSessionId"]?.is_nullable).toBe("YES");
+
+      expect(byName["date"]?.data_type).toBe("date");
+      expect(byName["date"]?.is_nullable).toBe("NO");
+
+      expect(byName["rpe"]?.data_type).toBe("integer");
+      expect(byName["rpe"]?.is_nullable).toBe("NO");
+
+      expect(byName["durationMinutes"]?.data_type).toBe("integer");
+      expect(byName["durationMinutes"]?.is_nullable).toBe("NO");
+
+      expect(byName["sessionType"]?.data_type).toBe("USER-DEFINED");
+      expect(byName["sessionType"]?.is_nullable).toBe("NO");
+
+      expect(byName["notes"]?.data_type).toBe("text");
+      expect(byName["notes"]?.is_nullable).toBe("YES");
+
+      expect(byName["createdAt"]?.data_type).toBe(
+        "timestamp without time zone",
+      );
+      expect(byName["createdAt"]?.is_nullable).toBe("NO");
+      expect(byName["updatedAt"]?.data_type).toBe(
+        "timestamp without time zone",
+      );
+      expect(byName["updatedAt"]?.is_nullable).toBe("NO");
+    });
+
+    it("workload_metrics.sessionType defaults to TRAINING", async () => {
+      const clubId = makeTestClubId();
+      const schemaName = `clube_${clubId}`;
+      createdSchemas.push(schemaName);
+
+      await provisionTenantSchema(prisma, clubId);
+
+      const result = await prisma.$queryRaw<{ column_default: string }[]>`
+        SELECT column_default
+        FROM information_schema.columns
+        WHERE table_schema = ${schemaName}
+          AND table_name   = 'workload_metrics'
+          AND column_name  = 'sessionType'
+      `;
+      expect(result[0]?.column_default).toContain("TRAINING");
+    });
+
+    it("creates workload_metrics_date_brin_idx using BRIN access method", async () => {
+      const clubId = makeTestClubId();
+      const schemaName = `clube_${clubId}`;
+      createdSchemas.push(schemaName);
+
+      await provisionTenantSchema(prisma, clubId);
+
+      const result = await prisma.$queryRaw<
+        { indexname: string; indexdef: string }[]
+      >`
+        SELECT indexname, indexdef
+        FROM pg_indexes
+        WHERE schemaname = ${schemaName}
+          AND tablename  = 'workload_metrics'
+          AND indexname  = 'workload_metrics_date_brin_idx'
+      `;
+      expect(result).toHaveLength(1);
+      expect(result[0]?.indexdef?.toLowerCase()).toContain("using brin");
+    });
+
+    it("creates workload_metrics_athleteId_idx (B-tree)", async () => {
+      const clubId = makeTestClubId();
+      const schemaName = `clube_${clubId}`;
+      createdSchemas.push(schemaName);
+
+      await provisionTenantSchema(prisma, clubId);
+
+      const result = await prisma.$queryRaw<Row[]>`
+        SELECT ix.relname AS index_name
+        FROM pg_index i
+        JOIN pg_class t  ON t.oid = i.indrelid
+        JOIN pg_class ix ON ix.oid = i.indexrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname  = ${schemaName}
+          AND t.relname  = 'workload_metrics'
+          AND ix.relname = 'workload_metrics_athleteId_idx'
+      `;
+      expect(result).toHaveLength(1);
+    });
+
+    it("creates workload_metrics_athleteId_date_idx composite (B-tree)", async () => {
+      const clubId = makeTestClubId();
+      const schemaName = `clube_${clubId}`;
+      createdSchemas.push(schemaName);
+
+      await provisionTenantSchema(prisma, clubId);
+
+      const result = await prisma.$queryRaw<{ indexdef: string }[]>`
+        SELECT indexdef
+        FROM pg_indexes
+        WHERE schemaname = ${schemaName}
+          AND tablename  = 'workload_metrics'
+          AND indexname  = 'workload_metrics_athleteId_date_idx'
+      `;
+      expect(result).toHaveLength(1);
+      expect(result[0]?.indexdef).toContain("athleteId");
+      expect(result[0]?.indexdef).toContain("date");
+    });
+
+    it("does NOT create a unique index on workload_metrics.athleteId (multiple sessions per athlete allowed)", async () => {
+      const clubId = makeTestClubId();
+      const schemaName = `clube_${clubId}`;
+      createdSchemas.push(schemaName);
+
+      await provisionTenantSchema(prisma, clubId);
+
+      const result = await prisma.$queryRaw<Row[]>`
+        SELECT ix.relname AS index_name
+        FROM pg_index i
+        JOIN pg_class t  ON t.oid = i.indrelid
+        JOIN pg_class ix ON ix.oid = i.indexrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(i.indkey)
+        WHERE n.nspname   = ${schemaName}
+          AND t.relname   = 'workload_metrics'
+          AND a.attname   = 'athleteId'
+          AND i.indisunique = true
+      `;
+      expect(result).toHaveLength(0);
+    });
+
+    it("enforces FK — inserting workload_metric with unknown athleteId throws", async () => {
+      const clubId = makeTestClubId();
+      const schemaName = `clube_${clubId}`;
+      createdSchemas.push(schemaName);
+
+      await provisionTenantSchema(prisma, clubId);
+      await prisma.$executeRawUnsafe(
+        `SET search_path TO "${schemaName}", public`,
+      );
+
+      await expect(
+        prisma.$executeRaw`
+          INSERT INTO "workload_metrics" (
+            id, "athleteId", date, rpe, "durationMinutes", "updatedAt"
+          ) VALUES (
+            'fk-test-id',
+            'non-existent-athlete-id',
+            CURRENT_DATE,
+            7,
+            60,
+            NOW()
+          )
+        `,
+      ).rejects.toThrow();
+    });
+
+    it("SessionType enum has all five expected values", async () => {
+      const clubId = makeTestClubId();
+      const schemaName = `clube_${clubId}`;
+      createdSchemas.push(schemaName);
+
+      await provisionTenantSchema(prisma, clubId);
+
+      const result = await prisma.$queryRaw<{ enumlabel: string }[]>`
+        SELECT e.enumlabel
+        FROM pg_enum e
+        JOIN pg_type t ON t.oid = e.enumtypid
+        WHERE t.typname = 'SessionType'
+        ORDER BY e.enumsortorder
+      `;
+      const labels = result.map((r: { enumlabel: string }) => r.enumlabel);
+      expect(labels).toEqual(
+        expect.arrayContaining([
+          "MATCH",
+          "TRAINING",
+          "GYM",
+          "RECOVERY",
+          "OTHER",
+        ]),
+      );
+      expect(labels).toHaveLength(5);
     });
   },
 );

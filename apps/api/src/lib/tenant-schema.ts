@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../generated/prisma/index.js";
+import type { Prisma, PrismaClient } from "../../generated/prisma/index.js";
 
 /**
  * Validates that a clubId is a safe cuid2-like value before interpolating it
@@ -100,6 +100,12 @@ const TENANT_ENUMS_DDL = `
     );
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+  DO $$ BEGIN
+    CREATE TYPE "SessionType" AS ENUM (
+      'MATCH', 'TRAINING', 'GYM', 'RECOVERY', 'OTHER'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
   -- Extend AuditAction with athlete actions.
   -- ALTER TYPE ADD VALUE cannot run inside a transaction; provisionTenantSchema
   -- executes this entire block OUTSIDE the transaction (Step 3 below).
@@ -132,6 +138,11 @@ const TENANT_ENUMS_DDL = `
  *   at-most-one ACTIVE contract per athlete is enforced at the service layer.
  * - Contract audit entries use entityId / entityType = "Contract" — no dedicated FK.
  * - Contracts are never deleted — only transitioned to TERMINATED (immutability).
+ * - workload_metrics.trainingSessionId is nullable TEXT — FK to training_sessions will
+ *   be added in T-101 once that table exists, to avoid a blocking dependency.
+ * - workload_metrics.rpe stores Foster RPE 1–10 (FIFA standard); range enforced by Zod.
+ * - workload_metrics derived load (AU = rpe × durationMinutes) is NOT stored here —
+ *   it is computed in the MATERIALIZED VIEW created in T-092.
  */
 const TENANT_TABLES_DDL = `
   -- plans (no FK dependencies)
@@ -298,6 +309,30 @@ const TENANT_TABLES_DDL = `
     CONSTRAINT "contracts_pkey" PRIMARY KEY ("id")
   );
 
+  -- workload_metrics (FK → athletes)
+  -- Stores raw Foster Session-RPE training load inputs per athlete per day.
+  -- rpe: integer 1–10 (FIFA standard; NOT NULL — a zero-RPE session is not a session).
+  -- durationMinutes: must be > 0; enforced at the application layer via Zod.
+  -- trainingSessionId: nullable TEXT — FK to training_sessions will be added in T-101
+  --   once that table exists, avoiding a blocking dependency between T-091 and T-101.
+  -- date is a DATE column (time component always midnight UTC); BRIN-indexed below.
+  -- Training Load (AU) = rpe × durationMinutes is intentionally NOT stored here —
+  --   it is derived in the MATERIALIZED VIEW created in T-092.
+  CREATE TABLE IF NOT EXISTS "workload_metrics" (
+    "id"                TEXT          NOT NULL,
+    "athleteId"         TEXT          NOT NULL,
+    "trainingSessionId" TEXT,
+    "date"              DATE          NOT NULL,
+    "rpe"               INTEGER       NOT NULL,
+    "durationMinutes"   INTEGER       NOT NULL,
+    "sessionType"       "SessionType" NOT NULL DEFAULT 'TRAINING',
+    "notes"             TEXT,
+    "createdAt"         TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"         TIMESTAMP(3)  NOT NULL,
+
+    CONSTRAINT "workload_metrics_pkey" PRIMARY KEY ("id")
+  );
+
   -- rules_config
   -- Stores per-season, per-league sports eligibility rule sets as JSONB.
   -- Rules are parameterised and updatable via API without code deployment.
@@ -318,6 +353,16 @@ const TENANT_TABLES_DDL = `
 
 /**
  * All indexes on tenant tables. CREATE INDEX IF NOT EXISTS is available from PG 9.5+.
+ *
+ * workload_metrics index strategy:
+ *   - BRIN on "date": Block Range INdex — stores only min/max per physical page range,
+ *     making it ~100–1000x smaller than B-tree for time-series data. Optimal here because
+ *     rows are inserted in roughly chronological order as sessions are logged. The ACWR
+ *     materialized view (T-092) uses range scans on date (e.g. WHERE date >= NOW() -
+ *     INTERVAL '28 days'), which BRIN handles efficiently. pages_per_range=32 (default).
+ *   - B-tree on "athleteId": supports per-athlete lookups in dashboard and ACWR queries.
+ *   - Composite B-tree on ("athleteId", "date"): covers the most frequent query pattern —
+ *     load history for a specific athlete over a date range (ACWR window lookups, charts).
  */
 const TENANT_INDEXES_DDL = `
   -- members
@@ -381,6 +426,20 @@ const TENANT_INDEXES_DDL = `
   CREATE INDEX IF NOT EXISTS "contracts_endDate_idx"
     ON "contracts" ("endDate");
 
+  -- workload_metrics
+  -- BRIN on "date": optimal for time-series range scans used by the ACWR materialized
+  --   view (T-092). Rows are inserted chronologically, so BRIN's block-range correlation
+  --   assumption holds. pages_per_range=32 (PostgreSQL default).
+  -- B-tree on "athleteId": per-athlete dashboard and ACWR lookup support.
+  -- Composite ("athleteId", "date"): covers the dominant query pattern — load history
+  --   for a specific athlete over a trailing window (e.g. 28-day ACWR calculation).
+  CREATE INDEX IF NOT EXISTS "workload_metrics_date_brin_idx"
+    ON "workload_metrics" USING BRIN ("date");
+  CREATE INDEX IF NOT EXISTS "workload_metrics_athleteId_idx"
+    ON "workload_metrics" ("athleteId");
+  CREATE INDEX IF NOT EXISTS "workload_metrics_athleteId_date_idx"
+    ON "workload_metrics" ("athleteId", "date");
+
   -- rules_config
   CREATE UNIQUE INDEX IF NOT EXISTS "rules_config_season_league_key"
     ON "rules_config" ("season", "league");
@@ -396,6 +455,9 @@ const TENANT_INDEXES_DDL = `
  *
  * Note: contracts → athletes uses ON DELETE RESTRICT to prevent accidental deletion
  * of athletes that have legal/compliance contract records.
+ *
+ * Note: workload_metrics → training_sessions FK is deferred to T-101, when the
+ * training_sessions table will be created. trainingSessionId is nullable TEXT for now.
  */
 const TENANT_FOREIGN_KEYS_DDL = `
   -- member_plans → members
@@ -441,6 +503,18 @@ const TENANT_FOREIGN_KEYS_DDL = `
     ADD CONSTRAINT IF NOT EXISTS "contracts_athleteId_fkey"
     FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
     ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- workload_metrics → athletes
+  -- ON DELETE RESTRICT: preserves training load history even if an athlete is
+  -- deactivated; hard delete of an athlete with load data is intentionally blocked
+  -- to protect ACWR history and any future injury-prediction models (v2.0).
+  ALTER TABLE "workload_metrics"
+    ADD CONSTRAINT IF NOT EXISTS "workload_metrics_athleteId_fkey"
+    FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- NOTE: FK for workload_metrics → training_sessions will be added in T-101
+  -- once that table is defined. trainingSessionId is nullable TEXT for now.
 `;
 
 /**
@@ -493,13 +567,11 @@ export async function provisionTenantSchema(
   await prisma.$executeRawUnsafe(`SET search_path TO "${schemaName}", public`);
   await prisma.$executeRawUnsafe(TENANT_ENUMS_DDL);
 
-  await prisma.$transaction(async (tx) => {
-    const p = tx as unknown as PrismaClient;
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.$executeRawUnsafe(`SET search_path TO "${schemaName}", public`);
 
-    await p.$executeRawUnsafe(`SET search_path TO "${schemaName}", public`);
-
-    await p.$executeRawUnsafe(TENANT_TABLES_DDL);
-    await p.$executeRawUnsafe(TENANT_INDEXES_DDL);
-    await p.$executeRawUnsafe(TENANT_FOREIGN_KEYS_DDL);
+    await tx.$executeRawUnsafe(TENANT_TABLES_DDL);
+    await tx.$executeRawUnsafe(TENANT_INDEXES_DDL);
+    await tx.$executeRawUnsafe(TENANT_FOREIGN_KEYS_DDL);
   });
 }

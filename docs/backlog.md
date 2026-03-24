@@ -37,7 +37,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                  | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-091** | Configurar tabela `workload_metrics` com Índice BRIN na coluna de data e chaves estrangeiras apropriadas no Prisma.             | 0.5d    | S6     | ⬜     |
+| **T-091** | Configurar tabela `workload_metrics` com Índice BRIN na coluna de data e chaves estrangeiras apropriadas no Prisma.             | 0.5d    | S6     | ✅     |
 | **T-092** | Criar `MATERIALIZED VIEW` para o cálculo agregado semanal do ACWR (Carga Aguda vs Crônica).                                     | 1d      | S6     | ⬜     |
 | **T-093** | Criar script SQL e rotina Prisma/Backend para permitir o `REFRESH MATERIALIZED VIEW CONCURRENTLY`.                              | 0.5d    | S6     | ⬜     |
 | **T-094** | Criar um job no BullMQ (`refresh-acwr-aggregates`) para rodar o refresh a cada 4 horas ou no fechamento do dia automaticamente. | 1d      | S6     | ⬜     |
@@ -135,7 +135,6 @@
 
 **Fase 1: Fundações de Banco e Offline-First (Bloqueadores)**
 
-1. `T-091` — Setup da tabela `workload_metrics` e Índices BRIN (Libera infra do Backend)
 2. `T-092`, `T-093` e `T-094` — Setup Materialized View, Refresh SQL e job cron BullMQ
 3. `T-086` e `T-087` — Setup PWA e Workbox (Libera infra do Frontend)
 4. `T-088`, `T-089` e `T-090` — Dexie.js e Motor de Sincronização Local

@@ -6,7 +6,7 @@
 //
 //   [TENANT MODELS] — models that represent the structure of each tenant schema
 //     (clube_{id}): Member, Plan, MemberPlan, Charge, Payment, Message, AuditLog,
-//                   Athlete, Contract
+//                   Athlete, Contract, WorkloadMetric
 //
 //     At runtime, before any tenant query the API MUST execute:
 //       SET search_path TO "clube_{clubId}", public
@@ -81,6 +81,14 @@ enum ContractStatus {
   EXPIRED
   TERMINATED
   SUSPENDED
+}
+
+enum SessionType {
+  MATCH
+  TRAINING
+  GYM
+  RECOVERY
+  OTHER
 }
 
 enum PlanInterval {
@@ -347,7 +355,8 @@ model Athlete {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  contracts Contract[]
+  contracts       Contract[]
+  workloadMetrics WorkloadMetric[]
 
   @@index([status])
   @@map("athletes")
@@ -372,6 +381,28 @@ model Contract {
   @@index([status])
   @@index([endDate])
   @@map("contracts")
+}
+
+model WorkloadMetric {
+  id                String      @id @default(cuid())
+  athleteId         String
+  trainingSessionId String?
+  date              DateTime    @db.Date
+  rpe               Int
+  durationMinutes   Int
+  sessionType       SessionType @default(TRAINING)
+  notes             String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+
+  // @@index([date]) here documents intent only. The actual PostgreSQL
+  // index created by TENANT_INDEXES_DDL is BRIN (not B-tree) for optimal
+  // time-series range-scan performance. Prisma does not support BRIN natively.
+  @@index([athleteId])
+  @@index([date])
+  @@map("workload_metrics")
 }
 
 model RulesConfig {

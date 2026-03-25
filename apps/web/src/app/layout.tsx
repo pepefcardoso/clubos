@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { PwaUpdateBanner } from "@/components/pwa/PwaUpdateBanner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -39,6 +40,7 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
         <Providers>{children}</Providers>
+        <PwaUpdateBanner />
       </body>
     </html>
   );

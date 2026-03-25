@@ -152,3 +152,33 @@ export const contractAlertQueue = new Queue("contract-alerts", {
     },
   },
 });
+
+/**
+ * Queue for ACWR (Acute:Chronic Workload Ratio) materialized view refresh jobs.
+ *
+ * Fires every 4 hours for all registered clubs (dispatch + per-club refresh).
+ * Separate from all other queues because:
+ *   - Different cadence: 4-hourly, not daily or monthly.
+ *   - Non-financial: failures are not critical — a missed refresh means data
+ *     lags by up to 8h in the worst case, which is acceptable for ACWR dashboards.
+ *   - `REFRESH MATERIALIZED VIEW` is a full-scan DB operation that holds an
+ *     exclusive lock on the view during the non-concurrent path. Isolating it
+ *     avoids starving financial job workers during peak-load refreshes.
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 30s → attempt 2 (exponential backoff) → EXHAUSTED.
+ *   On exhaustion the view will be refreshed naturally on the next 4-hour cron
+ *   tick, keeping worst-case data lag ≤ 8 hours.
+ */
+export const acwrRefreshQueue = new Queue("acwr-refresh", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 50 },
+    removeOnFail: { count: 100 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 30_000,
+    },
+  },
+});

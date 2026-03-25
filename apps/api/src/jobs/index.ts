@@ -4,6 +4,7 @@ import {
   billingReminderQueue,
   overdueNoticeQueue,
   contractAlertQueue,
+  acwrRefreshQueue,
 } from "./queues.js";
 import { startChargeDispatchWorker } from "./charge-generation/charge-dispatch.worker.js";
 import { startChargeGenerationWorker } from "./charge-generation/charge-generation.worker.js";
@@ -14,10 +15,13 @@ import { startOverdueNoticeDispatchWorker } from "./overdue-notices/overdue-noti
 import { startOverdueNoticeWorker } from "./overdue-notices/overdue-notice.worker.js";
 import { startContractAlertDispatchWorker } from "./contract-alerts/contract-alert-dispatch.worker.js";
 import { startContractAlertWorker } from "./contract-alerts/contract-alert.worker.js";
+import { startAcwrRefreshDispatchWorker } from "./acwr-refresh/acwr-refresh-dispatch.worker.js";
+import { startAcwrRefreshWorker } from "./acwr-refresh/acwr-refresh.worker.js";
 import { JOB_NAMES } from "./charge-generation/charge-generation.types.js";
 import { BILLING_REMINDER_JOB_NAMES } from "./billing-reminders/billing-reminder.types.js";
 import { OVERDUE_NOTICE_JOB_NAMES } from "./overdue-notices/overdue-notice.types.js";
 import { CONTRACT_ALERT_JOB_NAMES } from "./contract-alerts/contract-alert.types.js";
+import { ACWR_REFRESH_JOB_NAMES } from "./acwr-refresh/acwr-refresh.types.js";
 import { dueTodayNoticeQueue } from "./queues.js";
 import { startDueTodayNoticeDispatchWorker } from "./due-today-notices/due-today-notice-dispatch.worker.js";
 import { startDueTodayNoticeWorker } from "./due-today-notices/due-today-notice.worker.js";
@@ -61,6 +65,15 @@ const DUE_TODAY_NOTICE_CRON = "0 8 * * *";
 const CONTRACT_ALERT_CRON = "0 11 * * *";
 
 /**
+ * Cron expression: every 4 hours at :00 UTC.
+ * Fires at 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC.
+ * Refreshes the acwr_aggregates materialized view for all registered clubs.
+ * Data lag between a new workload_metric insert and its ACWR aggregation
+ * is at most 4 hours under normal conditions, ≤ 8h in worst-case retry.
+ */
+const ACWR_REFRESH_CRON = "0 */4 * * *";
+
+/**
  * Stable job ID for the charge generation cron entry.
  * BullMQ uses this to upsert (not duplicate) the repeatable job across
  * application restarts.
@@ -90,6 +103,12 @@ const DUE_TODAY_NOTICE_CRON_ID = "daily-due-today-notice-cron";
  * Prevents duplicate registrations on restart.
  */
 const CONTRACT_ALERT_CRON_ID = "daily-contract-alert-cron";
+
+/**
+ * Stable job ID for the ACWR refresh cron entry.
+ * Prevents duplicate cron registrations on restart.
+ */
+const ACWR_REFRESH_CRON_ID = "acwr-refresh-cron";
 
 /**
  * Module-level reference to started workers.
@@ -126,6 +145,13 @@ const _workers: Worker[] = [];
  *       08:00 UTC cron trigger, fans out one due-today notice job per club.
  *   11. Due-today notice worker (concurrency=5) — sends WhatsApp D-0 notices
  *       for each club's PENDING charges due today.
+ *   12. ACWR refresh dispatch worker (concurrency=1) — processes the 4-hourly
+ *       cron trigger, fans out one `refresh-club-acwr` job per club.
+ *   13. ACWR refresh worker (concurrency=3) — calls `refreshAcwrAggregates()`
+ *       for each club to keep the acwr_aggregates materialized view current.
+ *       Concurrency is 3 (lower than financial workers) because REFRESH
+ *       MATERIALIZED VIEW is a full-scan DB operation that can hold an
+ *       exclusive lock on the view during the non-concurrent (first-run) path.
  *
  * Cron registration is **skipped in test environments** (`NODE_ENV=test`) to
  * prevent polluting the test Redis instance with repeatable job entries that
@@ -139,6 +165,9 @@ const _workers: Worker[] = [];
  *   09:00 — D-3  billing-reminders
  *   10:00 — D+3  overdue-notices
  *   11:00 — contract-alerts
+ *
+ * Background cron schedule (UTC):
+ *   00:00, 04:00, 08:00, 12:00, 16:00, 20:00 — ACWR aggregate refresh
  */
 export async function registerJobs(): Promise<void> {
   _workers.push(startChargeDispatchWorker());
@@ -152,6 +181,8 @@ export async function registerJobs(): Promise<void> {
   _workers.push(startContractAlertWorker());
   _workers.push(startDueTodayNoticeDispatchWorker());
   _workers.push(startDueTodayNoticeWorker());
+  _workers.push(startAcwrRefreshDispatchWorker());
+  _workers.push(startAcwrRefreshWorker());
 
   if (process.env["NODE_ENV"] !== "test") {
     await chargeGenerationQueue.upsertJobScheduler(
@@ -228,6 +259,21 @@ export async function registerJobs(): Promise<void> {
     console.info(
       `[jobs] Contract alert cron registered: "${CONTRACT_ALERT_CRON}" (UTC)`,
     );
+
+    await acwrRefreshQueue.upsertJobScheduler(
+      ACWR_REFRESH_CRON_ID,
+      { pattern: ACWR_REFRESH_CRON },
+      {
+        name: ACWR_REFRESH_JOB_NAMES.DISPATCH_ACWR_REFRESH,
+        data: {},
+        opts: {
+          attempts: 1,
+        },
+      },
+    );
+    console.info(
+      `[jobs] ACWR refresh cron registered: "${ACWR_REFRESH_CRON}" (UTC)`,
+    );
   }
 }
 
@@ -247,5 +293,6 @@ export async function closeJobs(): Promise<void> {
   await overdueNoticeQueue.close();
   await dueTodayNoticeQueue.close();
   await contractAlertQueue.close();
+  await acwrRefreshQueue.close();
   console.info("[jobs] All workers and queues closed");
 }

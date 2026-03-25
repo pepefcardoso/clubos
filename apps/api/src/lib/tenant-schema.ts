@@ -142,7 +142,7 @@ const TENANT_ENUMS_DDL = `
  *   be added in T-101 once that table exists, to avoid a blocking dependency.
  * - workload_metrics.rpe stores Foster RPE 1–10 (FIFA standard); range enforced by Zod.
  * - workload_metrics derived load (AU = rpe × durationMinutes) is NOT stored here —
- *   it is computed in the MATERIALIZED VIEW created in T-092.
+ *   it is computed in the MATERIALIZED VIEW.
  */
 const TENANT_TABLES_DDL = `
   -- plans (no FK dependencies)
@@ -313,11 +313,11 @@ const TENANT_TABLES_DDL = `
   -- Stores raw Foster Session-RPE training load inputs per athlete per day.
   -- rpe: integer 1–10 (FIFA standard; NOT NULL — a zero-RPE session is not a session).
   -- durationMinutes: must be > 0; enforced at the application layer via Zod.
-  -- trainingSessionId: nullable TEXT — FK to training_sessions will be added in T-101
-  --   once that table exists, avoiding a blocking dependency between T-091 and T-101.
+  -- trainingSessionId: nullable TEXT — FK to training_sessions will be added
+  --   once that table exists, avoiding a blocking dependency.
   -- date is a DATE column (time component always midnight UTC); BRIN-indexed below.
   -- Training Load (AU) = rpe × durationMinutes is intentionally NOT stored here —
-  --   it is derived in the MATERIALIZED VIEW created in T-092.
+  --   it is derived in the MATERIALIZED VIEW.
   CREATE TABLE IF NOT EXISTS "workload_metrics" (
     "id"                TEXT          NOT NULL,
     "athleteId"         TEXT          NOT NULL,
@@ -358,7 +358,7 @@ const TENANT_TABLES_DDL = `
  *   - BRIN on "date": Block Range INdex — stores only min/max per physical page range,
  *     making it ~100–1000x smaller than B-tree for time-series data. Optimal here because
  *     rows are inserted in roughly chronological order as sessions are logged. The ACWR
- *     materialized view (T-092) uses range scans on date (e.g. WHERE date >= NOW() -
+ *     materialized view uses range scans on date (e.g. WHERE date >= NOW() -
  *     INTERVAL '28 days'), which BRIN handles efficiently. pages_per_range=32 (default).
  *   - B-tree on "athleteId": supports per-athlete lookups in dashboard and ACWR queries.
  *   - Composite B-tree on ("athleteId", "date"): covers the most frequent query pattern —
@@ -428,7 +428,7 @@ const TENANT_INDEXES_DDL = `
 
   -- workload_metrics
   -- BRIN on "date": optimal for time-series range scans used by the ACWR materialized
-  --   view (T-092). Rows are inserted chronologically, so BRIN's block-range correlation
+  --   view. Rows are inserted chronologically, so BRIN's block-range correlation
   --   assumption holds. pages_per_range=32 (PostgreSQL default).
   -- B-tree on "athleteId": per-athlete dashboard and ACWR lookup support.
   -- Composite ("athleteId", "date"): covers the dominant query pattern — load history
@@ -456,7 +456,7 @@ const TENANT_INDEXES_DDL = `
  * Note: contracts → athletes uses ON DELETE RESTRICT to prevent accidental deletion
  * of athletes that have legal/compliance contract records.
  *
- * Note: workload_metrics → training_sessions FK is deferred to T-101, when the
+ * Note: workload_metrics → training_sessions FK, when the
  * training_sessions table will be created. trainingSessionId is nullable TEXT for now.
  */
 const TENANT_FOREIGN_KEYS_DDL = `
@@ -513,15 +513,138 @@ const TENANT_FOREIGN_KEYS_DDL = `
     FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
     ON DELETE RESTRICT ON UPDATE CASCADE;
 
-  -- NOTE: FK for workload_metrics → training_sessions will be added in T-101
+  -- NOTE: FK for workload_metrics → training_sessions will be added
   -- once that table is defined. trainingSessionId is nullable TEXT for now.
+`;
+
+/**
+ * Materialized view for ACWR (Acute:Chronic Workload Ratio) aggregates.
+ *
+ * Computes, per athlete per day, the rolling acute (7-day) and chronic
+ * (28-day) training loads from raw workload_metrics entries and derives
+ * the ACWR ratio and risk zone used by the dashboard.
+ *
+ * Training Load Unit (AU) = rpe × durationMinutes  (Foster Session-RPE)
+ * Acute  Load = SUM(AU) over last 7 days
+ * Chronic Load = SUM(AU over last 28 days) / 4   (weekly average)
+ * ACWR = Acute / Chronic
+ *
+ * Risk zones (FIFA / sports science standard):
+ *   < 0.8   → low             (under-training / detraining)
+ *   0.8–1.3 → optimal         (continue load)
+ *   1.3–1.5 → high            (monitor athlete)
+ *   > 1.5   → very_high       (reduce load — injury risk)
+ *   no data → insufficient_data
+ *
+ * Created WITH NO DATA — initial population is handled by migration
+ * script; subsequent refreshes BullMQ job (every 4 hours).
+ *
+ * REFRESH MATERIALIZED VIEW CONCURRENTLY requires the unique index created
+ * in TENANT_MATERIALIZED_VIEW_INDEXES_DDL — that index must exist before
+ * the first concurrent refresh is attempted.
+ *
+ * Design decisions:
+ *   - ROWS BETWEEN N PRECEDING AND CURRENT ROW: correctly handles sparse data
+ *     (days with no sessions are simply absent — the window shrinks naturally).
+ *   - chronic_load_au = SUM(28d) / 4: normalises to weekly average, matching
+ *     the standard ACWR literature formula.
+ *   - ROUND(..., 2) on acwr_ratio: 2 dp is sufficient for UI; avoids fp noise.
+ *   - risk_zone computed in view: single source of truth, avoids repeating logic.
+ *   - No "id" column: the natural key is ("athleteId", date), enforced by the
+ *     unique index. Raw queries use this pair for addressing.
+ */
+const TENANT_MATERIALIZED_VIEWS_DDL = `
+  CREATE MATERIALIZED VIEW IF NOT EXISTS "acwr_aggregates" AS
+  WITH daily_load AS (
+    SELECT
+      "athleteId",
+      date,
+      SUM(rpe * "durationMinutes")::integer AS daily_au
+    FROM workload_metrics
+    GROUP BY "athleteId", date
+  ),
+  windowed AS (
+    SELECT
+      "athleteId",
+      date,
+      daily_au,
+      SUM(daily_au) OVER (
+        PARTITION BY "athleteId"
+        ORDER BY date
+        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+      )::integer AS acute_load_au,
+      ROUND(
+        SUM(daily_au) OVER (
+          PARTITION BY "athleteId"
+          ORDER BY date
+          ROWS BETWEEN 27 PRECEDING AND CURRENT ROW
+        )::numeric / 4,
+      2) AS chronic_load_au,
+      COUNT(*)::integer OVER (
+        PARTITION BY "athleteId"
+        ORDER BY date
+        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+      ) AS acute_window_days,
+      COUNT(*)::integer OVER (
+        PARTITION BY "athleteId"
+        ORDER BY date
+        ROWS BETWEEN 27 PRECEDING AND CURRENT ROW
+      ) AS chronic_window_days
+    FROM daily_load
+  )
+  SELECT
+    "athleteId",
+    date,
+    daily_au,
+    acute_load_au,
+    chronic_load_au,
+    acute_window_days,
+    chronic_window_days,
+    CASE
+      WHEN chronic_load_au > 0
+        THEN ROUND((acute_load_au::numeric / chronic_load_au), 2)
+      ELSE NULL
+    END AS acwr_ratio,
+    CASE
+      WHEN chronic_load_au IS NULL OR chronic_load_au = 0 THEN 'insufficient_data'
+      WHEN (acute_load_au::numeric / chronic_load_au) < 0.8  THEN 'low'
+      WHEN (acute_load_au::numeric / chronic_load_au) <= 1.3 THEN 'optimal'
+      WHEN (acute_load_au::numeric / chronic_load_au) <= 1.5 THEN 'high'
+      ELSE 'very_high'
+    END AS risk_zone
+  FROM windowed
+  WITH NO DATA;
+`;
+
+/**
+ * Indexes on the acwr_aggregates materialized view.
+ *
+ * The unique index on ("athleteId", date) serves two purposes:
+ *   1. Data integrity — exactly one aggregate row per athlete per day.
+ *   2. REFRESH MATERIALIZED VIEW CONCURRENTLY — PostgreSQL requires a unique
+ *      index on the view before a concurrent refresh can be executed.
+ *
+ * B-tree is used (not BRIN) because materialized views are physically rewritten
+ * on REFRESH, meaning rows are NOT guaranteed to land in physical date order.
+ * BRIN's block-range correlation assumption would fail here.
+ *
+ * The second index on "athleteId" alone supports per-athlete full-history queries
+ * and dashboard lookups that do not include a date filter.
+ */
+const TENANT_MATERIALIZED_VIEW_INDEXES_DDL = `
+  CREATE UNIQUE INDEX IF NOT EXISTS "acwr_aggregates_athlete_date_key"
+    ON "acwr_aggregates" ("athleteId", date);
+
+  CREATE INDEX IF NOT EXISTS "acwr_aggregates_athlete_idx"
+    ON "acwr_aggregates" ("athleteId");
 `;
 
 /**
  * Provisions a complete PostgreSQL tenant schema for a new club.
  *
  * Creates the schema `clube_{clubId}` and applies the full tenant DDL
- * (enums, tables, indexes, foreign keys) in the correct execution order.
+ * (enums, tables, indexes, foreign keys, materialized views) in the correct
+ * execution order.
  *
  * **Idempotent** — safe to call multiple times for the same `clubId`.
  * All DDL statements use `IF NOT EXISTS` or equivalent guards.
@@ -532,12 +655,13 @@ const TENANT_FOREIGN_KEYS_DDL = `
  *   executed inside an open transaction block in PostgreSQL. This is a PostgreSQL
  *   restriction, not a Prisma limitation.
  *
- *   Step 4 runs inside a transaction to keep table/index/FK creation atomic.
+ *   Step 4 runs inside a transaction to keep table/index/FK/view creation atomic.
  *   A failure there leaves enums created but tables absent — re-running
  *   `provisionTenantSchema` is the safe recovery path (all DDL is idempotent).
  *
  * Called once during club onboarding by `POST /api/clubs`.
  * Must NOT be called for every request — only at club creation time.
+ * Can be called safely for existing clubs due to idempotency.
  *
  * @param prisma  - The global Prisma client (public schema connection).
  * @param clubId  - The cuid2 identifier of the new club. Used to derive
@@ -573,5 +697,8 @@ export async function provisionTenantSchema(
     await tx.$executeRawUnsafe(TENANT_TABLES_DDL);
     await tx.$executeRawUnsafe(TENANT_INDEXES_DDL);
     await tx.$executeRawUnsafe(TENANT_FOREIGN_KEYS_DDL);
+
+    await tx.$executeRawUnsafe(TENANT_MATERIALIZED_VIEWS_DDL);
+    await tx.$executeRawUnsafe(TENANT_MATERIALIZED_VIEW_INDEXES_DDL);
   });
 }

@@ -9,6 +9,7 @@ import { dashboardRoutes } from "./dashboard/dashboard.routes.js";
 import { athleteRoutes } from "./athletes/athletes.routes.js";
 import { contractRoutes } from "./contracts/contracts.routes.js";
 import { rulesConfigRoutes } from "./rules/rules-config.routes.js";
+import { workloadRoutes } from "./workload/workload.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -57,4 +58,5 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(athleteRoutes, { prefix: "/athletes" });
   await fastify.register(contractRoutes, { prefix: "/contracts" });
   await fastify.register(rulesConfigRoutes, { prefix: "/rules-config" });
+  await fastify.register(workloadRoutes, { prefix: "/workload" });
 }

@@ -1,41 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 export interface NetworkStatus {
   isOnline: boolean;
 }
 
+const subscribe = (callback: () => void) => {
+  if (typeof window === "undefined") return () => {};
+
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+};
+
+const getSnapshot = () => {
+  if (typeof navigator === "undefined") return true;
+  return navigator.onLine;
+};
+
+const getServerSnapshot = () => {
+  return true;
+};
+
 /**
  * Reactively tracks browser online/offline state.
  *
  * SSR-safe: initialises to `true` during server rendering so that components
- * don't flash a "you are offline" banner on hydration. The effect immediately
- * syncs to the real `navigator.onLine` value on mount.
+ * don't flash a "you are offline" banner on hydration.
  *
  * Relies on the native `window` 'online'/'offline' events which fire on
- * connectivity transitions. Event listeners are removed on unmount.
+ * connectivity transitions.
  */
 export function useNetworkStatus(): NetworkStatus {
-  const [isOnline, setIsOnline] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    return navigator.onLine;
-  });
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    setIsOnline(navigator.onLine);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
+  const isOnline = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
 
   return { isOnline };
 }

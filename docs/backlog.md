@@ -26,7 +26,7 @@
 | **T-086** | Setup do manifesto PWA (`manifest.json`) e configuração de ícones nativos (iOS/Android) no Next.js App Router                               | 0.5d    | S6     | ✅     |
 | **T-087** | Integração do **Workbox** para Service Workers: estratégia `Stale-while-revalidate` para assets estáticos e `Network-first` para dados base | 1d      | S6     | ✅     |
 | **T-088** | Implementação do **Dexie.js** (IndexedDB): schema local para tabelas `athletes` e `training_sessions`                                       | 1d      | S6     | ✅     |
-| **T-089** | Motor de Sincronização (Parte 1): Listener online/offline e fila de ações mutáveis salvas no IndexedDB                                      | 1d      | S6     | ⬜     |
+| **T-089** | Motor de Sincronização (Parte 1): Listener online/offline e fila de ações mutáveis salvas no IndexedDB                                      | 1d      | S6     | ✅     |
 | **T-090** | Motor de Sincronização (Parte 2): Worker de disparo para consumo da fila local com retry exponencial pós-conexão                            | 0.5d    | S6     | ⬜     |
 
 ---
@@ -135,14 +135,9 @@
 
 **Fase 1: Fundações de Banco e Offline-First (Bloqueadores)**
 
-4. `T-089` e `T-090` — Dexie.js e Motor de Sincronização Local
+4. `T-090` — Dexie.js e Motor de Sincronização Local
 
-**Fase 2: UI e Componentes Desacoplados (Podem ser paralelizados com a Fase 1)** 
-5. `T-096` — Histórico de Pagamentos (Consome endpoint pronto) 
-6. `T-097` — Registro de Despesas 
-7. `T-098` e `T-099` — Módulo OFX (Upload, Parser e Match) 
-8. `T-095` — Carteirinha Digital 
-9. `T-100` — Painel SAF
+**Fase 2: UI e Componentes Desacoplados (Podem ser paralelizados com a Fase 1)** 5. `T-096` — Histórico de Pagamentos (Consome endpoint pronto) 6. `T-097` — Registro de Despesas 7. `T-098` e `T-099` — Módulo OFX (Upload, Parser e Match) 8. `T-095` — Carteirinha Digital 9. `T-100` — Painel SAF
 
 ### Sprint 7 (O Campo: Treino e Carga)
 
@@ -151,16 +146,9 @@
 1. `T-101` — Schema e CRUD de Exercícios
 2. `T-108` — Endpoints externos do HealthKit/GoogleFit
 
-**Fase 2: Interface Offline (Depende do PWA/Workbox da Sprint 6)** 
-3. `T-103` — UI de Chamada Digital 
-4. `T-104` — Integração Chamada/Sync Engine 
-5. `T-107` — UI de Registro RPE
+**Fase 2: Interface Offline (Depende do PWA/Workbox da Sprint 6)** 3. `T-103` — UI de Chamada Digital 4. `T-104` — Integração Chamada/Sync Engine 5. `T-107` — UI de Registro RPE
 
-**Fase 3: Agregações e Dashboards** 
-6. `T-105` — View de Ranking de Assiduidade 
-7. `T-109` — Dashboard de Risco ACWR (Depende da Materialized View da Sprint 6)
-8. `T-102` — UI da Prancheta de Exercícios 
-9. `T-106` — Formulário de Avaliação e PDF
+**Fase 3: Agregações e Dashboards** 6. `T-105` — View de Ranking de Assiduidade 7. `T-109` — Dashboard de Risco ACWR (Depende da Materialized View da Sprint 6) 8. `T-102` — UI da Prancheta de Exercícios 9. `T-106` — Formulário de Avaliação e PDF
 
 ### Sprint 8 (Compliance e Automação)
 

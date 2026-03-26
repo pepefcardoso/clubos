@@ -392,14 +392,12 @@ model WorkloadMetric {
   durationMinutes   Int
   sessionType       SessionType @default(TRAINING)
   notes             String?
+  idempotencyKey    String?     @unique
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
   athlete Athlete @relation(fields: [athleteId], references: [id])
 
-  // @@index([date]) here documents intent only. The actual PostgreSQL
-  // index created by TENANT_INDEXES_DDL is BRIN (not B-tree) for optimal
-  // time-series range-scan performance. Prisma does not support BRIN natively.
   @@index([athleteId])
   @@index([date])
   @@map("workload_metrics")

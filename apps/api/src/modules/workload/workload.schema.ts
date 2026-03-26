@@ -15,6 +15,20 @@ export const CreateWorkloadMetricSchema = z.object({
     .enum(["MATCH", "TRAINING", "GYM", "RECOVERY", "OTHER"])
     .default("TRAINING"),
   notes: z.string().max(500).optional(),
+  /**
+   * Client-generated 32-char hex ID from the PWA offline sync queue.
+   * Used as an idempotency key — the server returns the existing record
+   * without creating a duplicate when the same key is submitted twice.
+   * Optional: sessions created outside the PWA (e.g. direct API calls)
+   * may omit this field.
+   */
+  idempotencyKey: z
+    .string()
+    .regex(
+      /^[0-9a-f]{32}$/,
+      "idempotencyKey must be a 32-character lowercase hex string",
+    )
+    .optional(),
 });
 
 export const AcwrQuerySchema = z.object({

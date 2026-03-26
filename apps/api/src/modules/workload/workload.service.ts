@@ -18,6 +18,12 @@ export class AthleteNotFoundError extends NotFoundError {
 /**
  * Records a single workload metric for an athlete.
  *
+ * Idempotency: when `idempotencyKey` is present and a metric with that key
+ * already exists in the tenant schema, the existing record is returned
+ * immediately without creating a duplicate. This supports the PWA offline
+ * sync queue (T-089) where the same session may be retried after a network
+ * failure.
+ *
  * The training load (AU = rpe × durationMinutes) is intentionally NOT stored
  * as a column — it is derived by the acwr_aggregates materialized view on
  * next refresh. We compute and return it in the response for immediate
@@ -30,6 +36,25 @@ export async function recordWorkloadMetric(
   input: CreateWorkloadMetricInput,
 ): Promise<WorkloadMetricResponse> {
   return withTenantSchema(prisma, clubId, async (tx) => {
+    if (input.idempotencyKey) {
+      const existing = await tx.workloadMetric.findFirst({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (existing) {
+        return {
+          id: existing.id,
+          athleteId: existing.athleteId,
+          date: existing.date,
+          rpe: existing.rpe,
+          durationMinutes: existing.durationMinutes,
+          trainingLoadAu: existing.rpe * existing.durationMinutes,
+          sessionType: existing.sessionType,
+          notes: existing.notes,
+          createdAt: existing.createdAt,
+        };
+      }
+    }
+
     const athlete = await tx.athlete.findUnique({
       where: { id: input.athleteId },
       select: { id: true },
@@ -44,6 +69,7 @@ export async function recordWorkloadMetric(
         durationMinutes: input.durationMinutes,
         sessionType: input.sessionType,
         notes: input.notes ?? null,
+        idempotencyKey: input.idempotencyKey ?? null,
       },
     });
 

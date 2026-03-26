@@ -327,9 +327,10 @@ const TENANT_TABLES_DDL = `
     "durationMinutes"   INTEGER       NOT NULL,
     "sessionType"       "SessionType" NOT NULL DEFAULT 'TRAINING',
     "notes"             TEXT,
+    "idempotencyKey"    TEXT,
     "createdAt"         TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt"         TIMESTAMP(3)  NOT NULL,
-
+ 
     CONSTRAINT "workload_metrics_pkey" PRIMARY KEY ("id")
   );
 
@@ -439,6 +440,13 @@ const TENANT_INDEXES_DDL = `
     ON "workload_metrics" ("athleteId");
   CREATE INDEX IF NOT EXISTS "workload_metrics_athleteId_date_idx"
     ON "workload_metrics" ("athleteId", "date");
+  -- Unique index on idempotencyKey: prevents duplicate rows from PWA retries
+  -- (belt-and-suspenders alongside the application-level check in the service).
+  -- Partial WHERE is not used here so the index correctly enforces global uniqueness
+  -- across all rows where the key is non-null (NULL values are excluded from UNIQUE
+  -- indexes in PostgreSQL by default — multiple NULLs are allowed).
+  CREATE UNIQUE INDEX IF NOT EXISTS "workload_metrics_idempotencyKey_key"
+    ON "workload_metrics" ("idempotencyKey");
 
   -- rules_config
   CREATE UNIQUE INDEX IF NOT EXISTS "rules_config_season_league_key"

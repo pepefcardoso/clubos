@@ -24,8 +24,8 @@
 | ID        | Tarefa Técnica                                                                                                                              | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-086** | Setup do manifesto PWA (`manifest.json`) e configuração de ícones nativos (iOS/Android) no Next.js App Router                               | 0.5d    | S6     | ✅     |
-| **T-087** | Integração do **Workbox** para Service Workers: estratégia `Stale-while-revalidate` para assets estáticos e `Network-first` para dados base | 1d      | S6     | ⬜     |
-| **T-088** | Implementação do **Dexie.js** (IndexedDB): schema local para tabelas `athletes` e `training_sessions`                                       | 1d      | S6     | ⬜     |
+| **T-087** | Integração do **Workbox** para Service Workers: estratégia `Stale-while-revalidate` para assets estáticos e `Network-first` para dados base | 1d      | S6     | ✅     |
+| **T-088** | Implementação do **Dexie.js** (IndexedDB): schema local para tabelas `athletes` e `training_sessions`                                       | 1d      | S6     | ✅     |
 | **T-089** | Motor de Sincronização (Parte 1): Listener online/offline e fila de ações mutáveis salvas no IndexedDB                                      | 1d      | S6     | ⬜     |
 | **T-090** | Motor de Sincronização (Parte 2): Worker de disparo para consumo da fila local com retry exponencial pós-conexão                            | 0.5d    | S6     | ⬜     |
 
@@ -135,8 +135,7 @@
 
 **Fase 1: Fundações de Banco e Offline-First (Bloqueadores)**
 
-3. `T-087` — Setup PWA e Workbox (Libera infra do Frontend)
-4. `T-088`, `T-089` e `T-090` — Dexie.js e Motor de Sincronização Local
+4. `T-089` e `T-090` — Dexie.js e Motor de Sincronização Local
 
 **Fase 2: UI e Componentes Desacoplados (Podem ser paralelizados com a Fase 1)** 
 5. `T-096` — Histórico de Pagamentos (Consome endpoint pronto) 

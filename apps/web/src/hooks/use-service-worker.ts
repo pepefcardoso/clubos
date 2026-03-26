@@ -40,11 +40,7 @@ export function useServiceWorker(): ServiceWorkerState {
   );
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (!("serviceWorker" in navigator)) {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus("unsupported");
       return;

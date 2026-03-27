@@ -113,3 +113,14 @@ export async function assertClubBelongsToUser(
     throw new NotFoundError("Clube não encontrado.");
   }
 }
+
+export async function assertExpenseExists(
+  prisma: PrismaClient,
+  expenseId: string,
+): Promise<void> {
+  const found = await prisma.expense.findUnique({
+    where: { id: expenseId },
+    select: { id: true },
+  });
+  if (!found) throw new NotFoundError("Despesa não encontrada.");
+}

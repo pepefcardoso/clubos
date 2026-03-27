@@ -118,6 +118,16 @@ const TENANT_ENUMS_DDL = `
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CONTRACT_CREATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CONTRACT_UPDATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CONTRACT_TERMINATED';
+
+  DO $$ BEGIN
+    CREATE TYPE "ExpenseCategory" AS ENUM (
+      'SALARY', 'FIELD_MAINTENANCE', 'EQUIPMENT', 'TRAVEL', 'ADMINISTRATIVE', 'OTHER'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ 
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXPENSE_CREATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXPENSE_UPDATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXPENSE_DELETED';
 `;
 
 /**
@@ -350,6 +360,22 @@ const TENANT_TABLES_DDL = `
 
     CONSTRAINT "rules_config_pkey" PRIMARY KEY ("id")
   );
+
+  -- expenses (no FK dependencies)
+  -- amountCents: integer cents — never float.
+  -- date is DATE (time component always midnight UTC).
+  -- notes is nullable free-text for the treasurer's reference.
+  CREATE TABLE IF NOT EXISTS "expenses" (
+    "id"          TEXT                NOT NULL,
+    "description" TEXT                NOT NULL,
+    "amountCents" INTEGER             NOT NULL,
+    "category"    "ExpenseCategory"   NOT NULL DEFAULT 'OTHER',
+    "date"        DATE                NOT NULL,
+    "notes"       TEXT,
+    "createdAt"   TIMESTAMP(3)        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"   TIMESTAMP(3)        NOT NULL,
+    CONSTRAINT "expenses_pkey" PRIMARY KEY ("id")
+  );
 `;
 
 /**
@@ -453,6 +479,12 @@ const TENANT_INDEXES_DDL = `
     ON "rules_config" ("season", "league");
   CREATE INDEX IF NOT EXISTS "rules_config_isActive_idx"
     ON "rules_config" ("isActive");
+
+  -- expenses
+  CREATE INDEX IF NOT EXISTS "expenses_date_idx"
+    ON "expenses" ("date");
+  CREATE INDEX IF NOT EXISTS "expenses_category_idx"
+    ON "expenses" ("category");
 `;
 
 /**

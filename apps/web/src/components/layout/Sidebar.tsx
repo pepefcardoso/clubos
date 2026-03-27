@@ -16,6 +16,7 @@ import {
     LogOut,
     ChevronRight,
     Shield,
+    Receipt,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ const PRIMARY_NAV: NavItem[] = [
     { label: "Atletas", href: "/athletes", icon: Users2 },
     { label: "Planos", href: "/plans", icon: LayoutList },
     { label: "Cobranças", href: "/charges", icon: CreditCard },
+    { href: "/expenses", label: "Despesas", icon: Receipt },
     { label: "Mensagens", href: "/templates", icon: MessageSquare },
     { label: "Contratos", href: "/contracts", icon: ScrollText },
 ];

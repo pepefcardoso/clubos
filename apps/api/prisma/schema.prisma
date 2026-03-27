@@ -83,6 +83,15 @@ enum ContractStatus {
   SUSPENDED
 }
 
+enum ExpenseCategory {
+  SALARY
+  FIELD_MAINTENANCE
+  EQUIPMENT
+  TRAVEL
+  ADMINISTRATIVE
+  OTHER
+}
+
 enum SessionType {
   MATCH
   TRAINING
@@ -145,6 +154,9 @@ enum AuditAction {
   LOGIN_SUCCESS
   LOGIN_FAILED
   LOGIN_LOCKED
+  EXPENSE_CREATED
+  EXPENSE_UPDATED
+  EXPENSE_DELETED
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
@@ -415,4 +427,19 @@ model RulesConfig {
   @@unique([season, league])
   @@index([isActive])
   @@map("rules_config")
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  description String
+  amountCents Int
+  category    ExpenseCategory @default(OTHER)
+  date        DateTime        @db.Date
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([date])
+  @@index([category])
+  @@map("expenses")
 }

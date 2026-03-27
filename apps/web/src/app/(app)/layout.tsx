@@ -3,7 +3,21 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useSyncWorker } from "@/hooks/use-sync-worker";
 import { AppShell } from "@/components/layout/Sidebar";
+
+/**
+ * Authenticated app shell with sync worker mounted exactly once.
+ * useSyncWorker handles:
+ *   - Recovering sessions stuck in `syncing` state on mount
+ *   - Flushing pending sessions whenever connectivity is restored
+ *   - Exposing isSyncing / lastSyncAt / triggerSync for child components
+ */
+function AuthenticatedShell({ children }: { children: ReactNode }) {
+    useSyncWorker();
+
+    return <AppShell>{children}</AppShell>;
+}
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
     const { isAuthenticated, isLoading } = useAuth();
@@ -23,7 +37,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         return null;
     }
 
-    return <AppShell>{children}</AppShell>;
+    return <AuthenticatedShell>{children}</AuthenticatedShell>;
 }
 
 function DashboardSkeleton() {
@@ -85,12 +99,12 @@ function DashboardSkeleton() {
             </div>
 
             <style>{`
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50%       { opacity: 0.5; }
-                }
-                .animate-pulse { animation: pulse 1.5s ease-in-out infinite; }
-            `}</style>
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.5; }
+        }
+        .animate-pulse { animation: pulse 1.5s ease-in-out infinite; }
+      `}</style>
         </div>
     );
 }

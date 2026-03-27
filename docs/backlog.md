@@ -27,7 +27,7 @@
 | **T-087** | Integração do **Workbox** para Service Workers: estratégia `Stale-while-revalidate` para assets estáticos e `Network-first` para dados base | 1d      | S6     | ✅     |
 | **T-088** | Implementação do **Dexie.js** (IndexedDB): schema local para tabelas `athletes` e `training_sessions`                                       | 1d      | S6     | ✅     |
 | **T-089** | Motor de Sincronização (Parte 1): Listener online/offline e fila de ações mutáveis salvas no IndexedDB                                      | 1d      | S6     | ✅     |
-| **T-090** | Motor de Sincronização (Parte 2): Worker de disparo para consumo da fila local com retry exponencial pós-conexão                            | 0.5d    | S6     | ⬜     |
+| **T-090** | Motor de Sincronização (Parte 2): Worker de disparo para consumo da fila local com retry exponencial pós-conexão                            | 0.5d    | S6     | ✅     |
 
 ---
 
@@ -132,10 +132,6 @@
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
 
 ### Sprint 6 (Infraestrutura e Resgate de Funcionalidades)
-
-**Fase 1: Fundações de Banco e Offline-First (Bloqueadores)**
-
-4. `T-090` — Dexie.js e Motor de Sincronização Local
 
 **Fase 2: UI e Componentes Desacoplados (Podem ser paralelizados com a Fase 1)** 5. `T-096` — Histórico de Pagamentos (Consome endpoint pronto) 6. `T-097` — Registro de Despesas 7. `T-098` e `T-099` — Módulo OFX (Upload, Parser e Match) 8. `T-095` — Carteirinha Digital 9. `T-100` — Painel SAF
 

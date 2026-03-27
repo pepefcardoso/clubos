@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Pencil } from "lucide-react";
+import { Users, Pencil, History } from "lucide-react";
 import type { MemberStatus, PaginatedResponse } from "../../../../../packages/shared-types/src/index.js";
 import type { MemberResponse } from "../../../../api/src/modules/members/members.schema";
 import { MemberStatusBadge } from "./MemberStatusBadge";
@@ -112,6 +112,8 @@ interface MembersTableProps {
     onPageChange: (page: number) => void;
     /** When provided, an edit action column is rendered for each row. Pass undefined to hide it (TREASURER). */
     onEdit?: (member: MemberResponse) => void;
+    /** Available to both ADMIN and TREASURER — opens the payment history modal. */
+    onViewPayments?: (member: MemberResponse) => void;
 }
 
 export function MembersTable({
@@ -121,8 +123,9 @@ export function MembersTable({
     page,
     onPageChange,
     onEdit,
+    onViewPayments,
 }: MembersTableProps) {
-    const hasActions = !!onEdit;
+    const hasActions = !!onEdit || !!onViewPayments;
 
     return (
         <div className="rounded-md border border-neutral-200 bg-white overflow-hidden">
@@ -209,15 +212,27 @@ export function MembersTable({
                                     </td>
                                     {hasActions && (
                                         <td className="px-4 py-3">
-                                            <div className="flex justify-end items-center">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onEdit?.(member)}
-                                                    className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
-                                                    aria-label={`Editar sócio ${member.name}`}
-                                                >
-                                                    <Pencil size={15} aria-hidden="true" />
-                                                </button>
+                                            <div className="flex justify-end items-center gap-1">
+                                                {onViewPayments && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onViewPayments(member)}
+                                                        className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
+                                                        aria-label={`Ver pagamentos de ${member.name}`}
+                                                    >
+                                                        <History size={15} aria-hidden="true" />
+                                                    </button>
+                                                )}
+                                                {onEdit && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onEdit(member)}
+                                                        className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
+                                                        aria-label={`Editar sócio ${member.name}`}
+                                                    >
+                                                        <Pencil size={15} aria-hidden="true" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     )}

@@ -156,3 +156,64 @@ export async function getMember(
 
   return res.json() as Promise<MemberResponse>;
 }
+
+export interface MemberPaymentChargeDetail {
+  id: string;
+  dueDate: string;
+  status: string;
+  method: string;
+  amountCents: number;
+  gatewayName: string | null;
+  createdAt: string;
+}
+
+export interface MemberPaymentItem {
+  paymentId: string;
+  chargeId: string;
+  paidAt: string;
+  method: string;
+  amountCents: number;
+  gatewayTxid: string;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  charge: MemberPaymentChargeDetail;
+}
+
+export interface MemberPaymentsResponse {
+  data: MemberPaymentItem[];
+  meta: { total: number; page: number; limit: number };
+}
+
+export async function fetchMemberPayments(
+  memberId: string,
+  accessToken: string,
+  page = 1,
+  limit = 20,
+): Promise<MemberPaymentsResponse> {
+  const query = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+
+  const res = await fetch(
+    `${API_BASE}/api/members/${memberId}/payments?${query.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+    throw new ApiError(
+      body.message ?? `Erro ao carregar histórico de pagamentos: ${res.status}`,
+      res.status,
+      body.error,
+    );
+  }
+
+  return res.json() as Promise<MemberPaymentsResponse>;
+}

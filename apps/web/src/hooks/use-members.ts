@@ -1,12 +1,14 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import {
   createMember,
   updateMember,
+  fetchMemberPayments,
   type CreateMemberPayload,
   type UpdateMemberPayload,
+  type MemberPaymentsResponse,
 } from "@/lib/api/members";
 import { remindMember } from "@/lib/api/dashboard";
 import { OVERDUE_MEMBERS_QUERY_KEY } from "@/hooks/use-dashboard";
@@ -98,5 +100,30 @@ export function useImportMembers() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MEMBERS_QUERY_KEY });
     },
+  });
+}
+
+/**
+ * Fetches paginated payment history for a single member.
+ * Enabled only when `memberId` is non-null (modal is open).
+ * staleTime of 30s avoids redundant refetches while the modal stays open.
+ */
+export function useMemberPayments(
+  memberId: string | null,
+  page = 1,
+  limit = 20,
+) {
+  const { getAccessToken } = useAuth();
+
+  return useQuery<MemberPaymentsResponse>({
+    queryKey: ["member-payments", memberId, page, limit],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Não autenticado");
+      if (!memberId) throw new Error("memberId is required");
+      return fetchMemberPayments(memberId, token, page, limit);
+    },
+    enabled: !!memberId,
+    staleTime: 30_000,
   });
 }

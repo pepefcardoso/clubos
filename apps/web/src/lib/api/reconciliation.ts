@@ -54,6 +54,55 @@ export interface ParsedOfxStatement {
   rawTransactionCount: number;
 }
 
+export type MatchConfidence = "high" | "medium";
+export type MatchStatus = "matched" | "ambiguous" | "unmatched";
+
+export interface MatchCandidate {
+  chargeId: string;
+  memberId: string;
+  memberName: string;
+  amountCents: number;
+  /** YYYY-MM-DD */
+  dueDate: string;
+  status: "PENDING" | "OVERDUE";
+  dateDeltaDays: number;
+  confidence: MatchConfidence;
+}
+
+export interface TransactionMatchResult {
+  fitId: string;
+  transaction: OfxTransaction;
+  matchStatus: MatchStatus;
+  candidates: MatchCandidate[];
+}
+
+export interface MatchResponse {
+  matches: TransactionMatchResult[];
+  summary: {
+    total: number;
+    matched: number;
+    ambiguous: number;
+    unmatched: number;
+    skippedDebits: number;
+  };
+}
+
+export interface ConfirmMatchPayload {
+  fitId: string;
+  chargeId: string;
+  /** ISO 8601 */
+  paidAt: string;
+  method: string;
+}
+
+export interface ConfirmMatchResponse {
+  paymentId: string;
+  chargeId: string;
+  paidAt: string;
+  amountCents: number;
+  memberStatusUpdated: boolean;
+}
+
 export class ReconciliationApiError extends Error {
   constructor(
     message: string,
@@ -68,18 +117,6 @@ export class ReconciliationApiError extends Error {
  * Uploads an OFX file to the backend parse endpoint and returns the
  * structured bank statement. No DB writes occur — this is a pure parse
  * operation whose result feeds the T-099 matching UI.
- *
- * The caller should retain the returned `ParsedOfxStatement` in component
- * state and pass `transactions[]` directly to the matching algorithm without
- * re-uploading the file.
- *
- * @param file        - The .ofx File object from an <input type="file"> element
- * @param accessToken - Bearer token from the AuthProvider
- *
- * @throws {ReconciliationApiError} on any 4xx / 5xx response
- *   - 400: file missing, wrong extension, or exceeds 2 MB
- *   - 403: authenticated user does not have ADMIN role
- *   - 422: file is recognisably OFX but failed to parse (content error)
  */
 export async function uploadOfxFile(
   file: File,
@@ -104,4 +141,64 @@ export async function uploadOfxFile(
   }
 
   return res.json() as Promise<ParsedOfxStatement>;
+}
+
+/**
+ * Sends parsed OFX transactions to the backend matching algorithm.
+ * Returns automatic correspondence results against open charges.
+ * Pure read — no DB writes.
+ */
+export async function matchOfxTransactions(
+  transactions: OfxTransaction[],
+  accessToken: string,
+): Promise<MatchResponse> {
+  const res = await fetch(`${API_BASE}/api/reconciliation/match`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: "include",
+    body: JSON.stringify({ transactions }),
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new ReconciliationApiError(
+      body.message ?? `Erro ao processar correspondências: ${res.status}`,
+      res.status,
+    );
+  }
+
+  return res.json() as Promise<MatchResponse>;
+}
+
+/**
+ * Confirms a single OFX ↔ Charge correspondence.
+ * Creates a Payment, marks the Charge as PAID, restores Member status if needed.
+ * Idempotent via fitId.
+ */
+export async function confirmReconciliationMatch(
+  payload: ConfirmMatchPayload,
+  accessToken: string,
+): Promise<ConfirmMatchResponse> {
+  const res = await fetch(`${API_BASE}/api/reconciliation/confirm`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new ReconciliationApiError(
+      body.message ?? `Erro ao confirmar pagamento: ${res.status}`,
+      res.status,
+    );
+  }
+
+  return res.json() as Promise<ConfirmMatchResponse>;
 }

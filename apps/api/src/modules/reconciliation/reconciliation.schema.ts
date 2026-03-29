@@ -77,6 +77,107 @@ export const ParsedOfxStatementSchema = z.object({
   rawTransactionCount: z.number().int(),
 });
 
+/** Degree of confidence in an automatic match. */
+export type MatchConfidence = "high" | "medium";
+
+/** Status of the correspondence for an OFX transaction. */
+export type MatchStatus = "matched" | "ambiguous" | "unmatched";
+
+/** A charge candidate for receiving the OFX transaction. */
+export interface MatchCandidate {
+  chargeId: string;
+  memberId: string;
+  memberName: string;
+  amountCents: number;
+  /** ISO string YYYY-MM-DD */
+  dueDate: string;
+  status: "PENDING" | "OVERDUE";
+  /** Absolute number of days between transaction.postedAt and charge.dueDate */
+  dateDeltaDays: number;
+  confidence: MatchConfidence;
+}
+
+/** Match result for a single OFX transaction. */
+export interface TransactionMatchResult {
+  fitId: string;
+  transaction: OfxTransaction;
+  matchStatus: MatchStatus;
+  /** Ordered by confidence desc, dateDeltaDays asc */
+  candidates: MatchCandidate[];
+}
+
+/** Input body for POST /api/reconciliation/match */
+export interface MatchRequestBody {
+  transactions: OfxTransaction[];
+}
+
+/** Response from POST /api/reconciliation/match */
+export interface MatchResponse {
+  matches: TransactionMatchResult[];
+  summary: {
+    total: number;
+    matched: number;
+    ambiguous: number;
+    unmatched: number;
+    skippedDebits: number;
+  };
+}
+
+/** Input body for POST /api/reconciliation/confirm */
+export interface ConfirmMatchBody {
+  /** Used as gatewayTxid for idempotency */
+  fitId: string;
+  chargeId: string;
+  /** ISO 8601 — timestamp when the bank registered the credit */
+  paidAt: string;
+  method:
+    | "PIX"
+    | "CASH"
+    | "BANK_TRANSFER"
+    | "CREDIT_CARD"
+    | "DEBIT_CARD"
+    | "BOLETO";
+}
+
+/** Response from POST /api/reconciliation/confirm */
+export interface ConfirmMatchResponse {
+  paymentId: string;
+  chargeId: string;
+  paidAt: string;
+  amountCents: number;
+  memberStatusUpdated: boolean;
+}
+
+const OfxTransactionSchema = z.object({
+  fitId: z.string().min(1),
+  type: z.enum(OFX_TRNTYPE),
+  postedAt: z.string().datetime(),
+  amountCents: z.number().int(),
+  description: z.string(),
+  checkNum: z.string().optional(),
+});
+
+export const MatchRequestSchema = z.object({
+  transactions: z
+    .array(OfxTransactionSchema)
+    .min(1, "Pelo menos uma transação é obrigatória")
+    .max(500, "Máximo de 500 transações por requisição"),
+});
+
+export const ConfirmMatchSchema = z.object({
+  fitId: z.string().min(1).max(200),
+  chargeId: z.string().min(1),
+  paidAt: z.string().datetime(),
+  method: z.enum([
+    "PIX",
+    "CASH",
+    "BANK_TRANSFER",
+    "CREDIT_CARD",
+    "DEBIT_CARD",
+    "BOLETO",
+  ]),
+});
+
 /**
  * Thrown by the OFX parser for all invalid or unrecognised file content.
  * Caught explicitly by the route handler and mapped to HTTP 422.

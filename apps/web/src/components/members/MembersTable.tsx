@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Pencil, History } from "lucide-react";
+import { Users, Pencil, History, IdCard } from "lucide-react";
 import type { MemberStatus, PaginatedResponse } from "../../../../../packages/shared-types/src/index.js";
 import type { MemberResponse } from "../../../../api/src/modules/members/members.schema";
 import { MemberStatusBadge } from "./MemberStatusBadge";
@@ -114,6 +114,7 @@ interface MembersTableProps {
     onEdit?: (member: MemberResponse) => void;
     /** Available to both ADMIN and TREASURER — opens the payment history modal. */
     onViewPayments?: (member: MemberResponse) => void;
+    onCard?: (member: MemberResponse) => void
 }
 
 export function MembersTable({
@@ -124,8 +125,9 @@ export function MembersTable({
     onPageChange,
     onEdit,
     onViewPayments,
+    onCard
 }: MembersTableProps) {
-    const hasActions = !!onEdit || !!onViewPayments;
+    const hasActions = !!onEdit || !!onViewPayments || !!onCard;
 
     return (
         <div className="rounded-md border border-neutral-200 bg-white overflow-hidden">
@@ -221,6 +223,16 @@ export function MembersTable({
                                                         aria-label={`Ver pagamentos de ${member.name}`}
                                                     >
                                                         <History size={15} aria-hidden="true" />
+                                                    </button>
+                                                )}
+                                                {onCard && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onCard(member)}
+                                                        className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
+                                                        aria-label={`Ver cartão de ${member.name}`}
+                                                    >
+                                                        <IdCard size={15} aria-hidden="true" />
                                                     </button>
                                                 )}
                                                 {onEdit && (

@@ -52,7 +52,7 @@
 
 | ID        | Tarefa Técnica                                                                                                        | Esforço | Sprint | Status |
 | --------- | --------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-095** | **[S3]** Carteirinha digital do sócio: UI PWA com geração de QR Code de identificação assinado.                       | 1d      | S6     | ⬜     |
+| **T-095** | **[S3]** Carteirinha digital do sócio: UI PWA com geração de QR Code de identificação assinado.                       | 1d      | S6     | ✅     |
 | **T-096** | **[S7]** Histórico de pagamentos: Integração da UI (`MemberPaymentsModal`) consumindo endpoint backend já existente.  | 0.5d    | S6     | ✅     |
 | **T-097** | **[S10]** Registro de despesas (P&L): CRUD simples `api/expenses` e tela de listagem para controle do tesoureiro.     | 1d      | S6     | ✅     |
 | **T-098** | **[S4]** Conciliação Bancária OFX (Parte 1): Rota de upload de arquivo e parser XML/SGML nativo em memória.           | 1d      | S6     | ✅     |
@@ -133,7 +133,7 @@
 
 ### Sprint 6 (Infraestrutura e Resgate de Funcionalidades)
 
-**Fase 2: UI e Componentes Desacoplados (Podem ser paralelizados com a Fase 1)** 8. `T-095` — Carteirinha Digital 9. `T-100` — Painel SAF
+**Fase 2: UI e Componentes Desacoplados (Podem ser paralelizados com a Fase 1)** 9. `T-100` — Painel SAF
 
 ### Sprint 7 (O Campo: Treino e Carga)
 

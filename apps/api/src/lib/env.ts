@@ -65,7 +65,7 @@ const DatabaseUrlSchema = z.string().superRefine((url, ctx) => {
           `(or sslmode=verify-ca) in production. ` +
           `Current sslmode: "${sslMode ?? "not set"}". ` +
           `Bare sslmode=require is no longer accepted — it does not authenticate ` +
-          `the server certificate. `
+          `the server certificate. `,
       });
       return;
     }
@@ -77,7 +77,7 @@ const DatabaseUrlSchema = z.string().superRefine((url, ctx) => {
           `DATABASE_URL with sslmode=verify-full must also include ` +
           `sslrootcert=<path-to-ca-bundle> so the server certificate can be ` +
           `fully validated. Download the CA bundle from your managed DB provider ` +
-          `(RDS, Supabase, Neon, Cloud SQL) and set the path here. `
+          `(RDS, Supabase, Neon, Cloud SQL) and set the path here. `,
       });
     }
   }
@@ -207,6 +207,16 @@ export const EnvSchema = z.object({
   MEMBER_ENCRYPTION_KEY: z
     .string()
     .min(32, "MEMBER_ENCRYPTION_KEY must be at least 32 characters"),
+
+  /**
+   * Symmetric secret for signing digital membership card tokens.
+   * Separate from JWT_SECRET to allow independent rotation.
+   * Rotating this key only invalidates issued cards (24h TTL),
+   * not active user sessions.
+   */
+  MEMBER_CARD_SECRET: z
+    .string()
+    .min(32, "MEMBER_CARD_SECRET must be at least 32 characters"),
 
   PORT: z.coerce.number().int().positive().default(3001),
   HOST: z.string().default("0.0.0.0"),

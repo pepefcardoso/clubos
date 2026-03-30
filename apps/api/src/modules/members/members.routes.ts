@@ -24,6 +24,7 @@ import { assertMemberExists } from "../../lib/assert-tenant-ownership.js";
 import { TEMPLATE_KEYS } from "../templates/templates.constants.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 import { memberPaymentRoutes } from "./members.payments.routes.js";
+import { memberCardRoutes } from "./members.card.routes.js";
 
 /**
  * Cooldown window (hours) for the manual remind endpoint.
@@ -337,4 +338,5 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   await fastify.register(memberPaymentRoutes);
+  await fastify.register(memberCardRoutes);
 }

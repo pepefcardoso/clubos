@@ -13,6 +13,7 @@ import { MembersTable } from "./MembersTable";
 import { MemberFormModal } from "./MemberFormModal";
 import { CsvImportModal } from "./CsvImportModal";
 import { MemberPaymentsModal } from "./MemberPaymentsModal";
+import { MemberCardModal } from "./MemberCardModal"
 
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -109,6 +110,8 @@ export function MembersPage() {
     null,
   );
 
+  const [cardTarget, setCardTarget] = useState<MemberResponse | null>(null)
+
   const { toasts, pushSuccess, pushError } = useToasts();
 
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -186,6 +189,7 @@ export function MembersPage() {
         onPageChange={setPage}
         onEdit={isAdmin ? (member) => setFormTarget(member) : undefined}
         onViewPayments={(member) => setPaymentsTarget(member)}
+        onCard={(member) => setCardTarget(member)}
       />
 
       {formTarget !== null && (
@@ -210,6 +214,15 @@ export function MembersPage() {
           key={paymentsTarget.id}
           member={paymentsTarget}
           onClose={() => setPaymentsTarget(null)}
+        />
+      )}
+
+      {cardTarget !== null && (
+        <MemberCardModal
+          key={cardTarget.id}
+          memberId={cardTarget.id}
+          memberName={cardTarget.name}
+          onClose={() => setCardTarget(null)}
         />
       )}
 

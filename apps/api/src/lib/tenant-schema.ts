@@ -128,6 +128,10 @@ const TENANT_ENUMS_DDL = `
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXPENSE_CREATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXPENSE_UPDATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXPENSE_DELETED';
+
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'BALANCE_SHEET_PUBLISHED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'TEMPLATE_UPDATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'TEMPLATE_RESET';
 `;
 
 /**
@@ -376,6 +380,22 @@ const TENANT_TABLES_DDL = `
     "updatedAt"   TIMESTAMP(3)        NOT NULL,
     CONSTRAINT "expenses_pkey" PRIMARY KEY ("id")
   );
+
+  -- balance_sheets (no FK dependencies)
+  -- Append-only by application contract: no UPDATE or DELETE is ever issued.
+  -- fileHash stores the SHA-256 hex digest of the original PDF for tamper-evidence
+  --   (Lei 14.193/2021 compliance).
+  -- publishedAt is indexed DESC so public listing queries are fast.
+  CREATE TABLE IF NOT EXISTS "balance_sheets" (
+    "id"          TEXT         NOT NULL,
+    "title"       TEXT         NOT NULL,
+    "period"      TEXT         NOT NULL,
+    "fileUrl"     TEXT         NOT NULL,
+    "fileHash"    TEXT         NOT NULL,
+    "publishedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "balance_sheets_pkey" PRIMARY KEY ("id")
+  );
 `;
 
 /**
@@ -485,6 +505,10 @@ const TENANT_INDEXES_DDL = `
     ON "expenses" ("date");
   CREATE INDEX IF NOT EXISTS "expenses_category_idx"
     ON "expenses" ("category");
+
+  -- balance_sheets
+  CREATE INDEX IF NOT EXISTS "balance_sheets_publishedAt_idx"
+    ON "balance_sheets" ("publishedAt" DESC);
 `;
 
 /**

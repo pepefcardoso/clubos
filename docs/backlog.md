@@ -57,7 +57,7 @@
 | **T-097** | **[S10]** Registro de despesas (P&L): CRUD simples `api/expenses` e tela de listagem para controle do tesoureiro.     | 1d      | S6     | ✅     |
 | **T-098** | **[S4]** Conciliação Bancária OFX (Parte 1): Rota de upload de arquivo e parser XML/SGML nativo em memória.           | 1d      | S6     | ✅     |
 | **T-099** | **[S4]** Conciliação Bancária OFX (Parte 2): Algoritmo de correspondência simples por valor/data e UI de conciliação. | 1d      | S6     | ✅     |
-| **T-100** | **[S5]** Painel de Transparência SAF: Estrutura base de exibição pública de balanços em PDF (MVP pré-V2.0).           | 0.5d    | S6     | ⬜     |
+| **T-100** | **[S5]** Painel de Transparência SAF: Estrutura base de exibição pública de balanços em PDF (MVP pré-V2.0).           | 0.5d    | S6     | ✅     |
 
 ---
 
@@ -130,10 +130,6 @@
 ## Plano de Execução Recomendado (Ordem Lógica)
 
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
-
-### Sprint 6 (Infraestrutura e Resgate de Funcionalidades)
-
-**Fase 2: UI e Componentes Desacoplados (Podem ser paralelizados com a Fase 1)** 9. `T-100` — Painel SAF
 
 ### Sprint 7 (O Campo: Treino e Carga)
 

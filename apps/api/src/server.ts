@@ -25,6 +25,7 @@ import fastifyMultipart from "@fastify/multipart";
 import { registerJobs, closeJobs } from "./jobs/index.js";
 import { registerWhatsAppProvider } from "./modules/whatsapp/providers/index.js";
 import { memberVerifyRoutes } from "./modules/members/members.verify.routes.js";
+import { balanceSheetPublicRoutes } from "./modules/balance-sheets/balance-sheets.public.routes.js";
 
 export async function buildApp() {
   validateEnv();
@@ -142,6 +143,8 @@ export async function buildApp() {
   await fastify.register(webhookRoutes, { prefix: "/webhooks" });
 
   await fastify.register(memberVerifyRoutes, { prefix: "/api/public" });
+
+  await fastify.register(balanceSheetPublicRoutes, { prefix: "/api/public" });
 
   await fastify.register(eventsRoutes, { prefix: "/api/events" });
 

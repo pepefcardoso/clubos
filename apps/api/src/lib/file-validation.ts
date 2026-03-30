@@ -31,6 +31,39 @@ export class InvalidMagicBytesError extends ValidationError {
 }
 
 /**
+ * PDF magic bytes: %PDF  (0x25 0x50 0x44 0x46)
+ * Any valid PDF file starts with this 4-byte signature.
+ */
+const PDF_MAGIC = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+
+/**
+ * Thrown when the first 4 bytes of a buffer do not match the PDF magic sequence.
+ * Extends ValidationError so it is treated as operational (4xx) and NOT sent to Sentry.
+ */
+export class InvalidPdfMagicBytesError extends ValidationError {
+  constructor() {
+    super("Arquivo não reconhecido como PDF. Envie um arquivo .pdf válido.");
+    this.name = "InvalidPdfMagicBytesError";
+  }
+}
+
+/**
+ * Asserts that the first 4 bytes of `buffer` match the PDF magic sequence.
+ *
+ * Rejects files that carry a .pdf extension but contain different binary content
+ * (e.g. a JPEG renamed to .pdf).  Synchronous — no async I/O needed because
+ * we only inspect the first 4 bytes.
+ *
+ * @throws {InvalidPdfMagicBytesError} if the magic bytes do not match.
+ */
+export function validatePdfMagicBytes(buffer: Buffer): void {
+  const header = buffer.subarray(0, 4);
+  if (!header.equals(PDF_MAGIC)) {
+    throw new InvalidPdfMagicBytesError();
+  }
+}
+
+/**
  * Inspects the magic bytes of `buffer` and asserts the file is one of
  * the permitted image formats.
  *

@@ -12,6 +12,7 @@ import { rulesConfigRoutes } from "./rules/rules-config.routes.js";
 import { workloadRoutes } from "./workload/workload.routes.js";
 import { expenseRoutes } from "./expenses/expenses.routes.js";
 import { reconciliationRoutes } from "./reconciliation/reconciliation.routes.js";
+import { balanceSheetAdminRoutes } from "./balance-sheets/balance-sheets.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -63,4 +64,5 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(workloadRoutes, { prefix: "/workload" });
   await fastify.register(expenseRoutes, { prefix: "/expenses" });
   await fastify.register(reconciliationRoutes, { prefix: "/reconciliation" });
+  await fastify.register(balanceSheetAdminRoutes, { prefix: "/clubs" });
 }

@@ -157,6 +157,9 @@ enum AuditAction {
   EXPENSE_CREATED
   EXPENSE_UPDATED
   EXPENSE_DELETED
+  BALANCE_SHEET_PUBLISHED
+  TEMPLATE_UPDATED
+  TEMPLATE_RESET
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
@@ -442,4 +445,28 @@ model Expense {
   @@index([date])
   @@index([category])
   @@map("expenses")
+}
+
+/// Published SAF financial balance sheets.
+/// Stored in the tenant schema (clube_{id}).
+///
+/// IMMUTABLE — no UPDATE or DELETE is ever issued against this table.
+/// Deletion is structurally forbidden by the application (Lei 14.193/2021).
+///
+/// fileHash stores the SHA-256 hex digest of the original PDF bytes, allowing
+/// anyone to verify the document was not tampered with after publication.
+model BalanceSheet {
+  id          String   @id @default(cuid())
+  title       String
+  /// Human-readable period label, e.g. "2024", "1º Trimestre 2025"
+  period      String
+  /// Publicly accessible URL to the stored PDF file
+  fileUrl     String
+  /// SHA-256 hex digest of the original PDF bytes — tamper-evidence proof
+  fileHash    String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([publishedAt])
+  @@map("balance_sheets")
 }

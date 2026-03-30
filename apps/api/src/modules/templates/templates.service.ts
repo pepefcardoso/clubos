@@ -158,7 +158,7 @@ export async function upsertTemplate(
     await tx.auditLog.create({
       data: {
         actorId,
-        action: "PLAN_UPDATED", // closest existing AuditAction; no TEMPLATE_UPDATED yet
+        action: "TEMPLATE_UPDATED",
         entityType: "MessageTemplate",
         metadata: { key, channel, action: "upsert" },
       },
@@ -187,7 +187,7 @@ export async function resetTemplate(
     await tx.auditLog.create({
       data: {
         actorId,
-        action: "PLAN_UPDATED",
+        action: "TEMPLATE_RESET",
         entityType: "MessageTemplate",
         metadata: { key, channel, action: "reset" },
       },

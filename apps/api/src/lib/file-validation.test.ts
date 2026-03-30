@@ -231,3 +231,69 @@ describe("assertSafePath()", () => {
     }
   });
 });
+
+import {
+  validatePdfMagicBytes,
+  InvalidPdfMagicBytesError,
+} from "./file-validation.js";
+
+describe("InvalidPdfMagicBytesError", () => {
+  it("is an instance of Error", () => {
+    expect(new InvalidPdfMagicBytesError()).toBeInstanceOf(Error);
+  });
+
+  it("has name equal to the class name", () => {
+    expect(new InvalidPdfMagicBytesError().name).toBe(
+      "InvalidPdfMagicBytesError",
+    );
+  });
+
+  it("carries a Portuguese user-facing message", () => {
+    expect(new InvalidPdfMagicBytesError().message).toMatch(/PDF/i);
+  });
+});
+
+describe("validatePdfMagicBytes()", () => {
+  const validPdf = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d]);
+
+  it("does not throw for a buffer starting with PDF magic bytes", () => {
+    expect(() => validatePdfMagicBytes(validPdf)).not.toThrow();
+  });
+
+  it("throws InvalidPdfMagicBytesError for a JPEG buffer (FFD8FF)", () => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]);
+    expect(() => validatePdfMagicBytes(jpeg)).toThrow(
+      InvalidPdfMagicBytesError,
+    );
+  });
+
+  it("throws for a PNG buffer (89504E47)", () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d]);
+    expect(() => validatePdfMagicBytes(png)).toThrow(InvalidPdfMagicBytesError);
+  });
+
+  it("throws for an HTML buffer", () => {
+    const html = Buffer.from("<html>");
+    expect(() => validatePdfMagicBytes(html)).toThrow(
+      InvalidPdfMagicBytesError,
+    );
+  });
+
+  it("throws for an empty buffer", () => {
+    expect(() => validatePdfMagicBytes(Buffer.alloc(0))).toThrow(
+      InvalidPdfMagicBytesError,
+    );
+  });
+
+  it("throws for a buffer shorter than 4 bytes even if first bytes match", () => {
+    const tooShort = Buffer.from([0x25, 0x50, 0x44]);
+    expect(() => validatePdfMagicBytes(tooShort)).toThrow(
+      InvalidPdfMagicBytesError,
+    );
+  });
+
+  it("does not throw for a minimal 4-byte exact match", () => {
+    const exact = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+    expect(() => validatePdfMagicBytes(exact)).not.toThrow();
+  });
+});

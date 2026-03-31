@@ -1,0 +1,198 @@
+"use client";
+
+import { useCallback, useEffect, useReducer } from "react";
+import { useLocalDb } from "@/hooks/use-local-db";
+import type { SessionType } from "@/lib/db/types";
+
+export type AttendanceStatus = "pending" | "present" | "absent";
+
+export interface SessionConfig {
+  date: string;
+  sessionType: SessionType;
+  durationMinutes: number;
+  rpe: number;
+}
+
+export interface AthleteAttendance {
+  athleteId: string;
+  name: string;
+  status: AttendanceStatus;
+}
+
+type Action =
+  | { type: "SET_ATHLETES"; payload: AthleteAttendance[] }
+  | { type: "SET_STATUS"; athleteId: string; status: AttendanceStatus }
+  | { type: "MARK_ALL_PRESENT" }
+  | { type: "MARK_ALL_ABSENT" }
+  | { type: "UPDATE_CONFIG"; payload: Partial<SessionConfig> }
+  | { type: "SAVING" }
+  | { type: "SAVED"; count: number }
+  | { type: "RESET" };
+
+interface State {
+  config: SessionConfig;
+  athletes: AthleteAttendance[];
+  isSaving: boolean;
+  savedCount: number | null;
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function initialState(): State {
+  return {
+    config: {
+      date: todayIso(),
+      sessionType: "TRAINING",
+      durationMinutes: 60,
+      rpe: 7,
+    },
+    athletes: [],
+    isSaving: false,
+    savedCount: null,
+  };
+}
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "SET_ATHLETES":
+      return { ...state, athletes: action.payload };
+
+    case "SET_STATUS":
+      return {
+        ...state,
+        athletes: state.athletes.map((a) =>
+          a.athleteId === action.athleteId
+            ? { ...a, status: action.status }
+            : a,
+        ),
+      };
+
+    case "MARK_ALL_PRESENT":
+      return {
+        ...state,
+        athletes: state.athletes.map((a) => ({ ...a, status: "present" })),
+      };
+
+    case "MARK_ALL_ABSENT":
+      return {
+        ...state,
+        athletes: state.athletes.map((a) => ({ ...a, status: "absent" })),
+      };
+
+    case "UPDATE_CONFIG":
+      return { ...state, config: { ...state.config, ...action.payload } };
+
+    case "SAVING":
+      return { ...state, isSaving: true };
+
+    case "SAVED":
+      return { ...state, isSaving: false, savedCount: action.count };
+
+    case "RESET":
+      return {
+        ...initialState(),
+        athletes: state.athletes.map((a) => ({ ...a, status: "pending" })),
+      };
+
+    default:
+      return state;
+  }
+}
+
+export interface AttendanceSessionReturn extends State {
+  presentCount: number;
+  absentCount: number;
+  pendingCount: number;
+  setStatus: (athleteId: string, status: AttendanceStatus) => void;
+  updateConfig: (patch: Partial<SessionConfig>) => void;
+  save: () => Promise<void>;
+  reset: () => void;
+  markAllPresent: () => void;
+  markAllAbsent: () => void;
+}
+
+export function useAttendanceSession(): AttendanceSessionReturn {
+  const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const { getLocalAthletes, addTrainingSession } = useLocalDb();
+
+  useEffect(() => {
+    getLocalAthletes("ACTIVE").then((cached) => {
+      dispatch({
+        type: "SET_ATHLETES",
+        payload: cached.map((a) => ({
+          athleteId: a.id,
+          name: a.name,
+          status: "pending",
+        })),
+      });
+    });
+  }, [getLocalAthletes]);
+
+  const setStatus = useCallback(
+    (athleteId: string, status: AttendanceStatus) => {
+      dispatch({ type: "SET_STATUS", athleteId, status });
+    },
+    [],
+  );
+
+  const updateConfig = useCallback((patch: Partial<SessionConfig>) => {
+    dispatch({ type: "UPDATE_CONFIG", payload: patch });
+  }, []);
+
+  const save = useCallback(async () => {
+    const present = state.athletes.filter((a) => a.status === "present");
+    if (present.length === 0) return;
+
+    dispatch({ type: "SAVING" });
+
+    await Promise.all(
+      present.map((a) =>
+        addTrainingSession({
+          athleteId: a.athleteId,
+          date: state.config.date,
+          rpe: state.config.rpe,
+          durationMinutes: state.config.durationMinutes,
+          sessionType: state.config.sessionType,
+          notes: null,
+        }),
+      ),
+    );
+
+    dispatch({ type: "SAVED", count: present.length });
+  }, [state.athletes, state.config, addTrainingSession]);
+
+  const reset = useCallback(() => dispatch({ type: "RESET" }), []);
+  const markAllPresent = useCallback(
+    () => dispatch({ type: "MARK_ALL_PRESENT" }),
+    [],
+  );
+  const markAllAbsent = useCallback(
+    () => dispatch({ type: "MARK_ALL_ABSENT" }),
+    [],
+  );
+
+  const presentCount = state.athletes.filter(
+    (a) => a.status === "present",
+  ).length;
+  const absentCount = state.athletes.filter(
+    (a) => a.status === "absent",
+  ).length;
+  const pendingCount = state.athletes.filter(
+    (a) => a.status === "pending",
+  ).length;
+
+  return {
+    ...state,
+    presentCount,
+    absentCount,
+    pendingCount,
+    setStatus,
+    updateConfig,
+    save,
+    reset,
+    markAllPresent,
+    markAllAbsent,
+  };
+}

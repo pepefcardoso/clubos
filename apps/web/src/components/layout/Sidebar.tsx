@@ -18,6 +18,7 @@ import {
   Shield,
   Receipt,
   ArrowLeftRight,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ const PRIMARY_NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Sócios", href: "/members", icon: Users },
   { label: "Atletas", href: "/athletes", icon: Users2 },
+  { href: "/training", label: "Chamada", icon: ClipboardList },
   { label: "Planos", href: "/plans", icon: LayoutList },
   { label: "Cobranças", href: "/charges", icon: CreditCard },
   {
@@ -122,12 +124,12 @@ function UserMenu({ collapsed }: { collapsed: boolean }) {
 
   const initials = user?.email
     ? user.email
-        .split("@")[0]
-        .split(/[._\-]/)
-        .map((p: string) => p[0] ?? "")
-        .slice(0, 2)
-        .join("")
-        .toUpperCase() || user.email[0].toUpperCase()
+      .split("@")[0]
+      .split(/[._\-]/)
+      .map((p: string) => p[0] ?? "")
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || user.email[0].toUpperCase()
     : "?";
 
   const displayName = user?.email

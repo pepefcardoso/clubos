@@ -386,8 +386,9 @@ model Athlete {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  contracts       Contract[]
-  workloadMetrics WorkloadMetric[]
+  contracts         Contract[]
+  workloadMetrics   WorkloadMetric[]
+  integrationTokens IntegrationToken[]
 
   @@index([status])
   @@map("athletes")
@@ -539,4 +540,21 @@ model SessionExercise {
   @@index([trainingSessionId])
   @@index([exerciseId])
   @@map("session_exercises")
+}
+
+model IntegrationToken {
+  id         String    @id @default(cuid())
+  athleteId  String
+  tokenHash  String
+  label      String
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+
+  @@index([athleteId])
+  @@index([isActive])
+  @@map("integration_tokens")
 }

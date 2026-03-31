@@ -421,6 +421,22 @@ const TENANT_TABLES_DDL = `
 
     CONSTRAINT "session_exercises_pkey" PRIMARY KEY ("id")
   );
+
+  -- integration_tokens (FK → athletes)
+  -- Allows external devices (Apple Watch, Google Fit companion apps) to push
+  -- workload data without a browser session. Token shown once, stored hashed.
+  -- isActive = false means revoked; rows are never hard-deleted (audit trail).
+  CREATE TABLE IF NOT EXISTS "integration_tokens" (
+    "id"          TEXT         NOT NULL,
+    "athleteId"   TEXT         NOT NULL,
+    "tokenHash"   TEXT         NOT NULL,
+    "label"       TEXT         NOT NULL,
+    "isActive"    BOOLEAN      NOT NULL DEFAULT true,
+    "lastUsedAt"  TIMESTAMP(3),
+    "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"   TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "integration_tokens_pkey" PRIMARY KEY ("id")
+  );
 `;
 
 /**
@@ -529,6 +545,12 @@ const TENANT_INDEXES_DDL = `
     ON "session_exercises" ("exerciseId");
   CREATE UNIQUE INDEX IF NOT EXISTS "session_exercises_sessionId_exerciseId_key"
     ON "session_exercises" ("trainingSessionId", "exerciseId");
+
+  -- integration_tokens
+  CREATE INDEX IF NOT EXISTS "integration_tokens_athleteId_idx"
+    ON "integration_tokens" ("athleteId");
+  CREATE INDEX IF NOT EXISTS "integration_tokens_isActive_idx"
+    ON "integration_tokens" ("isActive");
 `;
 
 /**
@@ -599,6 +621,12 @@ const TENANT_FOREIGN_KEYS_DDL = `
   ALTER TABLE "session_exercises"
     ADD CONSTRAINT IF NOT EXISTS "session_exercises_exerciseId_fkey"
     FOREIGN KEY ("exerciseId") REFERENCES "exercises" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- integration_tokens → athletes
+  ALTER TABLE "integration_tokens"
+    ADD CONSTRAINT IF NOT EXISTS "integration_tokens_athleteId_fkey"
+    FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
     ON DELETE RESTRICT ON UPDATE CASCADE;
 `;
 

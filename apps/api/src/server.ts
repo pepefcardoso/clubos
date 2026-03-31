@@ -26,6 +26,7 @@ import { registerJobs, closeJobs } from "./jobs/index.js";
 import { registerWhatsAppProvider } from "./modules/whatsapp/providers/index.js";
 import { memberVerifyRoutes } from "./modules/members/members.verify.routes.js";
 import { balanceSheetPublicRoutes } from "./modules/balance-sheets/balance-sheets.public.routes.js";
+import { integrationIngestRoutes } from "./modules/integrations/integrations.ingest.routes.js";
 
 export async function buildApp() {
   validateEnv();
@@ -42,7 +43,10 @@ export async function buildApp() {
           } as const)
         : {
             level: env.LOG_LEVEL,
-            redact: ["req.query.token"] as string[],
+            redact: [
+              "req.query.token",
+              "req.headers.authorization",
+            ] as string[],
           };
 
   const fastify = Fastify({ logger: loggerOptions });
@@ -165,6 +169,8 @@ export async function buildApp() {
         .send(content);
     },
   );
+
+  await fastify.register(integrationIngestRoutes, { prefix: "/api/public" });
 
   await fastify.register(protectedRoutes, { prefix: "/api" });
 

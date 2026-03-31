@@ -98,7 +98,7 @@
 | ID        | Tarefa Técnica                                                                                                 | Esforço | Sprint | Status |
 | --------- | -------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-107** | UI de registro RPE (1-10, padrão FIFA): Slider interativo otimizado para preenchimento rápido no PWA.          | 0.5d    | S7     | ⬜     |
-| **T-108** | Endpoints de Ingestão Externa: Setup seguro para receber payloads do HealthKit/Google Fit (hardware-agnostic). | 1d      | S7     | ⬜     |
+| **T-108** | Endpoints de Ingestão Externa: Setup seguro para receber payloads do HealthKit/Google Fit (hardware-agnostic). | 1d      | S7     | ✅     |
 | **T-109** | Dashboard de Risco ACWR: Componente visual que consome a Materialized View sinalizando Verde/Amarelo/Vermelho. | 1d      | S7     | ⬜     |
 
 ### US-34 — Relatório para Responsáveis
@@ -132,10 +132,6 @@
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
 
 ### Sprint 7 (O Campo: Treino e Carga)
-
-**Fase 1: Schemas e Ingestão de Dados**
-
-2. `T-108` — Endpoints externos do HealthKit/GoogleFit
 
 **Fase 2: Interface Offline (Depende do PWA/Workbox da Sprint 6)** 3. `T-103` — UI de Chamada Digital 4. `T-104` — Integração Chamada/Sync Engine 5. `T-107` — UI de Registro RPE
 

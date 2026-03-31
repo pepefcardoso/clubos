@@ -2,6 +2,14 @@ export type AthleteStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
 export type SessionType = "MATCH" | "TRAINING" | "GYM" | "RECOVERY" | "OTHER";
 export type SyncStatus = "pending" | "syncing" | "synced" | "error";
 
+export type ExerciseCategory =
+  | "STRENGTH"
+  | "CARDIO"
+  | "TECHNICAL"
+  | "TACTICAL"
+  | "RECOVERY"
+  | "OTHER";
+
 /**
  * Read-only cache of server athlete data.
  *
@@ -66,3 +74,23 @@ export type CreateTrainingSessionInput = Pick<
   | "sessionType"
   | "notes"
 >;
+
+/**
+ * No PII — safe to store in IndexedDB without encryption.
+ * Cached for offline exercise selection in the coaching workflow (T-102).
+ * TTL is 4 hours (same as athletes cache).
+ */
+export interface CachedExercise {
+  /** Server-assigned cuid2 (primary key) */
+  id: string;
+  /** Tenant isolation — every record must carry clubId */
+  clubId: string;
+  name: string;
+  description: string | null;
+  category: ExerciseCategory;
+  muscleGroups: string[];
+  /** Reflects server-side isActive — inactive exercises are hidden from selection UI */
+  isActive: boolean;
+  /** Date.now() at time of caching — used for TTL invalidation */
+  cachedAt: number;
+}

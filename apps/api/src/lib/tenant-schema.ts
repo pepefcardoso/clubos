@@ -132,6 +132,19 @@ const TENANT_ENUMS_DDL = `
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'BALANCE_SHEET_PUBLISHED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'TEMPLATE_UPDATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'TEMPLATE_RESET';
+
+  DO $$ BEGIN
+    CREATE TYPE "ExerciseCategory" AS ENUM (
+      'STRENGTH', 'CARDIO', 'TECHNICAL', 'TACTICAL', 'RECOVERY', 'OTHER'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXERCISE_CREATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXERCISE_UPDATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXERCISE_DELETED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'TRAINING_SESSION_CREATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'TRAINING_SESSION_UPDATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'TRAINING_SESSION_DELETED';
 `;
 
 /**
@@ -152,11 +165,13 @@ const TENANT_ENUMS_DDL = `
  *   at-most-one ACTIVE contract per athlete is enforced at the service layer.
  * - Contract audit entries use entityId / entityType = "Contract" — no dedicated FK.
  * - Contracts are never deleted — only transitioned to TERMINATED (immutability).
- * - workload_metrics.trainingSessionId is nullable TEXT — FK to training_sessions will
- *   be added in T-101 once that table exists, to avoid a blocking dependency.
+ * - workload_metrics.trainingSessionId is nullable TEXT — FK to training_sessions is
  * - workload_metrics.rpe stores Foster RPE 1–10 (FIFA standard); range enforced by Zod.
  * - workload_metrics derived load (AU = rpe × durationMinutes) is NOT stored here —
  *   it is computed in the MATERIALIZED VIEW.
+ * - exercises.isActive uses soft-delete to preserve session_exercises references.
+ * - training_sessions.isCompleted = true makes the session immutable (no DELETE allowed).
+ * - session_exercises.order is advisory (UI-managed); NOT enforced unique.
  */
 const TENANT_TABLES_DDL = `
   -- plans (no FK dependencies)
@@ -249,9 +264,6 @@ const TENANT_TABLES_DDL = `
   );
 
   -- message_templates
-  -- Stores club-level overrides for the three billing reminder template keys.
-  -- When no row exists for a (key, channel) pair, the application falls back
-  -- to the hard-coded DEFAULT_TEMPLATES constants in templates.constants.ts.
   CREATE TABLE IF NOT EXISTS "message_templates" (
     "id"        TEXT             NOT NULL,
     "key"       TEXT             NOT NULL,
@@ -265,9 +277,6 @@ const TENANT_TABLES_DDL = `
   );
 
   -- audit_log (FK → members, nullable)
-  -- Athlete audit entries reference athletes via entityId / entityType = "Athlete"
-  -- rather than a dedicated athleteId FK column, keeping the audit model generic.
-  -- Contract audit entries use entityId / entityType = "Contract" — same pattern.
   CREATE TABLE IF NOT EXISTS "audit_log" (
     "id"         TEXT          NOT NULL,
     "memberId"   TEXT,
@@ -282,10 +291,6 @@ const TENANT_TABLES_DDL = `
   );
 
   -- athletes (no FK dependencies)
-  -- cpf is BYTEA: encrypted via pgp_sym_encrypt (pgcrypto AES-256).
-  -- cpf has NO unique index — uniqueness enforced by findAthleteByCpf() in src/lib/crypto.ts.
-  -- position is free-text to support multiple sport modalities (futebol, vôlei, etc.).
-  -- birthDate is DATE (time component always midnight UTC).
   CREATE TABLE IF NOT EXISTS "athletes" (
     "id"        TEXT             NOT NULL,
     "name"      TEXT             NOT NULL,
@@ -300,13 +305,6 @@ const TENANT_TABLES_DDL = `
   );
 
   -- contracts (FK → athletes)
-  -- endDate is nullable: open-ended contracts are valid (e.g. ongoing formative contracts).
-  -- bidRegistered defaults to false; set true after CBF/FPF BID confirmation.
-  -- federationCode is nullable: populated only after BID registration is confirmed.
-  -- No unique constraint on athleteId: historical records accumulate across an athlete's
-  -- career (original contract, renewals, loan stints). At-most-one ACTIVE contract per
-  -- athlete is enforced at the service layer to allow concurrent transitions.
-  -- Contracts are never deleted — only transitioned to TERMINATED (immutability principle).
   CREATE TABLE IF NOT EXISTS "contracts" (
     "id"             TEXT              NOT NULL,
     "athleteId"      TEXT              NOT NULL,
@@ -323,15 +321,7 @@ const TENANT_TABLES_DDL = `
     CONSTRAINT "contracts_pkey" PRIMARY KEY ("id")
   );
 
-  -- workload_metrics (FK → athletes)
-  -- Stores raw Foster Session-RPE training load inputs per athlete per day.
-  -- rpe: integer 1–10 (FIFA standard; NOT NULL — a zero-RPE session is not a session).
-  -- durationMinutes: must be > 0; enforced at the application layer via Zod.
-  -- trainingSessionId: nullable TEXT — FK to training_sessions will be added
-  --   once that table exists, avoiding a blocking dependency.
-  -- date is a DATE column (time component always midnight UTC); BRIN-indexed below.
-  -- Training Load (AU) = rpe × durationMinutes is intentionally NOT stored here —
-  --   it is derived in the MATERIALIZED VIEW.
+  -- workload_metrics (FK → athletes; FK → training_sessions added in TENANT_FOREIGN_KEYS_DDL)
   CREATE TABLE IF NOT EXISTS "workload_metrics" (
     "id"                TEXT          NOT NULL,
     "athleteId"         TEXT          NOT NULL,
@@ -349,10 +339,6 @@ const TENANT_TABLES_DDL = `
   );
 
   -- rules_config
-  -- Stores per-season, per-league sports eligibility rule sets as JSONB.
-  -- Rules are parameterised and updatable via API without code deployment.
-  -- A club may have multiple active rule sets (e.g. CBF + FPF simultaneously).
-  -- season + league unique constraint is enforced in TENANT_INDEXES_DDL.
   CREATE TABLE IF NOT EXISTS "rules_config" (
     "id"        TEXT         NOT NULL,
     "season"    TEXT         NOT NULL,
@@ -366,9 +352,6 @@ const TENANT_TABLES_DDL = `
   );
 
   -- expenses (no FK dependencies)
-  -- amountCents: integer cents — never float.
-  -- date is DATE (time component always midnight UTC).
-  -- notes is nullable free-text for the treasurer's reference.
   CREATE TABLE IF NOT EXISTS "expenses" (
     "id"          TEXT                NOT NULL,
     "description" TEXT                NOT NULL,
@@ -381,11 +364,7 @@ const TENANT_TABLES_DDL = `
     CONSTRAINT "expenses_pkey" PRIMARY KEY ("id")
   );
 
-  -- balance_sheets (no FK dependencies)
-  -- Append-only by application contract: no UPDATE or DELETE is ever issued.
-  -- fileHash stores the SHA-256 hex digest of the original PDF for tamper-evidence
-  --   (Lei 14.193/2021 compliance).
-  -- publishedAt is indexed DESC so public listing queries are fast.
+  -- balance_sheets (no FK dependencies; append-only)
   CREATE TABLE IF NOT EXISTS "balance_sheets" (
     "id"          TEXT         NOT NULL,
     "title"       TEXT         NOT NULL,
@@ -396,20 +375,56 @@ const TENANT_TABLES_DDL = `
     "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "balance_sheets_pkey" PRIMARY KEY ("id")
   );
+
+  -- Soft-deleted via isActive=false to preserve session_exercises references.
+  -- muscleGroups is a TEXT[] for free-form multi-sport support.
+  CREATE TABLE IF NOT EXISTS "exercises" (
+    "id"           TEXT                NOT NULL,
+    "name"         TEXT                NOT NULL,
+    "description"  TEXT,
+    "category"     "ExerciseCategory"  NOT NULL DEFAULT 'OTHER',
+    "muscleGroups" TEXT[]              NOT NULL DEFAULT '{}',
+    "isActive"     BOOLEAN             NOT NULL DEFAULT true,
+    "createdAt"    TIMESTAMP(3)        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"    TIMESTAMP(3)        NOT NULL,
+
+    CONSTRAINT "exercises_pkey" PRIMARY KEY ("id")
+  );
+
+  -- isCompleted = true makes the session immutable — only incomplete sessions may be deleted.
+  -- scheduledAt stores the UTC timestamp of the planned session start.
+  CREATE TABLE IF NOT EXISTS "training_sessions" (
+    "id"              TEXT          NOT NULL,
+    "title"           TEXT          NOT NULL,
+    "scheduledAt"     TIMESTAMP(3)  NOT NULL,
+    "sessionType"     "SessionType" NOT NULL DEFAULT 'TRAINING',
+    "durationMinutes" INTEGER       NOT NULL,
+    "notes"           TEXT,
+    "isCompleted"     BOOLEAN       NOT NULL DEFAULT false,
+    "createdAt"       TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"       TIMESTAMP(3)  NOT NULL,
+
+    CONSTRAINT "training_sessions_pkey" PRIMARY KEY ("id")
+  );
+
+  -- order is advisory (UI-managed sequence); NOT enforced unique.
+  -- Unique constraint on (trainingSessionId, exerciseId) prevents duplicate entries per session.
+  CREATE TABLE IF NOT EXISTS "session_exercises" (
+    "id"                TEXT    NOT NULL,
+    "trainingSessionId" TEXT    NOT NULL,
+    "exerciseId"        TEXT    NOT NULL,
+    "order"             INTEGER NOT NULL DEFAULT 0,
+    "sets"              INTEGER,
+    "reps"              INTEGER,
+    "durationSeconds"   INTEGER,
+    "notes"             TEXT,
+
+    CONSTRAINT "session_exercises_pkey" PRIMARY KEY ("id")
+  );
 `;
 
 /**
  * All indexes on tenant tables. CREATE INDEX IF NOT EXISTS is available from PG 9.5+.
- *
- * workload_metrics index strategy:
- *   - BRIN on "date": Block Range INdex — stores only min/max per physical page range,
- *     making it ~100–1000x smaller than B-tree for time-series data. Optimal here because
- *     rows are inserted in roughly chronological order as sessions are logged. The ACWR
- *     materialized view uses range scans on date (e.g. WHERE date >= NOW() -
- *     INTERVAL '28 days'), which BRIN handles efficiently. pages_per_range=32 (default).
- *   - B-tree on "athleteId": supports per-athlete lookups in dashboard and ACWR queries.
- *   - Composite B-tree on ("athleteId", "date"): covers the most frequent query pattern —
- *     load history for a specific athlete over a date range (ACWR window lookups, charts).
  */
 const TENANT_INDEXES_DDL = `
   -- members
@@ -463,9 +478,6 @@ const TENANT_INDEXES_DDL = `
     ON "athletes" ("status");
 
   -- contracts
-  -- contracts_athleteId_idx: supports athlete-scoped contract lookups (GET /api/athletes/:id/contracts)
-  -- contracts_status_idx: supports filtering active contracts
-  -- contracts_endDate_idx: supports alert query (WHERE endDate <= NOW() + interval '7 days')
   CREATE INDEX IF NOT EXISTS "contracts_athleteId_idx"
     ON "contracts" ("athleteId");
   CREATE INDEX IF NOT EXISTS "contracts_status_idx"
@@ -474,23 +486,12 @@ const TENANT_INDEXES_DDL = `
     ON "contracts" ("endDate");
 
   -- workload_metrics
-  -- BRIN on "date": optimal for time-series range scans used by the ACWR materialized
-  --   view. Rows are inserted chronologically, so BRIN's block-range correlation
-  --   assumption holds. pages_per_range=32 (PostgreSQL default).
-  -- B-tree on "athleteId": per-athlete dashboard and ACWR lookup support.
-  -- Composite ("athleteId", "date"): covers the dominant query pattern — load history
-  --   for a specific athlete over a trailing window (e.g. 28-day ACWR calculation).
   CREATE INDEX IF NOT EXISTS "workload_metrics_date_brin_idx"
     ON "workload_metrics" USING BRIN ("date");
   CREATE INDEX IF NOT EXISTS "workload_metrics_athleteId_idx"
     ON "workload_metrics" ("athleteId");
   CREATE INDEX IF NOT EXISTS "workload_metrics_athleteId_date_idx"
     ON "workload_metrics" ("athleteId", "date");
-  -- Unique index on idempotencyKey: prevents duplicate rows from PWA retries
-  -- (belt-and-suspenders alongside the application-level check in the service).
-  -- Partial WHERE is not used here so the index correctly enforces global uniqueness
-  -- across all rows where the key is non-null (NULL values are excluded from UNIQUE
-  -- indexes in PostgreSQL by default — multiple NULLs are allowed).
   CREATE UNIQUE INDEX IF NOT EXISTS "workload_metrics_idempotencyKey_key"
     ON "workload_metrics" ("idempotencyKey");
 
@@ -509,19 +510,29 @@ const TENANT_INDEXES_DDL = `
   -- balance_sheets
   CREATE INDEX IF NOT EXISTS "balance_sheets_publishedAt_idx"
     ON "balance_sheets" ("publishedAt" DESC);
+
+  CREATE INDEX IF NOT EXISTS "exercises_category_idx"
+    ON "exercises" ("category");
+  CREATE INDEX IF NOT EXISTS "exercises_isActive_idx"
+    ON "exercises" ("isActive");
+
+  CREATE INDEX IF NOT EXISTS "training_sessions_scheduledAt_idx"
+    ON "training_sessions" ("scheduledAt");
+  CREATE INDEX IF NOT EXISTS "training_sessions_sessionType_idx"
+    ON "training_sessions" ("sessionType");
+  CREATE INDEX IF NOT EXISTS "training_sessions_isCompleted_idx"
+    ON "training_sessions" ("isCompleted");
+
+  CREATE INDEX IF NOT EXISTS "session_exercises_trainingSessionId_idx"
+    ON "session_exercises" ("trainingSessionId");
+  CREATE INDEX IF NOT EXISTS "session_exercises_exerciseId_idx"
+    ON "session_exercises" ("exerciseId");
+  CREATE UNIQUE INDEX IF NOT EXISTS "session_exercises_sessionId_exerciseId_key"
+    ON "session_exercises" ("trainingSessionId", "exerciseId");
 `;
 
 /**
  * Foreign key constraints on tenant tables.
- *
- * ALTER TABLE ... ADD CONSTRAINT ... IF NOT EXISTS requires PG 9.6+.
- * All constraints are named to allow idempotent re-application.
- *
- * Note: contracts → athletes uses ON DELETE RESTRICT to prevent accidental deletion
- * of athletes that have legal/compliance contract records.
- *
- * Note: workload_metrics → training_sessions FK, when the
- * training_sessions table will be created. trainingSessionId is nullable TEXT for now.
  */
 const TENANT_FOREIGN_KEYS_DDL = `
   -- member_plans → members
@@ -561,62 +572,36 @@ const TENANT_FOREIGN_KEYS_DDL = `
     ON DELETE SET NULL ON UPDATE CASCADE;
 
   -- contracts → athletes
-  -- ON DELETE RESTRICT: prevents deleting an athlete that has contract records,
-  -- preserving legal and CBF/FPF compliance history.
   ALTER TABLE "contracts"
     ADD CONSTRAINT IF NOT EXISTS "contracts_athleteId_fkey"
     FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
     ON DELETE RESTRICT ON UPDATE CASCADE;
 
   -- workload_metrics → athletes
-  -- ON DELETE RESTRICT: preserves training load history even if an athlete is
-  -- deactivated; hard delete of an athlete with load data is intentionally blocked
-  -- to protect ACWR history and any future injury-prediction models (v2.0).
   ALTER TABLE "workload_metrics"
     ADD CONSTRAINT IF NOT EXISTS "workload_metrics_athleteId_fkey"
     FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
     ON DELETE RESTRICT ON UPDATE CASCADE;
 
-  -- NOTE: FK for workload_metrics → training_sessions will be added
-  -- once that table is defined. trainingSessionId is nullable TEXT for now.
+  -- ON DELETE SET NULL: preserves RPE history even when a planned session is removed.
+  ALTER TABLE "workload_metrics"
+    ADD CONSTRAINT IF NOT EXISTS "workload_metrics_trainingSessionId_fkey"
+    FOREIGN KEY ("trainingSessionId") REFERENCES "training_sessions" ("id")
+    ON DELETE SET NULL ON UPDATE CASCADE;
+
+  -- ON DELETE CASCADE: exercise list is owned by the session plan.
+  ALTER TABLE "session_exercises"
+    ADD CONSTRAINT IF NOT EXISTS "session_exercises_trainingSessionId_fkey"
+    FOREIGN KEY ("trainingSessionId") REFERENCES "training_sessions" ("id")
+    ON DELETE CASCADE ON UPDATE CASCADE;
+
+  -- ON DELETE RESTRICT: prevents deleting an exercise used in any historical session.
+  ALTER TABLE "session_exercises"
+    ADD CONSTRAINT IF NOT EXISTS "session_exercises_exerciseId_fkey"
+    FOREIGN KEY ("exerciseId") REFERENCES "exercises" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
 `;
 
-/**
- * Materialized view for ACWR (Acute:Chronic Workload Ratio) aggregates.
- *
- * Computes, per athlete per day, the rolling acute (7-day) and chronic
- * (28-day) training loads from raw workload_metrics entries and derives
- * the ACWR ratio and risk zone used by the dashboard.
- *
- * Training Load Unit (AU) = rpe × durationMinutes  (Foster Session-RPE)
- * Acute  Load = SUM(AU) over last 7 days
- * Chronic Load = SUM(AU over last 28 days) / 4   (weekly average)
- * ACWR = Acute / Chronic
- *
- * Risk zones (FIFA / sports science standard):
- *   < 0.8   → low             (under-training / detraining)
- *   0.8–1.3 → optimal         (continue load)
- *   1.3–1.5 → high            (monitor athlete)
- *   > 1.5   → very_high       (reduce load — injury risk)
- *   no data → insufficient_data
- *
- * Created WITH NO DATA — initial population is handled by migration
- * script; subsequent refreshes BullMQ job (every 4 hours).
- *
- * REFRESH MATERIALIZED VIEW CONCURRENTLY requires the unique index created
- * in TENANT_MATERIALIZED_VIEW_INDEXES_DDL — that index must exist before
- * the first concurrent refresh is attempted.
- *
- * Design decisions:
- *   - ROWS BETWEEN N PRECEDING AND CURRENT ROW: correctly handles sparse data
- *     (days with no sessions are simply absent — the window shrinks naturally).
- *   - chronic_load_au = SUM(28d) / 4: normalises to weekly average, matching
- *     the standard ACWR literature formula.
- *   - ROUND(..., 2) on acwr_ratio: 2 dp is sufficient for UI; avoids fp noise.
- *   - risk_zone computed in view: single source of truth, avoids repeating logic.
- *   - No "id" column: the natural key is ("athleteId", date), enforced by the
- *     unique index. Raw queries use this pair for addressing.
- */
 const TENANT_MATERIALIZED_VIEWS_DDL = `
   CREATE MATERIALIZED VIEW IF NOT EXISTS "acwr_aggregates" AS
   WITH daily_load AS (
@@ -680,21 +665,6 @@ const TENANT_MATERIALIZED_VIEWS_DDL = `
   WITH NO DATA;
 `;
 
-/**
- * Indexes on the acwr_aggregates materialized view.
- *
- * The unique index on ("athleteId", date) serves two purposes:
- *   1. Data integrity — exactly one aggregate row per athlete per day.
- *   2. REFRESH MATERIALIZED VIEW CONCURRENTLY — PostgreSQL requires a unique
- *      index on the view before a concurrent refresh can be executed.
- *
- * B-tree is used (not BRIN) because materialized views are physically rewritten
- * on REFRESH, meaning rows are NOT guaranteed to land in physical date order.
- * BRIN's block-range correlation assumption would fail here.
- *
- * The second index on "athleteId" alone supports per-athlete full-history queries
- * and dashboard lookups that do not include a date filter.
- */
 const TENANT_MATERIALIZED_VIEW_INDEXES_DDL = `
   CREATE UNIQUE INDEX IF NOT EXISTS "acwr_aggregates_athlete_date_key"
     ON "acwr_aggregates" ("athleteId", date);
@@ -715,30 +685,14 @@ const TENANT_MATERIALIZED_VIEW_INDEXES_DDL = `
  *
  * **Execution order rationale:**
  *   Steps 1–3 run outside any transaction because `ALTER TYPE ... ADD VALUE`
- *   (used to extend `AuditAction` with athlete and contract values) cannot be
- *   executed inside an open transaction block in PostgreSQL. This is a PostgreSQL
- *   restriction, not a Prisma limitation.
  *
  *   Step 4 runs inside a transaction to keep table/index/FK/view creation atomic.
- *   A failure there leaves enums created but tables absent — re-running
- *   `provisionTenantSchema` is the safe recovery path (all DDL is idempotent).
- *
- * Called once during club onboarding by `POST /api/clubs`.
- * Must NOT be called for every request — only at club creation time.
- * Can be called safely for existing clubs due to idempotency.
  *
  * @param prisma  - The global Prisma client (public schema connection).
- * @param clubId  - The cuid2 identifier of the new club. Used to derive
- *                  the schema name `clube_{clubId}`.
+ * @param clubId  - The cuid2 identifier of the new club.
  *
  * @throws {Error} If `clubId` does not match the expected cuid2 format.
  * @throws        Re-throws any PostgreSQL errors from DDL execution.
- *
- * @example
- * ```ts
- * const club = await prisma.club.create({ data: { ... } });
- * await provisionTenantSchema(prisma, club.id);
- * ```
  */
 export async function provisionTenantSchema(
   prisma: PrismaClient,

@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { CachedAthlete, TrainingSession } from "./types";
+import type { CachedAthlete, TrainingSession, CachedExercise } from "./types";
 
 /**
  * BROWSER-ONLY — do not import in Server Components or API Routes.
@@ -9,9 +9,10 @@ import type { CachedAthlete, TrainingSession } from "./types";
  * migration function in the new version block.
  */
 
-class ClubOSDatabase extends Dexie {
+export class ClubOSDatabase extends Dexie {
   athletes!: EntityTable<CachedAthlete, "id">;
   trainingSessions!: EntityTable<TrainingSession, "localId">;
+  exercises!: EntityTable<CachedExercise, "id">;
 
   constructor() {
     if (typeof window === "undefined") {
@@ -29,10 +30,15 @@ class ClubOSDatabase extends Dexie {
       trainingSessions:
         "localId, clubId, athleteId, syncStatus, date, [clubId+syncStatus], [clubId+athleteId]",
     });
+
+    this.version(2).stores({
+      exercises:
+        "id, clubId, category, isActive, [clubId+category], [clubId+isActive], cachedAt",
+    });
   }
 }
 
-export { ClubOSDatabase };
+export { ClubOSDatabase as default };
 
 /**
  * Singleton database instance. Import this in DAL files and hooks only.

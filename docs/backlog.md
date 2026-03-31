@@ -71,7 +71,7 @@
 
 | ID        | Tarefa Técnica                                                                                         | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
-| **T-101** | Schema `exercises` e `training_sessions` (IndexedDB + PostgreSQL) + Endpoints CRUD base.               | 0.5d    | S7     | ⬜     |
+| **T-101** | Schema `exercises` e `training_sessions` (IndexedDB + PostgreSQL) + Endpoints CRUD base.               | 0.5d    | S7     | ✅     |
 | **T-102** | UI da Biblioteca de Exercícios: Grid visual interativo simulando uma prancheta de planejamento tático. | 1d      | S7     | ⬜     |
 
 ### US-32 — Gestão de Presença e Avaliação
@@ -135,7 +135,6 @@
 
 **Fase 1: Schemas e Ingestão de Dados**
 
-1. `T-101` — Schema e CRUD de Exercícios
 2. `T-108` — Endpoints externos do HealthKit/GoogleFit
 
 **Fase 2: Interface Offline (Depende do PWA/Workbox da Sprint 6)** 3. `T-103` — UI de Chamada Digital 4. `T-104` — Integração Chamada/Sync Engine 5. `T-107` — UI de Registro RPE

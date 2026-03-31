@@ -6,7 +6,8 @@
 //
 //   [TENANT MODELS] — models that represent the structure of each tenant schema
 //     (clube_{id}): Member, Plan, MemberPlan, Charge, Payment, Message, AuditLog,
-//                   Athlete, Contract, WorkloadMetric
+//                   Athlete, Contract, WorkloadMetric, Exercise, TrainingSession,
+//                   SessionExercise
 //
 //     At runtime, before any tenant query the API MUST execute:
 //       SET search_path TO "clube_{clubId}", public
@@ -92,6 +93,15 @@ enum ExpenseCategory {
   OTHER
 }
 
+enum ExerciseCategory {
+  STRENGTH
+  CARDIO
+  TECHNICAL
+  TACTICAL
+  RECOVERY
+  OTHER
+}
+
 enum SessionType {
   MATCH
   TRAINING
@@ -160,6 +170,12 @@ enum AuditAction {
   BALANCE_SHEET_PUBLISHED
   TEMPLATE_UPDATED
   TEMPLATE_RESET
+  EXERCISE_CREATED
+  EXERCISE_UPDATED
+  EXERCISE_DELETED
+  TRAINING_SESSION_CREATED
+  TRAINING_SESSION_UPDATED
+  TRAINING_SESSION_DELETED
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
@@ -411,7 +427,8 @@ model WorkloadMetric {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-  athlete Athlete @relation(fields: [athleteId], references: [id])
+  athlete         Athlete          @relation(fields: [athleteId], references: [id])
+  trainingSession TrainingSession? @relation(fields: [trainingSessionId], references: [id])
 
   @@index([athleteId])
   @@index([date])
@@ -458,15 +475,68 @@ model Expense {
 model BalanceSheet {
   id          String   @id @default(cuid())
   title       String
-  /// Human-readable period label, e.g. "2024", "1º Trimestre 2025"
   period      String
-  /// Publicly accessible URL to the stored PDF file
   fileUrl     String
-  /// SHA-256 hex digest of the original PDF bytes — tamper-evidence proof
   fileHash    String
   publishedAt DateTime @default(now())
   createdAt   DateTime @default(now())
 
   @@index([publishedAt])
   @@map("balance_sheets")
+}
+
+model Exercise {
+  id           String           @id @default(cuid())
+  name         String
+  description  String?
+  category     ExerciseCategory @default(OTHER)
+  muscleGroups String[]
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  sessionExercises SessionExercise[]
+
+  @@index([category])
+  @@index([isActive])
+  @@map("exercises")
+}
+
+model TrainingSession {
+  id              String      @id @default(cuid())
+  title           String
+  scheduledAt     DateTime
+  sessionType     SessionType @default(TRAINING)
+  durationMinutes Int
+  notes           String?
+  isCompleted     Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  sessionExercises SessionExercise[]
+  workloadMetrics  WorkloadMetric[]
+
+  @@index([scheduledAt])
+  @@index([sessionType])
+  @@index([isCompleted])
+  @@map("training_sessions")
+}
+
+model SessionExercise {
+  id                String  @id @default(cuid())
+  trainingSessionId String
+  exerciseId        String
+  order             Int     @default(0)
+  sets              Int?
+  reps              Int?
+  durationSeconds   Int?
+  notes             String?
+
+  trainingSession TrainingSession @relation(fields: [trainingSessionId], references: [id])
+  exercise        Exercise        @relation(fields: [exerciseId], references: [id])
+
+  @@unique([trainingSessionId, exerciseId])
+  @@index([trainingSessionId])
+  @@index([exerciseId])
+  @@map("session_exercises")
 }

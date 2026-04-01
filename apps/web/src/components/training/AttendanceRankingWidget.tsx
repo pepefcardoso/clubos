@@ -4,68 +4,7 @@ import { useState } from "react";
 import { Trophy, AlertTriangle, Clock, Info, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAttendanceRanking } from "@/hooks/use-attendance-ranking";
-import type { RiskZone } from "@/lib/api/workload";
-
-const RISK_ZONE_CONFIG: Record<
-    RiskZone,
-    { label: string; bgClass: string; textClass: string; dotClass: string; ariaLabel: string }
-> = {
-    insufficient_data: {
-        label: "Sem dados",
-        bgClass: "bg-neutral-100",
-        textClass: "text-neutral-500",
-        dotClass: "bg-neutral-400",
-        ariaLabel: "dados insuficientes para análise de risco",
-    },
-    low: {
-        label: "Carga baixa",
-        bgClass: "bg-blue-50",
-        textClass: "text-blue-700",
-        dotClass: "bg-blue-400",
-        ariaLabel: "carga de treino baixa",
-    },
-    optimal: {
-        label: "Pronto",
-        bgClass: "bg-primary-50",
-        textClass: "text-primary-700",
-        dotClass: "bg-primary-500",
-        ariaLabel: "carga ótima — apto para jogo",
-    },
-    high: {
-        label: "Atenção",
-        bgClass: "bg-amber-50",
-        textClass: "text-amber-700",
-        dotClass: "bg-amber-400",
-        ariaLabel: "carga elevada — use com cautela",
-    },
-    very_high: {
-        label: "Risco alto",
-        bgClass: "bg-red-50",
-        textClass: "text-red-700",
-        dotClass: "bg-red-500",
-        ariaLabel: "risco de lesão elevado — evite escalação",
-    },
-};
-
-function RiskBadge({ zone }: { zone: RiskZone | null }) {
-    const cfg = RISK_ZONE_CONFIG[zone ?? "insufficient_data"];
-    return (
-        <span
-            className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
-                cfg.bgClass,
-                cfg.textClass,
-            )}
-            aria-label={cfg.ariaLabel}
-        >
-            <span
-                className={cn("h-1.5 w-1.5 rounded-full flex-shrink-0", cfg.dotClass)}
-                aria-hidden="true"
-            />
-            {cfg.label}
-        </span>
-    );
-}
+import { RiskZoneBadge } from "./RiskZoneBadge";
 
 function RankNumber({ rank }: { rank: number }) {
     if (rank === 1) {
@@ -273,7 +212,7 @@ export function AttendanceRankingWidget() {
                                 >
                                     {athlete.sessionCount}×
                                 </span>
-                                <RiskBadge zone={athlete.riskZone} />
+                                <RiskZoneBadge zone={athlete.riskZone} size="sm" />
                             </div>
                         </div>
                     ))

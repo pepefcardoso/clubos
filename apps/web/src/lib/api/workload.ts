@@ -131,3 +131,50 @@ export async function fetchAttendanceRanking(
 
   return res.json() as Promise<AttendanceRankingResponse>;
 }
+
+export interface AcwrEntry {
+  /** ISO date string returned from the API (e.g. "2024-06-01T00:00:00.000Z") */
+  date: string;
+  dailyAu: number;
+  acuteLoadAu: number;
+  chronicLoadAu: number;
+  acuteWindowDays: number;
+  chronicWindowDays: number;
+  acwrRatio: number | null;
+  riskZone: RiskZone;
+}
+
+export interface AthleteAcwrResponse {
+  athleteId: string;
+  latest: AcwrEntry | null;
+  history: AcwrEntry[];
+}
+
+/**
+ * Fetches ACWR history for a single athlete from the acwr_aggregates
+ * materialized view.  Data may lag up to 4 h behind the latest workload
+ * metric insertions — `latest.date` indicates freshness.
+ *
+ * Returns `{ latest: null, history: [] }` (not an error) when the view has
+ * no rows for the athlete — expected state before the first MV refresh.
+ */
+export async function fetchAthleteAcwr(
+  athleteId: string,
+  days: number = 28,
+  accessToken: string,
+): Promise<AthleteAcwrResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/workload/athletes/${athleteId}/acwr?days=${days}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message ?? `HTTP ${res.status}`);
+  }
+
+  return res.json() as Promise<AthleteAcwrResponse>;
+}

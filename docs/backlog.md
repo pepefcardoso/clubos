@@ -99,7 +99,7 @@
 | --------- | -------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-107** | UI de registro RPE (1-10, padrão FIFA): Slider interativo otimizado para preenchimento rápido no PWA.          | 0.5d    | S7     | ✅     |
 | **T-108** | Endpoints de Ingestão Externa: Setup seguro para receber payloads do HealthKit/Google Fit (hardware-agnostic). | 1d      | S7     | ✅     |
-| **T-109** | Dashboard de Risco ACWR: Componente visual que consome a Materialized View sinalizando Verde/Amarelo/Vermelho. | 1d      | S7     | ⬜     |
+| **T-109** | Dashboard de Risco ACWR: Componente visual que consome a Materialized View sinalizando Verde/Amarelo/Vermelho. | 1d      | S7     | ✅     |
 
 ### US-34 — Relatório para Responsáveis
 
@@ -133,7 +133,7 @@
 
 ### Sprint 7 (O Campo: Treino e Carga)
 
-**Fase 3: Agregações e Dashboards** 7. `T-109` — Dashboard de Risco ACWR (Depende da Materialized View da Sprint 6) 8. `T-102` — UI da Prancheta de Exercícios 9. `T-106` — Formulário de Avaliação e PDF
+**Fase 3: Agregações e Dashboards** 8. `T-102` — UI da Prancheta de Exercícios 9. `T-106` — Formulário de Avaliação e PDF
 
 ### Sprint 8 (Compliance e Automação)
 

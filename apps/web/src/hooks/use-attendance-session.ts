@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useReducer } from "react";
 import { useLocalDb } from "@/hooks/use-local-db";
+import { useSyncQueue } from "@/hooks/use-sync-queue";
 import type { SessionType } from "@/lib/db/types";
 
 export type AttendanceStatus = "pending" | "present" | "absent";
@@ -113,9 +114,41 @@ export interface AttendanceSessionReturn extends State {
   markAllAbsent: () => void;
 }
 
+/**
+ * Registers a Background Sync tag with the Service Worker.
+ *
+ * The OS will fire a `sync` event on the SW when connectivity is restored,
+ * even if the browser tab is closed. This is a progressive enhancement:
+ * - Chrome/Edge/Android: ✅ Full support
+ * - Firefox/Safari: ❌ Silently ignored (app falls back to useSyncWorker)
+ *
+ * Safe to call multiple times — the browser de-duplicates tags.
+ */
+async function registerBackgroundSync(): Promise<void> {
+  if (
+    typeof window === "undefined" ||
+    !("serviceWorker" in navigator) ||
+    !("SyncManager" in window)
+  ) {
+    return;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.sync.register("sync-workload-sessions");
+  } catch {
+    // Registration can fail if:
+    //   - SW is not yet active (first load before activation)
+    //   - User denied notification/background permissions
+    //   - Device is in a restricted power mode
+    // All are non-fatal — the app degrades to in-tab sync.
+  }
+}
+
 export function useAttendanceSession(): AttendanceSessionReturn {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const { getLocalAthletes, addTrainingSession } = useLocalDb();
+  const { flushPending } = useSyncQueue();
 
   useEffect(() => {
     getLocalAthletes("ACTIVE").then((cached) => {
@@ -161,7 +194,13 @@ export function useAttendanceSession(): AttendanceSessionReturn {
     );
 
     dispatch({ type: "SAVED", count: present.length });
-  }, [state.athletes, state.config, addTrainingSession]);
+
+    void registerBackgroundSync();
+
+    if (navigator.onLine) {
+      void flushPending();
+    }
+  }, [state.athletes, state.config, addTrainingSession, flushPending]);
 
   const reset = useCallback(() => dispatch({ type: "RESET" }), []);
   const markAllPresent = useCallback(

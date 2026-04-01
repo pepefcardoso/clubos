@@ -94,3 +94,15 @@ export interface CachedExercise {
   /** Date.now() at time of caching — used for TTL invalidation */
   cachedAt: number;
 }
+
+/**
+ * Key-value metadata store for app-level state that must be accessible
+ * from Service Worker context (e.g. activeClubId for Background Sync).
+ *
+ * Values are stored as `unknown` — callers are responsible for typing via generics.
+ * No PII should ever be written to this store.
+ */
+export interface MetaEntry {
+  key: string;
+  value: unknown;
+}

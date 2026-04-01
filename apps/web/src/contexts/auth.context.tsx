@@ -16,6 +16,7 @@ import {
     AuthApiError,
     type AuthUser,
 } from "@/lib/auth";
+import { setActiveMeta } from "@/lib/db/meta.db";
 
 interface AuthState {
     accessToken: string | null;
@@ -44,13 +45,34 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
     const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
 
-    const setAuthenticated = useCallback((accessToken: string, user: AuthUser) => {
-        setState({ accessToken, user, isLoading: false, isAuthenticated: true });
+    /**
+     * Persists clubId to the IDB meta store so the Service Worker can read it
+     * during Background Sync events when no browser clients are open.
+     * The write is fire-and-forget — failures are non-fatal.
+     */
+    const persistClubIdForSw = useCallback((clubId: string | null) => {
+        void setActiveMeta("activeClubId", clubId).catch(() => {
+            // Non-fatal — SW fallback will gracefully skip sync if absent.
+        });
     }, []);
 
+    const setAuthenticated = useCallback(
+        (accessToken: string, user: AuthUser) => {
+            setState({ accessToken, user, isLoading: false, isAuthenticated: true });
+            persistClubIdForSw(user.clubId);
+        },
+        [persistClubIdForSw],
+    );
+
     const clearAuth = useCallback(() => {
-        setState({ accessToken: null, user: null, isLoading: false, isAuthenticated: false });
-    }, []);
+        setState({
+            accessToken: null,
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+        });
+        persistClubIdForSw(null);
+    }, [persistClubIdForSw]);
 
     useEffect(() => {
         let cancelled = false;
@@ -126,9 +148,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     }, [state.accessToken, refresh]);
 
     return (
-        <AuthContext.Provider
-            value={{ ...state, login, logout, getAccessToken }}
-        >
+        <AuthContext.Provider value={{ ...state, login, logout, getAccessToken }}>
             {children}
         </AuthContext.Provider>
     );

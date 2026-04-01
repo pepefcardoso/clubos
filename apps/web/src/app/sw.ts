@@ -105,3 +105,37 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+const WORKLOAD_SYNC_TAG = "sync-workload-sessions";
+
+self.addEventListener("sync", (event: SyncEvent) => {
+  if (event.tag !== WORKLOAD_SYNC_TAG) return;
+
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: false,
+      });
+
+      if (clients.length > 0) {
+        for (const client of clients) {
+          client.postMessage({ type: "TRIGGER_WORKLOAD_SYNC" });
+        }
+        return;
+      }
+
+      const { syncFromServiceWorker, getActiveClubIdRaw } = await import(
+        /* webpackChunkName: "sw-workload-sync" */
+        "../lib/sw/workload-sync"
+      );
+
+      const clubId = await getActiveClubIdRaw();
+      if (!clubId) {
+        return;
+      }
+
+      await syncFromServiceWorker(clubId);
+    })(),
+  );
+});

@@ -1,18 +1,31 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { CachedAthlete, TrainingSession, CachedExercise } from "./types";
+import type {
+  CachedAthlete,
+  TrainingSession,
+  CachedExercise,
+  MetaEntry,
+} from "./types";
 
 /**
  * BROWSER-ONLY — do not import in Server Components or API Routes.
  * Dexie uses IndexedDB which is not available in Node.js / SSR context.
- * NEVER modify an existing version block — always add a new version(N).
- * Breaking changes (removed indexes, renamed columns) require an .upgrade()
- * migration function in the new version block.
+ *
+ * Schema versioning rules:
+ * - NEVER modify an existing version block — always add a new version(N).
+ * - Breaking changes (removed indexes, renamed columns) require an .upgrade()
+ *   migration function in the new version block.
+ *
+ * Version history:
+ *   v1 — athletes + trainingSessions stores
+ *   v2 — exercises store added
+ *   v3 — meta store added (key-value, used by SW Background Sync for activeClubId)
  */
 
 export class ClubOSDatabase extends Dexie {
   athletes!: EntityTable<CachedAthlete, "id">;
   trainingSessions!: EntityTable<TrainingSession, "localId">;
   exercises!: EntityTable<CachedExercise, "id">;
+  meta!: EntityTable<MetaEntry, "key">;
 
   constructor() {
     if (typeof window === "undefined") {
@@ -26,7 +39,6 @@ export class ClubOSDatabase extends Dexie {
 
     this.version(1).stores({
       athletes: "id, clubId, status, [clubId+status], cachedAt",
-
       trainingSessions:
         "localId, clubId, athleteId, syncStatus, date, [clubId+syncStatus], [clubId+athleteId]",
     });
@@ -34,6 +46,10 @@ export class ClubOSDatabase extends Dexie {
     this.version(2).stores({
       exercises:
         "id, clubId, category, isActive, [clubId+category], [clubId+isActive], cachedAt",
+    });
+
+    this.version(3).stores({
+      meta: "key",
     });
   }
 }

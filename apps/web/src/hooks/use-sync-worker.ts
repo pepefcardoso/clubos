@@ -23,6 +23,7 @@ export interface SyncWorkerState {
  * Triggers automatically when:
  *   1. The app comes online (window 'online' event — via useNetworkStatus)
  *   2. The user explicitly calls `triggerSync()`
+ *   3. The Service Worker posts a TRIGGER_WORKLOAD_SYNC message (Background Sync API)
  *
  * On first mount, resets any sessions stuck in `syncing` state (recovery from
  * app-kill mid-sync). Before each flush, resets errored sessions back to pending
@@ -87,6 +88,25 @@ export function useSyncWorker(): SyncWorkerState {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline, user?.clubId]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "TRIGGER_WORKLOAD_SYNC") {
+        if (flushRef.current) {
+          void flushRef.current();
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleMessage);
+    };
+  }, []);
 
   const triggerSync = useCallback(() => {
     if (flushRef.current) {

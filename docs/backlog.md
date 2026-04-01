@@ -81,7 +81,7 @@
 | ID        | Tarefa Técnica                                                                                                | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-103** | Tela de Chamada Digital: Interface mobile-first (swipes e botões grandes) integrada ao state local (Zustand). | 0.5d    | S7     | ✅     |
-| **T-104** | Integração Chamada/Sync: Acoplar a UI de presença ao Motor de Sincronização (Background Sync API).            | 1d      | S7     | ⬜     |
+| **T-104** | Integração Chamada/Sync: Acoplar a UI de presença ao Motor de Sincronização (Background Sync API).            | 1d      | S7     | ✅     |
 | **T-105** | View agregada de Ranking de Assiduidade e alerta de escalação (Query SQL + UI Widget).                        | 0.5d    | S7     | ⬜     |
 | **T-106** | Avaliação Técnica: Formulário de microciclo (notas 1 a 5) e exportação em PDF (`react-pdf`).                  | 1d      | S7     | ⬜     |
 
@@ -133,7 +133,7 @@
 
 ### Sprint 7 (O Campo: Treino e Carga)
 
-**Fase 2: Interface Offline** 4. `T-104` — Integração Chamada/Sync Engine 5. `T-107` — UI de Registro RPE
+**Fase 2: Interface Offline** `T-107` — UI de Registro RPE
 
 **Fase 3: Agregações e Dashboards** 6. `T-105` — View de Ranking de Assiduidade 7. `T-109` — Dashboard de Risco ACWR (Depende da Materialized View da Sprint 6) 8. `T-102` — UI da Prancheta de Exercícios 9. `T-106` — Formulário de Avaliação e PDF
 

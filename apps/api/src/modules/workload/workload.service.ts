@@ -7,6 +7,9 @@ import type {
   AcwrResponse,
   WorkloadMetricResponse,
   RiskZone,
+  AttendanceRankingQuery,
+  AthleteAttendanceRank,
+  AttendanceRankingResponse,
 } from "./workload.schema.js";
 
 export class AthleteNotFoundError extends NotFoundError {
@@ -175,5 +178,103 @@ export async function getAthleteAcwr(
     const latest = history.length > 0 ? history[history.length - 1]! : null;
 
     return { athleteId, latest, history };
+  });
+}
+
+type AttendanceRankingRawRow = {
+  athleteId: string;
+  name: string;
+  position: string | null;
+  session_count: number;
+  training_days: number;
+  last_session_date: Date | null;
+  acwr_ratio: string | null;
+  risk_zone: string | null;
+  acwr_last_refreshed_at: Date | null;
+};
+
+/**
+ * Returns a ranked list of all active athletes sorted by session count
+ * within the configured look-back window, enriched with their latest
+ * ACWR risk zone from the acwr_aggregates materialized view.
+ *
+ * A single aggregated query avoids N+1 per-athlete ACWR fetches.
+ * The LATERAL subquery pulls only the most recent row per athlete from
+ * acwr_aggregates, which may lag up to 4 hours behind the latest metrics.
+ *
+ * Athletes with status != 'ACTIVE' are excluded.
+ * Athletes with no ACWR data return riskZone: null (before first MV refresh).
+ */
+export async function getAttendanceRanking(
+  prisma: PrismaClient,
+  clubId: string,
+  params: AttendanceRankingQuery,
+): Promise<AttendanceRankingResponse> {
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - params.days);
+
+    const { Prisma: PrismaNamespace } =
+      await import("../../../generated/prisma/index.js");
+
+    const sessionTypeFilter =
+      params.sessionType != null
+        ? PrismaNamespace.sql`AND wm."sessionType"::text = ${params.sessionType}`
+        : PrismaNamespace.empty;
+
+    const rows = await tx.$queryRaw<AttendanceRankingRawRow[]>`
+      SELECT
+        a.id                                               AS "athleteId",
+        a.name,
+        a.position,
+        COUNT(wm.id)::integer                              AS session_count,
+        COUNT(DISTINCT wm.date)::integer                   AS training_days,
+        MAX(wm.date)                                       AS last_session_date,
+        acwr.acwr_ratio,
+        acwr.risk_zone,
+        acwr.last_refreshed_at                             AS acwr_last_refreshed_at
+      FROM athletes a
+      LEFT JOIN workload_metrics wm
+        ON  wm."athleteId" = a.id
+        AND wm.date >= ${cutoff}::date
+        ${sessionTypeFilter}
+      LEFT JOIN LATERAL (
+        SELECT
+          acwr_ratio,
+          risk_zone,
+          date AS last_refreshed_at
+        FROM acwr_aggregates
+        WHERE "athleteId" = a.id
+        ORDER BY date DESC
+        LIMIT 1
+      ) acwr ON true
+      WHERE a.status = 'ACTIVE'
+      GROUP BY
+        a.id, a.name, a.position,
+        acwr.acwr_ratio, acwr.risk_zone, acwr.last_refreshed_at
+      ORDER BY session_count DESC, a.name ASC
+    `;
+
+    const athletes: AthleteAttendanceRank[] = rows.map((r) => ({
+      athleteId: r.athleteId,
+      name: r.name,
+      position: r.position,
+      sessionCount: Number(r.session_count),
+      trainingDays: Number(r.training_days),
+      lastSessionDate: r.last_session_date,
+      acwrRatio: r.acwr_ratio !== null ? Number(r.acwr_ratio) : null,
+      riskZone: r.risk_zone !== null ? (r.risk_zone as RiskZone) : null,
+    }));
+
+    const acwrLastRefreshedAt =
+      rows.length > 0 && rows[0]!.acwr_last_refreshed_at != null
+        ? rows[0]!.acwr_last_refreshed_at
+        : null;
+
+    return {
+      athletes,
+      windowDays: params.days,
+      acwrLastRefreshedAt,
+    };
   });
 }

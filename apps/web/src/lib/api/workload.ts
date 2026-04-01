@@ -77,3 +77,57 @@ export async function postWorkloadMetric(
 
   return res.json() as Promise<RecordWorkloadResponse>;
 }
+
+export type RiskZone =
+  | "insufficient_data"
+  | "low"
+  | "optimal"
+  | "high"
+  | "very_high";
+
+export interface AthleteAttendanceRank {
+  athleteId: string;
+  name: string;
+  position: string | null;
+  sessionCount: number;
+  trainingDays: number;
+  lastSessionDate: string | null;
+  acwrRatio: number | null;
+  riskZone: RiskZone | null;
+}
+
+export interface AttendanceRankingResponse {
+  athletes: AthleteAttendanceRank[];
+  windowDays: number;
+  /** ISO timestamp of the last ACWR refresh — null if view has no data yet */
+  acwrLastRefreshedAt: string | null;
+}
+
+/**
+ * Fetches the attendance ranking for all active athletes in the club.
+ * Data is sorted by session count (DESC) and enriched with the latest
+ * ACWR risk zone from the materialized view (may lag up to 4 h).
+ */
+export async function fetchAttendanceRanking(
+  params: { days?: number; sessionType?: string },
+  accessToken: string,
+): Promise<AttendanceRankingResponse> {
+  const query = new URLSearchParams();
+  if (params.days) query.set("days", String(params.days));
+  if (params.sessionType) query.set("sessionType", params.sessionType);
+
+  const res = await fetch(
+    `${API_BASE}/api/workload/attendance-ranking?${query.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message ?? `HTTP ${res.status}`);
+  }
+
+  return res.json() as Promise<AttendanceRankingResponse>;
+}

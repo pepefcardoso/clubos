@@ -35,10 +35,20 @@ export const AcwrQuerySchema = z.object({
   days: z.coerce.number().int().min(7).max(90).default(28),
 });
 
+export const AttendanceRankingQuerySchema = z.object({
+  days: z.coerce.number().int().min(7).max(90).default(30),
+  sessionType: z
+    .enum(["MATCH", "TRAINING", "GYM", "RECOVERY", "OTHER"])
+    .optional(),
+});
+
 export type CreateWorkloadMetricInput = z.infer<
   typeof CreateWorkloadMetricSchema
 >;
 export type AcwrQuery = z.infer<typeof AcwrQuerySchema>;
+export type AttendanceRankingQuery = z.infer<
+  typeof AttendanceRankingQuerySchema
+>;
 
 export type RiskZone =
   | "insufficient_data"
@@ -74,4 +84,22 @@ export interface WorkloadMetricResponse {
   sessionType: string;
   notes: string | null;
   createdAt: Date;
+}
+
+export interface AthleteAttendanceRank {
+  athleteId: string;
+  name: string;
+  position: string | null;
+  sessionCount: number;
+  trainingDays: number;
+  lastSessionDate: Date | null;
+  acwrRatio: number | null;
+  riskZone: RiskZone | null;
+}
+
+export interface AttendanceRankingResponse {
+  athletes: AthleteAttendanceRank[];
+  windowDays: number;
+  /** ISO timestamp of the last ACWR refresh — null if view has no data */
+  acwrLastRefreshedAt: Date | null;
 }

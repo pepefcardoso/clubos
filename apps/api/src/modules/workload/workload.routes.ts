@@ -2,10 +2,12 @@ import type { FastifyInstance } from "fastify";
 import {
   CreateWorkloadMetricSchema,
   AcwrQuerySchema,
+  AttendanceRankingQuerySchema,
 } from "./workload.schema.js";
 import {
   recordWorkloadMetric,
   getAthleteAcwr,
+  getAttendanceRanking,
   AthleteNotFoundError,
 } from "./workload.service.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
@@ -96,5 +98,38 @@ export async function workloadRoutes(fastify: FastifyInstance): Promise<void> {
       }
       throw err;
     }
+  });
+
+  /**
+   * GET /api/workload/attendance-ranking?days=30&sessionType=TRAINING
+   *
+   * Returns a ranked list of all active athletes sorted by session count
+   * within the look-back window, enriched with their latest ACWR risk zone.
+   *
+   * Accessible by both ADMIN and TREASURER roles.
+   *
+   * ACWR data may lag up to 4 hours behind the most recent workload metric
+   * insertions — `acwrLastRefreshedAt` in the response indicates freshness.
+   * A null `riskZone` on an athlete means the materialized view has not yet
+   * been refreshed with their data (expected state on first deploy).
+   */
+  fastify.get("/attendance-ranking", async (request, reply) => {
+    const user = request.user as AccessTokenPayload;
+
+    const parsed = AttendanceRankingQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: "Bad Request",
+        message: parsed.error.issues[0]?.message ?? "Invalid query params",
+      });
+    }
+
+    const result = await getAttendanceRanking(
+      fastify.prisma,
+      user.clubId,
+      parsed.data,
+    );
+    return reply.status(200).send(result);
   });
 }

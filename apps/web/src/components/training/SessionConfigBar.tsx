@@ -2,6 +2,7 @@
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { RpeSlider } from "@/components/training/RpeSlider";
 import type { SessionConfig } from "@/hooks/use-attendance-session";
 import type { SessionType } from "@/lib/db/types";
 
@@ -90,20 +91,15 @@ export function SessionConfigBar({
                 />
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
                 <Label htmlFor="att-rpe" className="text-xs text-neutral-500">
-                    RPE (1–10)
+                    RPE (Esforço percebido)
                 </Label>
-                <Input
+                <RpeSlider
                     id="att-rpe"
-                    type="number"
-                    min={1}
-                    max={10}
                     value={config.rpe}
+                    onChange={(rpe) => onChange({ rpe })}
                     disabled={disabled}
-                    onChange={(e) => onChange({ rpe: Number(e.target.value) })}
-                    className="h-10 text-sm font-mono w-20"
-                    aria-label="Percepção subjetiva de esforço de 1 a 10"
                 />
             </div>
         </div>

@@ -131,10 +131,6 @@
 
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
 
-### Sprint 7 (O Campo: Treino e Carga)
-
-**Fase 3: Agregações e Dashboards** 9. `T-106` — Formulário de Avaliação e PDF
-
 ### Sprint 8 (Compliance e Automação)
 
 **Fase 1: Coleta Segura**

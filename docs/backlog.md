@@ -121,7 +121,7 @@
 
 | ID        | Tarefa Técnica                                                                                                 | Esforço | Sprint | Status |
 | --------- | -------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-111** | Formulário de Peneiras: Tela pública em route group `(marketing)` com upload de documentação básica.           | 0.5d    | S8     | ⬜     |
+| **T-111** | Formulário de Peneiras: Tela pública em route group `(marketing)` com upload de documentação básica.           | 0.5d    | S8     | ✅     |
 | **T-112** | Aceite Parental Digital: Geração de hard-stop com coleta de IP, Timestamp e hash SHA-256 salvo no `audit_log`. | 1d      | S8     | ⬜     |
 | **T-113** | Job de Expurgo LGPD: Cron mensal para deleção (hard delete) em cascata de dados inativos há > 24 meses.        | 0.5d    | S8     | ⬜     |
 
@@ -135,7 +135,6 @@
 
 **Fase 1: Coleta Segura**
 
-1. `T-111` — Tela Pública de Peneiras
 2. `T-112` — Implementação do Aceite Parental (LGPD)
 
 **Fase 2: Rotinas em Background** 3. `T-113` — Job LGPD de Expurgo 4. `T-110` — Job de Relatório Semanal aos Pais (Depende da assiduidade e RPE gerados na Sprint 7)

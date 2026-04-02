@@ -27,6 +27,7 @@ import { registerWhatsAppProvider } from "./modules/whatsapp/providers/index.js"
 import { memberVerifyRoutes } from "./modules/members/members.verify.routes.js";
 import { balanceSheetPublicRoutes } from "./modules/balance-sheets/balance-sheets.public.routes.js";
 import { integrationIngestRoutes } from "./modules/integrations/integrations.ingest.routes.js";
+import { clubPublicRoutes } from "./modules/clubs/clubs.public.routes.js";
 
 export async function buildApp() {
   validateEnv();
@@ -149,6 +150,8 @@ export async function buildApp() {
   await fastify.register(memberVerifyRoutes, { prefix: "/api/public" });
 
   await fastify.register(balanceSheetPublicRoutes, { prefix: "/api/public" });
+
+  await fastify.register(clubPublicRoutes, { prefix: "/api/public" });
 
   await fastify.register(eventsRoutes, { prefix: "/api/events" });
 

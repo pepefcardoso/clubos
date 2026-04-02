@@ -10,6 +10,11 @@ import {
   countCachedAthletes,
 } from "@/lib/db/athletes.db";
 import {
+  upsertCachedExercises,
+  getCachedExercises,
+  clearStaleCachedExercises,
+} from "@/lib/db/exercises.db";
+import {
   createLocalTrainingSession,
   getPendingSessions,
   getSessionsByAthlete,
@@ -23,8 +28,10 @@ import {
 } from "@/lib/db/training-sessions.db";
 import type {
   CachedAthlete,
+  CachedExercise,
   CreateTrainingSessionInput,
   AthleteStatus,
+  ExerciseCategory,
 } from "@/lib/db/types";
 
 /**
@@ -73,6 +80,39 @@ export function useLocalDb() {
   const athleteCacheCount = useCallback((): Promise<number> => {
     if (!clubId) return Promise.resolve(0);
     return countCachedAthletes(clubId);
+  }, [clubId]);
+
+  /**
+   * Upserts a batch of exercises into the local IndexedDB cache.
+   * Idempotent — safe to call on every successful API fetch.
+   */
+  const cacheExercises = useCallback(
+    (exercises: CachedExercise[]): Promise<void> => {
+      if (!clubId) return Promise.resolve();
+      return upsertCachedExercises(exercises);
+    },
+    [clubId],
+  );
+
+  /**
+   * Returns cached exercises for the current club, optionally filtered by
+   * category. Active-only by default (mirrors the API default).
+   */
+  const getLocalExercises = useCallback(
+    (category?: ExerciseCategory): Promise<CachedExercise[]> => {
+      if (!clubId) return Promise.resolve([]);
+      return getCachedExercises(clubId, category);
+    },
+    [clubId],
+  );
+
+  /**
+   * Evicts exercises whose cachedAt is older than 4 hours.
+   * Called before upserting fresh data to avoid stale entries.
+   */
+  const evictStaleExercises = useCallback((): Promise<void> => {
+    if (!clubId) return Promise.resolve();
+    return clearStaleCachedExercises(clubId);
   }, [clubId]);
 
   const addTrainingSession = useCallback(
@@ -142,6 +182,9 @@ export function useLocalDb() {
     getLocalAthlete,
     clearAthleteCache,
     athleteCacheCount,
+    cacheExercises,
+    getLocalExercises,
+    evictStaleExercises,
     addTrainingSession,
     getPending,
     getAthleteHistory,

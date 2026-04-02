@@ -309,8 +309,9 @@ describe("updateEvaluation()", () => {
     await updateEvaluation(prisma, CLUB_ID, ACTOR_ID, EVAL_ID, {
       notes: "Updated",
     });
-    const call = vi.mocked(prisma.technicalEvaluation.update).mock.calls[0]![0];
-    expect(call.data).toEqual({ notes: "Updated" });
+    const call = vi.mocked(prisma.technicalEvaluation.update).mock
+      .calls[0]?.[0];
+    expect(call?.data).toEqual({ notes: "Updated" });
   });
 
   it("supports clearing notes by passing null", async () => {
@@ -363,8 +364,8 @@ describe("deleteEvaluation()", () => {
 
   it("audit log metadata contains microcycle and athleteId", async () => {
     await deleteEvaluation(prisma, CLUB_ID, ACTOR_ID, EVAL_ID);
-    const call = vi.mocked(prisma.auditLog.create).mock.calls[0]![0];
-    expect(call.data.metadata).toMatchObject({
+    const call = vi.mocked(prisma.auditLog.create).mock.calls[0]?.[0];
+    expect(call?.data.metadata).toMatchObject({
       microcycle: "2025-W03",
       athleteId: ATHLETE_ID,
     });
@@ -402,8 +403,8 @@ describe("listEvaluations()", () => {
       athleteId: ATHLETE_ID,
     });
     const call = vi.mocked(prisma.technicalEvaluation.findMany).mock
-      .calls[0]![0];
-    expect(call.where).toMatchObject({ athleteId: ATHLETE_ID });
+      .calls[0]?.[0];
+    expect(call?.where).toMatchObject({ athleteId: ATHLETE_ID });
   });
 
   it("passes microcycle filter to Prisma where clause", async () => {
@@ -413,8 +414,8 @@ describe("listEvaluations()", () => {
       microcycle: "2025-W03",
     });
     const call = vi.mocked(prisma.technicalEvaluation.findMany).mock
-      .calls[0]![0];
-    expect(call.where).toMatchObject({ microcycle: "2025-W03" });
+      .calls[0]?.[0];
+    expect(call?.where).toMatchObject({ microcycle: "2025-W03" });
   });
 
   it("applies from/to date range filter", async () => {
@@ -425,8 +426,8 @@ describe("listEvaluations()", () => {
       to: "2025-01-31",
     });
     const call = vi.mocked(prisma.technicalEvaluation.findMany).mock
-      .calls[0]![0];
-    expect(call.where).toMatchObject({
+      .calls[0]?.[0];
+    expect(call?.where).toMatchObject({
       date: { gte: expect.any(Date), lte: expect.any(Date) },
     });
   });
@@ -434,8 +435,8 @@ describe("listEvaluations()", () => {
   it("orders results by date desc", async () => {
     await listEvaluations(prisma, CLUB_ID, { page: 1, limit: 20 });
     const call = vi.mocked(prisma.technicalEvaluation.findMany).mock
-      .calls[0]![0];
-    expect(call.orderBy).toEqual({ date: "desc" });
+      .calls[0]?.[0];
+    expect(call?.orderBy).toEqual({ date: "desc" });
   });
 
   it("returns empty data array when no records match", async () => {

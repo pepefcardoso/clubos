@@ -106,7 +106,7 @@ export function TechnicalEvaluationBoard() {
         }
         setFormError(null);
         setSaveSuccess(false);
-    }, [existingEvaluation?.id, selectedAthleteId, microcycle]);
+    }, [existingEvaluation, selectedAthleteId, microcycle]);
 
     const createMutation = useCreateEvaluation();
     const updateMutation = useUpdateEvaluation();

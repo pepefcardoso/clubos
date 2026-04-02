@@ -176,6 +176,9 @@ enum AuditAction {
   TRAINING_SESSION_CREATED
   TRAINING_SESSION_UPDATED
   TRAINING_SESSION_DELETED
+  EVALUATION_CREATED
+  EVALUATION_UPDATED
+  EVALUATION_DELETED
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
@@ -389,6 +392,7 @@ model Athlete {
   contracts         Contract[]
   workloadMetrics   WorkloadMetric[]
   integrationTokens IntegrationToken[]
+  evaluations       TechnicalEvaluation[]
 
   @@index([status])
   @@map("athletes")
@@ -557,4 +561,27 @@ model IntegrationToken {
   @@index([athleteId])
   @@index([isActive])
   @@map("integration_tokens")
+}
+
+model TechnicalEvaluation {
+  id         String   @id @default(cuid())
+  athleteId  String
+  microcycle String
+  date       DateTime @db.Date
+  technique  Int
+  tactical   Int
+  physical   Int
+  mental     Int
+  attitude   Int
+  notes      String?
+  actorId    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+
+  @@unique([athleteId, microcycle])
+  @@index([athleteId])
+  @@index([date])
+  @@map("technical_evaluations")
 }

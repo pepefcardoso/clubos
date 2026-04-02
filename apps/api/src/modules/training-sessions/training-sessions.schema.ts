@@ -58,8 +58,8 @@ export const ListTrainingSessionsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   sessionType: z.enum(SESSION_TYPES).optional(),
   isCompleted: z.coerce.boolean().optional(),
-  from: z.string().date().optional(),
-  to: z.string().date().optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
 });
 
 export type CreateTrainingSessionInput = z.infer<

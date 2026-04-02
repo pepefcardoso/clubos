@@ -12,7 +12,7 @@
 | Sprint                   | Foco Principal                                       | Tarefas       | Esforço  | Status | Critérios de "Pronto" (Done)                                                              |
 | ------------------------ | ---------------------------------------------------- | ------------- | -------- | ------ | ----------------------------------------------------------------------------------------- |
 | **Sprint 6 (Sem 13–14)** | Infra Offline-First e Pendências v1.0 (Itens SHOULD) | T-086 a T-100 | ~12d dev | ✅     | PWA instalável no mobile; banco local operante; pendências de UI (SHOULD) entregues.      |
-| **Sprint 7 (Sem 15–16)** | v1.5 — TreinoOS e BaseForte (Planejamento e Saúde)   | T-101 a T-109 | ~7d dev  | ⚠️     | Treinador faz chamada offline; RPE inserido com sucesso e dashboard ACWR operante.        |
+| **Sprint 7 (Sem 15–16)** | v1.5 — TreinoOS e BaseForte (Planejamento e Saúde)   | T-101 a T-109 | ~7d dev  | ✅     | Treinador faz chamada offline; RPE inserido com sucesso e dashboard ACWR operante.        |
 | **Sprint 8 (Sem 17–18)** | v1.5 — Peneiras, Relatórios e LGPD Compliance        | T-110 a T-113 | ~3d dev  | ⬜     | Aceite parental assinado via formulário; rotina de expurgo de base configurada e testada. |
 
 ---
@@ -83,7 +83,7 @@
 | **T-103** | Tela de Chamada Digital: Interface mobile-first (swipes e botões grandes) integrada ao state local (Zustand). | 0.5d    | S7     | ✅     |
 | **T-104** | Integração Chamada/Sync: Acoplar a UI de presença ao Motor de Sincronização (Background Sync API).            | 1d      | S7     | ✅     |
 | **T-105** | View agregada de Ranking de Assiduidade e alerta de escalação (Query SQL + UI Widget).                        | 0.5d    | S7     | ✅     |
-| **T-106** | Avaliação Técnica: Formulário de microciclo (notas 1 a 5) e exportação em PDF (`react-pdf`).                  | 1d      | S7     | ⬜     |
+| **T-106** | Avaliação Técnica: Formulário de microciclo (notas 1 a 5) e exportação em PDF (`react-pdf`).                  | 1d      | S7     | ✅     |
 
 ---
 

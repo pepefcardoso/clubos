@@ -16,6 +16,7 @@ import { balanceSheetAdminRoutes } from "./balance-sheets/balance-sheets.routes.
 import { exerciseRoutes } from "./exercises/exercises.routes.js";
 import { trainingSessionRoutes } from "./training-sessions/training-sessions.routes.js";
 import { integrationRoutes } from "./integrations/integrations.routes.js";
+import { evaluationRoutes } from "./evaluations/evaluations.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -73,4 +74,5 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
     prefix: "/training-sessions",
   });
   await fastify.register(integrationRoutes, { prefix: "/integrations" });
+  await fastify.register(evaluationRoutes, { prefix: "/evaluations" });
 }

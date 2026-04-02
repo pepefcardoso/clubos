@@ -9,11 +9,11 @@
 
 ## Resumo por Sprint (Ativas)
 
-| Sprint                   | Foco Principal                                       | Tarefas       | Esforço  | Status     | Critérios de "Pronto" (Done)                                                              |
-| ------------------------ | ---------------------------------------------------- | ------------- | -------- | ---------- | ----------------------------------------------------------------------------------------- |
-| **Sprint 6 (Sem 13–14)** | Infra Offline-First e Pendências v1.0 (Itens SHOULD) | T-086 a T-100 | ~12d dev | ⬜ A Fazer | PWA instalável no mobile; banco local operante; pendências de UI (SHOULD) entregues.      |
-| **Sprint 7 (Sem 15–16)** | v1.5 — TreinoOS e BaseForte (Planejamento e Saúde)   | T-101 a T-109 | ~7d dev  | ⬜ A Fazer | Treinador faz chamada offline; RPE inserido com sucesso e dashboard ACWR operante.        |
-| **Sprint 8 (Sem 17–18)** | v1.5 — Peneiras, Relatórios e LGPD Compliance        | T-110 a T-113 | ~3d dev  | ⬜ A Fazer | Aceite parental assinado via formulário; rotina de expurgo de base configurada e testada. |
+| Sprint                   | Foco Principal                                       | Tarefas       | Esforço  | Status | Critérios de "Pronto" (Done)                                                              |
+| ------------------------ | ---------------------------------------------------- | ------------- | -------- | ------ | ----------------------------------------------------------------------------------------- |
+| **Sprint 6 (Sem 13–14)** | Infra Offline-First e Pendências v1.0 (Itens SHOULD) | T-086 a T-100 | ~12d dev | ✅     | PWA instalável no mobile; banco local operante; pendências de UI (SHOULD) entregues.      |
+| **Sprint 7 (Sem 15–16)** | v1.5 — TreinoOS e BaseForte (Planejamento e Saúde)   | T-101 a T-109 | ~7d dev  | ⚠️     | Treinador faz chamada offline; RPE inserido com sucesso e dashboard ACWR operante.        |
+| **Sprint 8 (Sem 17–18)** | v1.5 — Peneiras, Relatórios e LGPD Compliance        | T-110 a T-113 | ~3d dev  | ⬜     | Aceite parental assinado via formulário; rotina de expurgo de base configurada e testada. |
 
 ---
 
@@ -72,7 +72,7 @@
 | ID        | Tarefa Técnica                                                                                         | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
 | **T-101** | Schema `exercises` e `training_sessions` (IndexedDB + PostgreSQL) + Endpoints CRUD base.               | 0.5d    | S7     | ✅     |
-| **T-102** | UI da Biblioteca de Exercícios: Grid visual interativo simulando uma prancheta de planejamento tático. | 1d      | S7     | ⬜     |
+| **T-102** | UI da Biblioteca de Exercícios: Grid visual interativo simulando uma prancheta de planejamento tático. | 1d      | S7     | ✅     |
 
 ### US-32 — Gestão de Presença e Avaliação
 
@@ -133,7 +133,7 @@
 
 ### Sprint 7 (O Campo: Treino e Carga)
 
-**Fase 3: Agregações e Dashboards** 8. `T-102` — UI da Prancheta de Exercícios 9. `T-106` — Formulário de Avaliação e PDF
+**Fase 3: Agregações e Dashboards** 9. `T-106` — Formulário de Avaliação e PDF
 
 ### Sprint 8 (Compliance e Automação)
 

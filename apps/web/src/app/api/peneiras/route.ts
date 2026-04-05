@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import {
   tryoutFormSchema,
@@ -90,6 +91,67 @@ function validateMagicBytes(buffer: Uint8Array, declaredMime: string): boolean {
   return false;
 }
 
+/**
+ * Verifies a parental consent token issued by the Fastify API.
+ *
+ * Replicates the verification logic from apps/api/src/modules/tryout/consent-token.ts
+ * using the shared CONSENT_HMAC_SECRET.
+ *
+ * Returns true only when:
+ *   1. Token structure is valid (payload.HMAC format)
+ *   2. HMAC signature matches (timing-safe comparison)
+ *   3. Token was issued within the last 2 hours
+ *
+ * Note: We cannot verify the embedded clubId here without resolving the slug to
+ * an id (which would require an API call). The HMAC signature and TTL checks are
+ * sufficient to prevent forgery and replay. The Fastify API has already stored the
+ * full consent record in the tenant audit_log with the clubId at issuance time.
+ */
+function verifyConsentToken(token: string): boolean {
+  try {
+    const secret = process.env["CONSENT_HMAC_SECRET"];
+    if (!secret || secret.length < 32) {
+      console.error(
+        "[peneiras-route] CONSENT_HMAC_SECRET is missing or too short",
+      );
+      return false;
+    }
+
+    const dotIndex = token.lastIndexOf(".");
+    if (dotIndex === -1) return false;
+
+    const payloadB64 = token.slice(0, dotIndex);
+    const providedHmac = token.slice(dotIndex + 1);
+
+    const payload = Buffer.from(payloadB64, "base64url").toString();
+    const parts = payload.split("|");
+    if (parts.length !== 3) return false;
+
+    const [, , issuedAtStr] = parts as [string, string, string];
+
+    const expectedHmac = createHmac("sha256", secret)
+      .update(payload)
+      .digest("hex");
+
+    if (expectedHmac.length !== providedHmac.length) return false;
+
+    const isValid = timingSafeEqual(
+      Buffer.from(expectedHmac, "hex"),
+      Buffer.from(providedHmac, "hex"),
+    );
+    if (!isValid) return false;
+
+    const issuedAt = new Date(issuedAtStr);
+    if (isNaN(issuedAt.getTime())) return false;
+    const ageMs = Date.now() - issuedAt.getTime();
+    if (ageMs > 2 * 60 * 60 * 1000) return false;
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function buildEmailText(
   d: TryoutFormValues,
   isMinor: boolean,
@@ -109,7 +171,9 @@ function buildEmailText(
     "",
     `Atleta:        ${d.athleteName}`,
     `Nascimento:    ${d.birthDate}${age !== null ? ` (${age} anos)` : ""}`,
-    isMinor ? "⚠️  MENOR DE IDADE — requer termo de consentimento" : "",
+    isMinor
+      ? "⚠️  MENOR DE IDADE — consentimento parental registado digitalmente"
+      : "",
     `Posição:       ${d.position || "Não informado"}`,
     `Telefone:      ${d.phone}`,
     `E-mail:        ${d.email || "Não informado"}`,
@@ -178,6 +242,33 @@ export async function POST(request: NextRequest) {
     notes: formData.get("notes")?.toString() || undefined,
   };
 
+  const ageCheck = rawData.birthDate
+    ? getAgeFromBirthDate(rawData.birthDate)
+    : null;
+  const isMinorCheck = ageCheck !== null && ageCheck < 18;
+
+  const consentToken = formData.get("consentToken")?.toString() ?? null;
+
+  if (isMinorCheck) {
+    if (!consentToken) {
+      return NextResponse.json(
+        {
+          error:
+            "Consentimento parental obrigatório para atletas menores de 18 anos.",
+        },
+        { status: 400 },
+      );
+    }
+    if (!verifyConsentToken(consentToken)) {
+      return NextResponse.json(
+        {
+          error:
+            "Token de consentimento inválido ou expirado. Por favor, repita o processo de aceite.",
+        },
+        { status: 400 },
+      );
+    }
+  }
   const parsed = tryoutFormSchema.safeParse(rawData);
   if (!parsed.success) {
     return NextResponse.json(

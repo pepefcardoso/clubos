@@ -179,6 +179,7 @@ enum AuditAction {
   EVALUATION_CREATED
   EVALUATION_UPDATED
   EVALUATION_DELETED
+  PARENTAL_CONSENT_RECORDED
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.

@@ -5,6 +5,7 @@ import {
   overdueNoticeQueue,
   contractAlertQueue,
   acwrRefreshQueue,
+  lgpdPurgeQueue,
 } from "./queues.js";
 import { startChargeDispatchWorker } from "./charge-generation/charge-dispatch.worker.js";
 import { startChargeGenerationWorker } from "./charge-generation/charge-generation.worker.js";
@@ -17,11 +18,14 @@ import { startContractAlertDispatchWorker } from "./contract-alerts/contract-ale
 import { startContractAlertWorker } from "./contract-alerts/contract-alert.worker.js";
 import { startAcwrRefreshDispatchWorker } from "./acwr-refresh/acwr-refresh-dispatch.worker.js";
 import { startAcwrRefreshWorker } from "./acwr-refresh/acwr-refresh.worker.js";
+import { startLgpdPurgeDispatchWorker } from "./lgpd-purge/lgpd-purge-dispatch.worker.js";
+import { startLgpdPurgeWorker } from "./lgpd-purge/lgpd-purge.worker.js";
 import { JOB_NAMES } from "./charge-generation/charge-generation.types.js";
 import { BILLING_REMINDER_JOB_NAMES } from "./billing-reminders/billing-reminder.types.js";
 import { OVERDUE_NOTICE_JOB_NAMES } from "./overdue-notices/overdue-notice.types.js";
 import { CONTRACT_ALERT_JOB_NAMES } from "./contract-alerts/contract-alert.types.js";
 import { ACWR_REFRESH_JOB_NAMES } from "./acwr-refresh/acwr-refresh.types.js";
+import { LGPD_PURGE_JOB_NAMES } from "./lgpd-purge/lgpd-purge.types.js";
 import { dueTodayNoticeQueue } from "./queues.js";
 import { startDueTodayNoticeDispatchWorker } from "./due-today-notices/due-today-notice-dispatch.worker.js";
 import { startDueTodayNoticeWorker } from "./due-today-notices/due-today-notice.worker.js";
@@ -74,6 +78,14 @@ const CONTRACT_ALERT_CRON = "0 11 * * *";
 const ACWR_REFRESH_CRON = "0 */4 * * *";
 
 /**
+ * Cron expression: 1st of every month at 03:00 UTC (midnight BRT in summer).
+ * Runs in the maintenance window — after all daily jobs (08:00–11:00 UTC
+ * previous day) and between 4-hourly ACWR refresh cycles.
+ * Hard-deletes PARENTAL_CONSENT_RECORDED audit_log rows older than 24 months.
+ */
+const LGPD_PURGE_CRON = "0 3 1 * *";
+
+/**
  * Stable job ID for the charge generation cron entry.
  * BullMQ uses this to upsert (not duplicate) the repeatable job across
  * application restarts.
@@ -109,6 +121,12 @@ const CONTRACT_ALERT_CRON_ID = "daily-contract-alert-cron";
  * Prevents duplicate cron registrations on restart.
  */
 const ACWR_REFRESH_CRON_ID = "acwr-refresh-cron";
+
+/**
+ * Stable job ID for the monthly LGPD purge cron entry.
+ * Prevents duplicate registrations on restart.
+ */
+const LGPD_PURGE_CRON_ID = "monthly-lgpd-purge-cron";
 
 /**
  * Module-level reference to started workers.
@@ -152,6 +170,11 @@ const _workers: Worker[] = [];
  *       Concurrency is 3 (lower than financial workers) because REFRESH
  *       MATERIALIZED VIEW is a full-scan DB operation that can hold an
  *       exclusive lock on the view during the non-concurrent (first-run) path.
+ *   14. LGPD purge dispatch worker (concurrency=1) — processes the monthly
+ *       03:00 UTC cron trigger, fans out one `purge-club-consent` job per club.
+ *   15. LGPD purge worker (concurrency=3) — hard-deletes PARENTAL_CONSENT_RECORDED
+ *       audit_log rows older than 24 months from each club's tenant schema.
+ *       Satisfies LGPD Art. 15 / Art. 16 (data erasure after retention period).
  *
  * Cron registration is **skipped in test environments** (`NODE_ENV=test`) to
  * prevent polluting the test Redis instance with repeatable job entries that
@@ -168,6 +191,7 @@ const _workers: Worker[] = [];
  *
  * Background cron schedule (UTC):
  *   00:00, 04:00, 08:00, 12:00, 16:00, 20:00 — ACWR aggregate refresh
+ *   03:00 on 1st of month                     — LGPD consent record purge
  */
 export async function registerJobs(): Promise<void> {
   _workers.push(startChargeDispatchWorker());
@@ -183,6 +207,8 @@ export async function registerJobs(): Promise<void> {
   _workers.push(startDueTodayNoticeWorker());
   _workers.push(startAcwrRefreshDispatchWorker());
   _workers.push(startAcwrRefreshWorker());
+  _workers.push(startLgpdPurgeDispatchWorker());
+  _workers.push(startLgpdPurgeWorker());
 
   if (process.env["NODE_ENV"] !== "test") {
     await chargeGenerationQueue.upsertJobScheduler(
@@ -274,6 +300,21 @@ export async function registerJobs(): Promise<void> {
     console.info(
       `[jobs] ACWR refresh cron registered: "${ACWR_REFRESH_CRON}" (UTC)`,
     );
+
+    await lgpdPurgeQueue.upsertJobScheduler(
+      LGPD_PURGE_CRON_ID,
+      { pattern: LGPD_PURGE_CRON },
+      {
+        name: LGPD_PURGE_JOB_NAMES.DISPATCH_LGPD_PURGE,
+        data: {},
+        opts: {
+          attempts: 1,
+        },
+      },
+    );
+    console.info(
+      `[jobs] LGPD monthly purge cron registered: "${LGPD_PURGE_CRON}" (UTC)`,
+    );
   }
 }
 
@@ -294,5 +335,6 @@ export async function closeJobs(): Promise<void> {
   await dueTodayNoticeQueue.close();
   await contractAlertQueue.close();
   await acwrRefreshQueue.close();
+  await lgpdPurgeQueue.close();
   console.info("[jobs] All workers and queues closed");
 }

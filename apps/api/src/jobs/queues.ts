@@ -182,3 +182,37 @@ export const acwrRefreshQueue = new Queue("acwr-refresh", {
     },
   },
 });
+
+/**
+ * Queue for monthly LGPD consent record purge jobs.
+ *
+ * Runs on the 1st of every month at 03:00 UTC.
+ * Performs hard-delete of PARENTAL_CONSENT_RECORDED audit_log rows
+ * older than 24 months (LGPD Art. 15 / Art. 16 compliance).
+ *
+ * Separate from all operational queues because:
+ *   - Different cadence: monthly, not daily.
+ *   - Destructive operation — isolated to prevent any interference with
+ *     financial or messaging job processing.
+ *   - Low volume: at most a few dozen rows per club per run.
+ *
+ * Schedule: 1st of every month at 03:00 UTC — maintenance window after all
+ * daily jobs (08:00–11:00 UTC previous day) and between 4-hourly ACWR cycles.
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 30s → attempt 2 → EXHAUSTED.
+ *   On exhaustion the rows persist until the next monthly run, which is
+ *   acceptable — LGPD does not require sub-minute erasure.
+ */
+export const lgpdPurgeQueue = new Queue("lgpd-purge", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 50 },
+    removeOnFail: { count: 100 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 30_000,
+    },
+  },
+});

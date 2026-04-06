@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AuditAction" ADD VALUE 'WEEKLY_ATHLETE_REPORT_SENT';

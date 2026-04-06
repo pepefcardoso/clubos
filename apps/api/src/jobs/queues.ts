@@ -216,3 +216,34 @@ export const lgpdPurgeQueue = new Queue("lgpd-purge", {
     },
   },
 });
+
+/**
+ * Queue for weekly athlete report jobs (Monday dispatch + per-club WhatsApp sends).
+ *
+ * Fires every Monday at 08:00 UTC (05:00 BRT).
+ * Compiles 7-day attendance + RPE stats per athlete and dispatches a formatted
+ * summary to the athlete's guardian via WhatsApp.
+ *
+ * Separate from all operational queues because:
+ *   - Different cadence: weekly, not daily or monthly.
+ *   - Non-financial: a missed report is acceptable — athletes simply receive
+ *     no summary that week; no financial or compliance impact.
+ *   - Low volume: at most a handful of athletes per club per week.
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 30s → attempt 2 → EXHAUSTED.
+ *   On exhaustion the report is simply skipped until next Monday — acceptable
+ *   since this is a non-critical informational job.
+ */
+export const weeklyAthleteReportQueue = new Queue("weekly-athlete-report", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 200 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 30_000,
+    },
+  },
+});

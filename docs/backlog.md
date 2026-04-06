@@ -13,7 +13,7 @@
 | ------------------------ | ---------------------------------------------------- | ------------- | -------- | ------ | ----------------------------------------------------------------------------------------- |
 | **Sprint 6 (Sem 13–14)** | Infra Offline-First e Pendências v1.0 (Itens SHOULD) | T-086 a T-100 | ~12d dev | ✅     | PWA instalável no mobile; banco local operante; pendências de UI (SHOULD) entregues.      |
 | **Sprint 7 (Sem 15–16)** | v1.5 — TreinoOS e BaseForte (Planejamento e Saúde)   | T-101 a T-109 | ~7d dev  | ✅     | Treinador faz chamada offline; RPE inserido com sucesso e dashboard ACWR operante.        |
-| **Sprint 8 (Sem 17–18)** | v1.5 — Peneiras, Relatórios e LGPD Compliance        | T-110 a T-113 | ~3d dev  | ⬜     | Aceite parental assinado via formulário; rotina de expurgo de base configurada e testada. |
+| **Sprint 8 (Sem 17–18)** | v1.5 — Peneiras, Relatórios e LGPD Compliance        | T-110 a T-113 | ~3d dev  | ✅     | Aceite parental assinado via formulário; rotina de expurgo de base configurada e testada. |
 
 ---
 
@@ -107,7 +107,7 @@
 
 | ID        | Tarefa Técnica                                                                                   | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
-| **T-110** | Job BullMQ Semanal: Compila dados de assiduidade/RPE e despacha template formatado via WhatsApp. | 1d      | S8     | ⬜     |
+| **T-110** | Job BullMQ Semanal: Compila dados de assiduidade/RPE e despacha template formatado via WhatsApp. | 1d      | S8     | ✅     |
 
 ---
 
@@ -124,13 +124,3 @@
 | **T-111** | Formulário de Peneiras: Tela pública em route group `(marketing)` com upload de documentação básica.           | 0.5d    | S8     | ✅     |
 | **T-112** | Aceite Parental Digital: Geração de hard-stop com coleta de IP, Timestamp e hash SHA-256 salvo no `audit_log`. | 1d      | S8     | ✅     |
 | **T-113** | Job de Expurgo LGPD: Cron mensal para deleção (hard delete) em cascata de dados inativos há > 24 meses.        | 0.5d    | S8     | ✅     |
-
----
-
-## Plano de Execução Recomendado (Ordem Lógica)
-
-> A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
-
-### Sprint 8 (Compliance e Automação)
-
-**Fase 2: Rotinas em Background** 4. `T-110` — Job de Relatório Semanal aos Pais (Depende da assiduidade e RPE gerados na Sprint 7)

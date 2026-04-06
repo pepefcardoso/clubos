@@ -30,6 +30,10 @@ import { dueTodayNoticeQueue } from "./queues.js";
 import { startDueTodayNoticeDispatchWorker } from "./due-today-notices/due-today-notice-dispatch.worker.js";
 import { startDueTodayNoticeWorker } from "./due-today-notices/due-today-notice.worker.js";
 import { DUE_TODAY_NOTICE_JOB_NAMES } from "./due-today-notices/due-today-notice.types.js";
+import { startWeeklyAthleteReportDispatchWorker } from "./weekly-athlete-report/weekly-athlete-report-dispatch.worker.js";
+import { startWeeklyAthleteReportWorker } from "./weekly-athlete-report/weekly-athlete-report.worker.js";
+import { WEEKLY_ATHLETE_REPORT_JOB_NAMES } from "./weekly-athlete-report/weekly-athlete-report.types.js";
+import { weeklyAthleteReportQueue } from "./queues.js";
 
 /**
  * Cron expression: 1st of every month at 08:00 UTC.
@@ -86,6 +90,14 @@ const ACWR_REFRESH_CRON = "0 */4 * * *";
 const LGPD_PURGE_CRON = "0 3 1 * *";
 
 /**
+ * Cron expression: every Monday at 08:00 UTC (05:00 BRT).
+ * Compiles 7-day athlete stats and dispatches WhatsApp reports to guardians.
+ * Staggered from the D-0 notice (08:00 UTC) by routing to a different queue
+ * to avoid per-club WhatsApp rate-limit slot contention.
+ */
+const WEEKLY_ATHLETE_REPORT_CRON = "0 8 * * 1";
+
+/**
  * Stable job ID for the charge generation cron entry.
  * BullMQ uses this to upsert (not duplicate) the repeatable job across
  * application restarts.
@@ -127,6 +139,12 @@ const ACWR_REFRESH_CRON_ID = "acwr-refresh-cron";
  * Prevents duplicate registrations on restart.
  */
 const LGPD_PURGE_CRON_ID = "monthly-lgpd-purge-cron";
+
+/**
+ * Stable job ID for the weekly athlete report cron entry.
+ * Prevents duplicate registrations on restart.
+ */
+const WEEKLY_ATHLETE_REPORT_CRON_ID = "weekly-athlete-report-cron";
 
 /**
  * Module-level reference to started workers.
@@ -209,6 +227,8 @@ export async function registerJobs(): Promise<void> {
   _workers.push(startAcwrRefreshWorker());
   _workers.push(startLgpdPurgeDispatchWorker());
   _workers.push(startLgpdPurgeWorker());
+  _workers.push(startWeeklyAthleteReportDispatchWorker());
+  _workers.push(startWeeklyAthleteReportWorker());
 
   if (process.env["NODE_ENV"] !== "test") {
     await chargeGenerationQueue.upsertJobScheduler(
@@ -315,6 +335,21 @@ export async function registerJobs(): Promise<void> {
     console.info(
       `[jobs] LGPD monthly purge cron registered: "${LGPD_PURGE_CRON}" (UTC)`,
     );
+
+    await weeklyAthleteReportQueue.upsertJobScheduler(
+      WEEKLY_ATHLETE_REPORT_CRON_ID,
+      { pattern: WEEKLY_ATHLETE_REPORT_CRON },
+      {
+        name: WEEKLY_ATHLETE_REPORT_JOB_NAMES.DISPATCH_WEEKLY_ATHLETE_REPORT,
+        data: {},
+        opts: {
+          attempts: 1,
+        },
+      },
+    );
+    console.info(
+      `[jobs] Weekly athlete report cron registered: "${WEEKLY_ATHLETE_REPORT_CRON}" (UTC)`,
+    );
   }
 }
 
@@ -336,5 +371,6 @@ export async function closeJobs(): Promise<void> {
   await contractAlertQueue.close();
   await acwrRefreshQueue.close();
   await lgpdPurgeQueue.close();
+  await weeklyAthleteReportQueue.close();
   console.info("[jobs] All workers and queues closed");
 }

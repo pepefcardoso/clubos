@@ -10,7 +10,7 @@
 
 | Sprint                    | Foco Principal                                             | Tarefas       | Esforço | Status      | Critérios de "Pronto" (Done)                                                                                             |
 | ------------------------- | ---------------------------------------------------------- | ------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **Sprint 9 (Sem 15–16)**  | v2.0 — FisioBase Core (Prontuário + RTP + Protocolos)      | T-114 a T-122 | ~9d dev | ⬜ Pendente | Role PHYSIO ativo; prontuário criado e criptografado; status RTP visível por role; biblioteca de protocolos navegável.   |
+| **Sprint 9 (Sem 15–16)**  | v2.0 — FisioBase Core (Prontuário + RTP + Protocolos)      | T-114 a T-122 | ~9d dev | ⚠️ Pendente | Role PHYSIO ativo; prontuário criado e criptografado; status RTP visível por role; biblioteca de protocolos navegável.   |
 | **Sprint 10 (Sem 17–18)** | v2.0 — SAF Compliance Full + Demonstrativo de Receitas     | T-123 a T-128 | ~6d dev | ⬜ Pendente | Dashboard SAF com KPIs; passivos trabalhistas exportáveis em PDF; demonstrativo integrado a sócios + cobranças.          |
 | **Sprint 11 (Sem 19–20)** | v2.0 — Relatórios, Controle de Acesso QR e Compliance LGPD | T-129 a T-133 | ~5d dev | ⬜ Pendente | Relatório financeiro PDF gerado via job mensal; QR Code de portaria funcional offline; audit log de dados médicos ativo. |
 
@@ -22,7 +22,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                                                                                       | Esforço | Sprint | Status |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-114** | Ativar role `PHYSIO` no RBAC: guards de rota na API (`requireRole('PHYSIO', 'ADMIN')`), visibilidade no middleware de autenticação e token JWT. Sem exposição na UI de outros roles.                                 | 0.5d    | S9     | ⬜     |
+| **T-114** | Ativar role `PHYSIO` no RBAC: guards de rota na API (`requireRole('PHYSIO', 'ADMIN')`), visibilidade no middleware de autenticação e token JWT. Sem exposição na UI de outros roles.                                 | 0.5d    | S9     | ✅     |
 | **T-115** | Schema Prisma + DDL tenant para tabelas `medical_records`, `injury_protocols` e `return_to_play`. Campos de dados clínicos marcados como `BYTEA` (criptografia AES-256). Índices BRIN em datas de ocorrência.        | 1d      | S9     | ⬜     |
 | **T-116** | CRUD de prontuário esportivo (`/api/medical-records`): criação, leitura com descriptografia, atualização e soft-delete. Criptografia AES-256 via pgcrypto para campos clínicos. Audit log em cada acesso de leitura. | 1d      | S9     | ⬜     |
 | **T-133** | Job de audit log de acesso a dados médicos: qualquer leitura de `medical_records` por qualquer role gera entrada em `data_access_log` com actor, timestamp e campo acessado (compliance LGPD).                       | 0.5d    | S9     | ⬜     |
@@ -120,7 +120,6 @@
 
 **Fase 1: Fundações de Segurança e Banco de Dados (Bloqueadores)**
 
-1. `T-114` — Ativação do Role PHYSIO no RBAC e Isolamento de Rotas
 2. `T-134` — Provisionamento DDL Tenant v2.0 (Prepara o banco para todas as novas entidades)
 3. `T-115` — Schema Prisma e Tabelas do FisioBase (Foca nos dados clínicos e criptografia)
 

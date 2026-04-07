@@ -23,7 +23,7 @@ const DUMMY_HASH =
 export interface AuthUser {
   id: string;
   email: string;
-  role: "ADMIN" | "TREASURER";
+  role: "ADMIN" | "TREASURER" | "PHYSIO";
   clubId: string;
 }
 

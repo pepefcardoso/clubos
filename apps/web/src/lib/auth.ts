@@ -5,7 +5,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 export interface AuthUser {
   id: string;
   email: string;
-  role: "ADMIN" | "TREASURER";
+  role: "ADMIN" | "TREASURER" | "PHYSIO";
   clubId: string;
 }
 

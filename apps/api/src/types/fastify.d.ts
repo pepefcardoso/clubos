@@ -7,7 +7,7 @@ import type { RefreshJwt } from "../plugins/auth.plugin.js";
 export interface AccessTokenPayload {
   sub: string;
   clubId: string;
-  role: "ADMIN" | "TREASURER";
+  role: "ADMIN" | "TREASURER" | "PHYSIO";
   type: "access";
 }
 
@@ -49,22 +49,29 @@ declare module "fastify" {
       reply: import("fastify").FastifyReply,
     ) => Promise<void>;
     /**
-     * Returns a preHandler that enforces a minimum role level.
+     * Returns a preHandler that enforces role-based access control.
      *
-     * Role hierarchy: ADMIN > TREASURER
-     * An ADMIN satisfies any role requirement (including TREASURER).
-     *
-     * Must be used AFTER verifyAccessToken in the preHandler chain:
+     * **Single-role form (linear hierarchy — backward-compatible):**
      * ```ts
-     * preHandler: [fastify.requireRole('ADMIN')]
+     * requireRole('ADMIN')     // ADMIN only
+     * requireRole('TREASURER') // TREASURER or ADMIN
      * ```
-     * When used inside `protectedRoutes`, verifyAccessToken is already applied
-     * by the plugin-level hook — do NOT repeat it in the route's preHandler.
+     * Role levels: ADMIN(2) ≥ TREASURER(1) > PHYSIO(0)
+     * PHYSIO is blocked from all financial routes automatically (level 0 < 1).
      *
-     * Responds 403 Forbidden if the authenticated user's role is insufficient.
+     * **Multi-role OR-allowlist form (for FisioBase clinical routes):**
+     * ```ts
+     * requireRole('ADMIN', 'PHYSIO') // ADMIN or PHYSIO — TREASURER is blocked
+     * ```
+     *
+     * Must be used AFTER verifyAccessToken in the preHandler chain. Inside
+     * `protectedRoutes`, verifyAccessToken is already applied by the plugin-level
+     * hook — do NOT repeat it in the route's preHandler array.
+     *
+     * Responds 403 Forbidden if the authenticated user's role is not permitted.
      */
     requireRole: (
-      minimumRole: "ADMIN" | "TREASURER",
+      ...allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO">
     ) => (
       request: import("fastify").FastifyRequest,
       reply: import("fastify").FastifyReply,

@@ -7,7 +7,7 @@ export type ChargeStatus =
   | "CANCELLED"
   | "PENDING_RETRY";
 
-export type UserRole = "ADMIN" | "TREASURER";
+export type UserRole = "ADMIN" | "TREASURER" | "PHYSIO";
 
 export type PlanInterval = "monthly" | "quarterly" | "annual";
 

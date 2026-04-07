@@ -12,7 +12,7 @@ export function buildFakeAccessToken(
   overrides: {
     sub?: string;
     clubId?: string;
-    role?: "ADMIN" | "TREASURER";
+    role?: "ADMIN" | "TREASURER" | "PHYSIO";
   } = {},
 ): string {
   const b64url = (obj: object) =>
@@ -41,3 +41,4 @@ export function buildFakeAccessToken(
 
 export const ADMIN_TOKEN = buildFakeAccessToken({ role: "ADMIN" });
 export const TREASURER_TOKEN = buildFakeAccessToken({ role: "TREASURER" });
+export const PHYSIO_TOKEN = buildFakeAccessToken({ role: "PHYSIO" });

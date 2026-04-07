@@ -10,7 +10,7 @@ export const LoginResponseSchema = z.object({
   user: z.object({
     id: z.string(),
     email: z.string(),
-    role: z.enum(["ADMIN", "TREASURER"]),
+    role: z.enum(["ADMIN", "TREASURER", "PHYSIO"]),
     clubId: z.string(),
   }),
 });

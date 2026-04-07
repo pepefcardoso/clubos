@@ -77,6 +77,17 @@ async function buildTestApp(
     async () => ({ ok: true }),
   );
 
+  fastify.get(
+    "/medical-only",
+    {
+      preHandler: [
+        fastify.verifyAccessToken,
+        fastify.requireRole("ADMIN", "PHYSIO"),
+      ],
+    },
+    async () => ({ ok: true }),
+  );
+
   fastify.register(async (protectedScope) => {
     protectedScope.addHook("preHandler", fastify.verifyAccessToken);
     protectedScope.addHook("preHandler", async (request) => {
@@ -308,7 +319,7 @@ describe("requireRole with unknown/invalid role in token", () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it("returns 403 for empty-string role (fallback to level 0)", async () => {
+  it("returns 403 for empty-string role (fallback to level -1)", async () => {
     const token = issueAccessToken(app, {
       sub: "user-y",
       clubId: "club-1",
@@ -323,6 +334,187 @@ describe("requireRole with unknown/invalid role in token", () => {
 
     expect(res.statusCode).toBe(403);
   });
+});
+
+describe("requireRole with PHYSIO role — OR-allowlist form ('ADMIN', 'PHYSIO')", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    app = await buildTestApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  it("returns 200 for PHYSIO role on a PHYSIO-allowed route", async () => {
+    const token = issueAccessToken(app, {
+      sub: "physio-1",
+      clubId: "club-1",
+      role: "PHYSIO",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/medical-only",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true });
+  });
+
+  it("returns 200 for ADMIN role on a PHYSIO-allowed route", async () => {
+    const token = issueAccessToken(app, {
+      sub: "admin-2",
+      clubId: "club-1",
+      role: "ADMIN",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/medical-only",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("returns 403 for TREASURER role on a PHYSIO-allowed route", async () => {
+    const token = issueAccessToken(app, {
+      sub: "treasurer-2",
+      clubId: "club-1",
+      role: "TREASURER",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/medical-only",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({
+      statusCode: 403,
+      error: "Forbidden",
+      message: "Insufficient permissions.",
+    });
+  });
+
+  it("returns 401 when no token is provided on a medical route", async () => {
+    const res = await app.inject({ method: "GET", url: "/medical-only" });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+describe("PHYSIO role — blocked from financial routes (hierarchy guard)", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    app = await buildTestApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  it("PHYSIO is blocked from requireRole('TREASURER') routes (level 0 < 1)", async () => {
+    const token = issueAccessToken(app, {
+      sub: "physio-2",
+      clubId: "club-1",
+      role: "PHYSIO",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/treasurer-or-above",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({
+      statusCode: 403,
+      error: "Forbidden",
+      message: "Insufficient permissions.",
+    });
+  });
+
+  it("PHYSIO is blocked from requireRole('ADMIN') routes (level 0 < 2)", async () => {
+    const token = issueAccessToken(app, {
+      sub: "physio-3",
+      clubId: "club-1",
+      role: "PHYSIO",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/admin-only",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("PHYSIO is blocked from ADMIN-only destructive routes (DELETE /api/members/:id)", async () => {
+    const token = issueAccessToken(app, {
+      sub: "physio-4",
+      clubId: "club-1",
+      role: "PHYSIO",
+    });
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/members/member-xyz",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+  });
+});
+
+describe("requireRole hierarchy invariants with all three active roles", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    app = await buildTestApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  const matrix = [
+    ["ADMIN", "/admin-only", 200, "ADMIN → admin-only"],
+    ["ADMIN", "/treasurer-or-above", 200, "ADMIN → treasurer-or-above"],
+    ["ADMIN", "/medical-only", 200, "ADMIN → medical-only"],
+    ["TREASURER", "/admin-only", 403, "TREASURER → admin-only"],
+    ["TREASURER", "/treasurer-or-above", 200, "TREASURER → treasurer-or-above"],
+    ["TREASURER", "/medical-only", 403, "TREASURER → medical-only"],
+    ["PHYSIO", "/admin-only", 403, "PHYSIO → admin-only"],
+    ["PHYSIO", "/treasurer-or-above", 403, "PHYSIO → treasurer-or-above"],
+    ["PHYSIO", "/medical-only", 200, "PHYSIO → medical-only"],
+  ] as const;
+
+  for (const [role, route, expected, description] of matrix) {
+    it(`${description} → ${expected}`, async () => {
+      const token = issueAccessToken(app, {
+        sub: `user-matrix`,
+        clubId: "club-1",
+        role: role as "ADMIN" | "TREASURER" | "PHYSIO",
+      });
+
+      const res = await app.inject({
+        method: "GET",
+        url: route,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(expected);
+    });
+  }
 });
 
 describe("GET /api/auth/me", () => {
@@ -369,6 +561,27 @@ describe("GET /api/auth/me", () => {
       id: "user-1",
       clubId: "club-1",
       role: "ADMIN",
+    });
+  });
+
+  it("returns 200 with role: PHYSIO for a PHYSIO access token", async () => {
+    const token = issueAccessToken(app, {
+      sub: "physio-me",
+      clubId: "club-1",
+      role: "PHYSIO",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      id: "physio-me",
+      clubId: "club-1",
+      role: "PHYSIO",
     });
   });
 

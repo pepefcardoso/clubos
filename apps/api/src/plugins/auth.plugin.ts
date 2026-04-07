@@ -10,22 +10,26 @@ import type {
 import { REFRESH_TOKEN_COOKIE } from "../lib/tokens.js";
 import { consumeRefreshToken } from "../lib/redis.js";
 
+/**
+ * Numeric levels for the linear financial-access hierarchy.
+ *
+ * PHYSIO is assigned level 0: it sits BELOW TREASURER in financial routes,
+ * so existing requireRole('TREASURER') guards automatically block PHYSIO
+ * without any change to those call sites.
+ *
+ * For FisioBase medical routes, use the OR-allowlist form:
+ *   requireRole('ADMIN', 'PHYSIO')
+ *
+ * Access matrix:
+ *   requireRole('ADMIN')           → ADMIN only
+ *   requireRole('TREASURER')       → TREASURER or ADMIN (hierarchy)
+ *   requireRole('ADMIN', 'PHYSIO') → ADMIN or PHYSIO (OR-allowlist, not TREASURER)
+ */
 const ROLE_HIERARCHY: Record<string, number> = {
+  PHYSIO: 0,
   TREASURER: 1,
   ADMIN: 2,
 };
-
-// ---------------------------------------------------------------------------
-// Minimal HS256 JWT implementation for refresh tokens using Node.js crypto.
-//
-// Why not @fastify/jwt with namespace?
-//   Registering @fastify/jwt twice in the same Fastify v5 instance (even with
-//   different namespaces) is unreliable: the second registration may be silently
-//   skipped because the plugin name "@fastify/jwt" is already registered,
-//   leaving fastify.refresh undefined at runtime.
-//   Using Node.js built-in crypto avoids any plugin-lifecycle issues and keeps
-//   the refresh-token path dependency-free.
-// ---------------------------------------------------------------------------
 
 const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -115,11 +119,6 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
   const refreshJwt = createRefreshJwt(jwtRefreshSecret);
   fastify.decorate("refresh", refreshJwt);
 
-  // ---------------------------------------------------------------------------
-  // verifyAccessToken
-  // Validates the Bearer access token from the Authorization header.
-  // Throws 401 if missing, expired, or invalid.
-  // ---------------------------------------------------------------------------
   fastify.decorate(
     "verifyAccessToken",
     async function (
@@ -148,12 +147,6 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
     },
   );
 
-  // ---------------------------------------------------------------------------
-  // verifyRefreshToken
-  // Validates the refresh token from the httpOnly cookie.
-  // Consumes the token from Redis (single-use enforcement).
-  // Throws 401 if missing, expired, invalid, or already rotated out.
-  // ---------------------------------------------------------------------------
   fastify.decorate(
     "verifyRefreshToken",
     async function (
@@ -205,15 +198,24 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
 
   // ---------------------------------------------------------------------------
   // requireRole
-  // Returns a preHandler that enforces a minimum role level.
-  // Usage: preHandler: [fastify.requireRole('ADMIN')]
   //
-  // ADMIN > TREASURER — an ADMIN can access any TREASURER-protected route.
+  // Accepts a variadic list of allowed roles.
+  //
+  // Single-role form (backward-compatible):
+  //   requireRole('ADMIN')     → ADMIN only
+  //   requireRole('TREASURER') → TREASURER or ADMIN (linear hierarchy)
+  //
+  // Multi-role OR-allowlist form (used for FisioBase routes):
+  //   requireRole('ADMIN', 'PHYSIO') → ADMIN or PHYSIO (not TREASURER)
+  //
+  // PHYSIO has hierarchy level 0, which is below TREASURER(1) and ADMIN(2),
+  // so single-role guards on financial routes automatically block PHYSIO
+  // with no change required at those call sites.
   // ---------------------------------------------------------------------------
   fastify.decorate(
     "requireRole",
     function (
-      minimumRole: "ADMIN" | "TREASURER",
+      ...allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO">
     ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
       return async function (
         request: FastifyRequest,
@@ -229,10 +231,17 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
           });
         }
 
-        const userLevel = ROLE_HIERARCHY[user.role] ?? 0;
-        const requiredLevel = ROLE_HIERARCHY[minimumRole] ?? 99;
+        let permitted: boolean;
 
-        if (userLevel < requiredLevel) {
+        if (allowedRoles.length === 1) {
+          const userLevel = ROLE_HIERARCHY[user.role] ?? -1;
+          const requiredLevel = ROLE_HIERARCHY[allowedRoles[0]!] ?? 99;
+          permitted = userLevel >= requiredLevel;
+        } else {
+          permitted = (allowedRoles as string[]).includes(user.role);
+        }
+
+        if (!permitted) {
           return reply.status(403).send({
             statusCode: 403,
             error: "Forbidden",

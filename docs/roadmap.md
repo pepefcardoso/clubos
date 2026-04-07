@@ -34,9 +34,9 @@ A lógica central do roadmap: **primeiro organize o dinheiro, depois discipline 
 | Versão | Codinome         | Módulos                                                  | Período    | Meta de Validação                               | Status API      | Status Web      |
 | ------ | ---------------- | -------------------------------------------------------- | ---------- | ----------------------------------------------- | --------------- | --------------- |
 | v1.0   | O Cofre do Clube | ClubOS (Financeiro + Sócios + Compliance Base)           | Sem. 1–6   | 10 clubes pagantes; inadimplência ↓25%          | ✅ Concluído    | ✅ Concluído    |
-| v1.5   | O Campo          | TreinoOS + BaseForte + Peneiras LGPD                     | Sem. 7–14  | 60% dos clubes v1.0 ativam módulo de treino     | ⬜ Não iniciado | ⬜ Não iniciado |
-| v2.0   | O Vestiário      | FisioBase + SAF Compliance Full + Conciliação Financeira | Sem. 15–22 | Recidiva ↓ em 3+ clubes; 3 SAFs em compliance   | ⬜ Não iniciado | ⬜ Não iniciado |
-| v2.5   | A Arquibancada   | ArenaPass (Bilheteria Digital)                           | Sem. 23–30 | Clube aumenta receita/jogo em 40%+              | ⬜ Não iniciado | ⬜ Não iniciado |
+| v1.5   | O Campo          | TreinoOS + BaseForte + Peneiras LGPD                     | Sem. 7–14  | 60% dos clubes v1.0 ativam módulo de treino     | ✅ Concluído    | ✅ Concluído    |
+| v2.0   | O Vestiário      | FisioBase + SAF Compliance Full + Conciliação Financeira | Sem. 15–20 | Recidiva ↓ em 3+ clubes; 3 SAFs em compliance   | 🟡 Em andamento | 🟡 Em andamento |
+| v2.5   | A Arquibancada   | ArenaPass (Bilheteria Digital)                           | Sem. 21–28 | Clube aumenta receita/jogo em 40%+              | ⬜ Não iniciado | ⬜ Não iniciado |
 | v3.0   | A Vitrine        | ScoutLink (Marketplace de Talentos)                      | Mês 8–10   | 1º contato scout–escola mediado pela plataforma | ⬜ Não iniciado | ⬜ Não iniciado |
 | v3.5   | A Liga           | CampeonatOS (Gestão de Campeonatos)                      | Mês 11–13  | 1 campeonato completo gerenciado end-to-end     | ⬜ Não iniciado | ⬜ Não iniciado |
 
@@ -44,209 +44,114 @@ A lógica central do roadmap: **primeiro organize o dinheiro, depois discipline 
 
 ```
 
-Semanas 1──────6 7────────14 15──────22 23────30 M8──10 M11─13
+Semanas 1──────6 7────────14 15──────20 21────28 M8──10 M11─13
 ┌────────┐ ┌─────────┐ ┌─────────┐ ┌──────┐ ┌────┐ ┌─────┐
 Versão │ v1.0 │ │ v1.5 │ │ v2.0 │ │ v2.5 │ │v3.0│ │v3.5 │
 │ Cofre │ │ Campo │ │Vestiário│ │Arena │ │Vitrine│ │Liga │
+│  ✅   │ │  ✅   │ │  🟡   │ │  ⬜  │ │ ⬜  │ │ ⬜  │
 └────────┘ └─────────┘ └─────────┘ └──────┘ └────┘ └─────┘
 Módulos ClubOS TreinoOS FisioBase ArenaPass Scout Campeonato
 Finanças BaseForte SAF Full Bilheteria Link OS
 Sócios Peneiras Conc.Banc. CRM Torc.
-Contratos Offline-1st Carteirinha
+Contratos Offline-1st QR Portaria
 
 ```
 
 ---
 
-## Versão 1.0 — "O Cofre do Clube"
+## Versão 1.0 — "O Cofre do Clube" ✅
 
 **Período:** Semanas 1–6 | **Módulos:** ClubOS Financeiro + Sócios + Compliance Base
 
-### Meta Estratégica
+### Status de implementação (apps/api) — ✅ Concluído
 
-Provar, em 30 dias de piloto com 3 clubes, que o ClubOS reduz inadimplência em ≥ 25% sem nenhum treinamento formal. A proposição é simples: o tesoureiro chega na segunda-feira e o dinheiro já está na conta.
+Todos os itens MUST (M1–M14) e SHOULD relevantes (S1–S10, S6 parcial migrada para v2.0) entregues. Destaques:
 
-### Por que começar pelo financeiro?
+- Geração automática de cobranças PIX mensais com Multi-Acquiring (Asaas → Pagarme → Stripe → PIX estático)
+- Régua de cobrança WhatsApp D-3, D-0, D+3 e on-demand com rate limiting Redis e fallback e-mail
+- Webhook Asaas com HMAC timingSafeEqual + BullMQ + SSE para invalidação de cache React Query
+- Criptografia AES-256 (pgcrypto) em CPF e telefone; audit log imutável em todas operações
+- Motor de Regras Esportivas CBF/FPF parametrizável via JSONB; alertas de BID 48h antes do jogo
+- Multi-Acquiring PIX com fallback silencioso; schema-per-tenant com `assertValidClubId`
 
-O dinheiro é a dor universal. Inadimplência de sócios de 35–50% é a realidade de 90% dos clubes do "Missing Middle". É a feature que gera ROI no primeiro mês, justifica o pagamento da assinatura e cria o hábito de uso que viabiliza todos os módulos subsequentes. Um clube organizado financeiramente tem mais fôlego para investir em performance esportiva.
+### Status de implementação (apps/web) — ✅ Concluído
 
-### Status de implementação (apps/api)
+Landing page, onboarding, CRUD de sócios, planos, cobranças PIX, dashboard SSE, templates, atletas e contratos entregues.
 
-| Feature                                              | Status | Detalhe                                                                                                                   |
-| ---------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Autenticação JWT + refresh token rotativo            | ✅     | `POST /api/auth/{login,refresh,logout,me}`, httpOnly cookie, Redis single-use, bcrypt, `node:crypto` HS256                |
-| RBAC Admin / Tesoureiro                              | ✅     | Decorator `requireRole` com hierarquia `ADMIN > TREASURER`; guardas por rota                                              |
-| Cadastro de clube + provisionamento de schema tenant | ✅     | `POST /api/clubs`, DDL idempotente via `provisionTenantSchema` (enums, tabelas, índices, FKs, pgcrypto)                   |
-| Upload de logo do clube                              | ✅     | `POST /api/clubs/:id/logo`, sharp 200×200px WebP, storage local                                                           |
-| Cadastro manual de sócios                            | ✅     | `POST /api/members`, encrypt CPF/phone (AES-256), dedup por CPF via scan pgcrypto                                         |
-| Listagem de sócios com busca e filtro                | ✅     | `GET /api/members`, paginação, busca por nome/CPF descriptografado in-DB, filtro por status                               |
-| Detalhe e atualização de sócio                       | ✅     | `GET /api/members/:id`, `PUT /api/members/:id` (CPF imutável), audit log                                                  |
-| Importação em massa via CSV                          | ✅     | `POST /api/members/import` (PapaParse, 5.000 linhas, batches de 500, upsert por CPF, erros por linha)                     |
-| Template de CSV para download                        | ✅     | `GET /api/members/import/template`                                                                                        |
-| CRUD de planos                                       | ✅     | `GET/POST /api/plans`, `PUT/DELETE /api/plans/:id` (soft delete, guard de sócios ativos), audit log                       |
-| Geração de cobranças mensais (manual + cron)         | ✅     | `POST /api/charges/generate`; cron BullMQ `0 8 1 * *`; idempotência por período; `PENDING_RETRY` em exaustão              |
-| Gateway Asaas (PIX, cartão, boleto)                  | ✅     | `AsaasGateway` implementa `PaymentGateway`; `GatewayRegistry` abstrai o provider; `gatewayMeta` JSONB                     |
-| Webhook de confirmação de pagamento                  | ✅     | `POST /webhooks/:gateway`; HMAC `timingSafeEqual`; BullMQ async; `handlePaymentReceived` transacional; idempotência dupla |
-| Atualização de status de sócio via pagamento         | ✅     | `Member.status → ACTIVE` quando OVERDUE; audit log `PAYMENT_CONFIRMED`                                                    |
-| Dashboard KPIs                                       | ✅     | `GET /api/dashboard/summary` (sócios por status, cobranças, pagamentos do mês)                                            |
-| Histórico de cobranças por mês                       | ✅     | `GET /api/dashboard/charges-history` (últimos N meses, raw SQL `TO_CHAR + GROUP BY`)                                      |
-| Lista de inadimplentes                               | ✅     | `GET /api/dashboard/overdue-members` (paginado, `DISTINCT ON`, cobrança mais antiga, `daysPastDue`)                       |
-| SSE de pagamento confirmado em tempo real            | ✅     | `GET /api/events` (Bearer via query param), `sseBus` EventEmitter, keepalive 25s                                          |
-| Jobs D-3 (lembrete 3 dias antes do vencimento)       | ✅     | Cron `0 9 * * *`, dispatch fan-out por clube, `sendDailyRemindersForClub`, idempotência 20h, rate limit Redis             |
-| Jobs D-0 (aviso no dia de vencimento)                | ✅     | Cron `0 8 * * *`, worker `due-today-notices` implementado no BullMQ                                                       |
-| Jobs D+3 (aviso de inadimplência)                    | ✅     | Cron `0 10 * * *`, dispatch fan-out por clube, `sendOverdueNoticesForClub`, idempotência 20h, rate limit Redis            |
-| Envio on-demand de lembrete WhatsApp                 | ✅     | `POST /api/members/:id/remind`, cooldown 4h, rate limit por clube                                                         |
-| Provedores WhatsApp (Z-API + Evolution API)          | ✅     | `WhatsAppRegistry` + `ZApiProvider` + `EvolutionProvider`; selecionado via `WHATSAPP_PROVIDER`                            |
-| Rate limiting WhatsApp (30 msg/min por clube)        | ✅     | Lua atômica no Redis, sliding window ZSET                                                                                 |
-| Fallback de e-mail (Resend) após 2 falhas WhatsApp   | ✅     | `sendEmailFallbackMessage`, verifica `countRecentFailedWhatsAppMessages ≥ 1` em 48h                                       |
-| Templates de mensagem customizáveis por clube        | ✅     | `GET/PUT/DELETE /api/templates/:key`; fallback para `DEFAULT_TEMPLATES`; placeholders `{nome}` etc.                       |
-| Histórico de mensagens (audit trail)                 | ✅     | `GET /api/messages`, `GET /api/messages/member/:memberId`; filtros por canal, status, template, data                      |
-| Criptografia CPF/telefone em repouso                 | ✅     | `pgp_sym_encrypt/decrypt` (pgcrypto AES-256); `encryptField`/`decryptField`                                               |
-| Audit log imutável                                   | ✅     | `AuditLog` em todas operações financeiras e de sócios; nunca deletado                                                     |
-| Rate limiting global (100 req/min por IP)            | ✅     | `@fastify/rate-limit` + Redis                                                                                             |
-| **Stub de atletas (M9)**                             | ✅     | Módulo `src/modules/athletes/` integrado; schema Prisma definido; DDL tenant atualizado; rotas base criadas               |
-| **Contratos e alertas BID/CBF (M10)**                | ✅     | Schema contratos + Motor de Regras Esportivas + alertas implementados via jobs e API                                      |
-| **Multi-Acquiring PIX — fallback gateway (M11)**     | ✅     | `PagarmeGateway` e `StripeGateway` implementados; lógica de fallback silencioso no `GatewayRegistry` integrada            |
-
-### Status de implementação (apps/web)
-
-| Feature                                  | Status | Notas                                                                         |
-| ---------------------------------------- | ------ | ----------------------------------------------------------------------------- |
-| Onboarding do clube (wizard 3 etapas)    | ✅     | `/onboarding` — StepClubData, StepLogo, StepConfirmation                      |
-| Cadastro manual de sócios                | ✅     | MembersPage + MemberFormModal com validação Zod                               |
-| Importação via CSV                       | ✅     | Endpoint e fluxo UI expostos no frontend (`CsvImportModal`, `CsvTemplate`)    |
-| Tela de cobranças Pix                    | ✅     | CRUD de cobranças PIX implementado; exibição de QR Code e status listados     |
-| SSE para evento PAYMENT_CONFIRMED        | ✅     | `useRealTimeEvents` — invalida cache React Query automaticamente              |
-| Dashboard KPIs + gráfico + inadimplentes | ✅     | DashboardKpis, DelinquencyChart (Recharts), OverdueMembersTable               |
-| Envio on-demand de lembrete WhatsApp     | ✅     | `useRemindMember` → POST /api/members/:id/remind — com tratamento de erro 429 |
-| Autenticação JWT + refresh token         | ✅     | AuthProvider, bootstrap transparente, deduplicação de refresh concorrente     |
-| Controle de acesso Admin/Tesoureiro      | ✅     | `isAdmin` verificado em Sócios e Planos; leitura para Tesoureiro              |
-| Gestão de planos (CRUD completo)         | ✅     | PlansPage + PlanFormModal + DeletePlanDialog                                  |
-| Templates de mensagem (tela de config)   | ✅     | Tela configurável no frontend implementada (`TemplatesPage`)                  |
-| Stub de atletas (M9)                     | ✅     | Rotas, componentes e entrada de navegação finalizados (`AthletesPage`)        |
-| Contratos e alertas BID/CBF (M10)        | ✅     | Rotas e componentes integrados (`ContractsPage`)                              |
-| Site de marketing                        | ✅     | Landing, preços, contato — route group `(marketing)` completo                 |
-
-### Features incluídas na v1.0
-
-**Financeiro & Sócios (Revenue Core)**
-
-- Onboarding multi-step: nome, logo, CNPJ, configuração de planos em < 5 min
-- Cadastro manual de sócios + importação em lote CSV (5.000 linhas, batches de 500)
-- Geração automática de cobranças PIX mensais com QR Code por sócio (cron 1º de cada mês, 08h)
-- Webhook de confirmação Asaas com HMAC timingSafeEqual + BullMQ async
-- **Multi-Acquiring PIX:** fallback Pagarme → Stripe → PIX estático do clube (zero perda de receita na data de vencimento)
-- Régua de cobrança WhatsApp: D-3 automático ✅, D-0 automático ✅, D+3 automático ✅, on-demand ✅
-- Templates de mensagem personalizáveis por clube com placeholders dinâmicos
-- Fallback automático para e-mail (Resend) após 2 falhas de WhatsApp em 48h
-- Rate limiting WhatsApp: 30 msg/min por clube (Lua atômica no Redis)
-- Dashboard de inadimplência em tempo real: KPIs + gráfico 6 meses + lista de inadimplentes
-- SSE para evento PAYMENT_CONFIRMED → invalidação automática do cache React Query
-
-**Segurança & Compliance**
-
-- Autenticação JWT HS256 (15min) + refresh token rotativo httpOnly (7d)
-- RBAC: Admin (CRUD completo) / Tesoureiro (leitura + remind)
-- Criptografia AES-256 (pgcrypto) em CPF e telefone de sócios
-- Audit log imutável para todas as operações financeiras
-- Rate limiting global: 100 req/min por IP (Redis)
-
-**Contratos & Elegibilidade (Diferencial Imediato)**
-
-- Stub de atletas: schema `athletes` + CRUD `/api/athletes` + campos de identidade integrados
-- Digitalização de vínculos trabalhistas com alertas de vencimento de contrato funcionais
-- Alerta de escalação irregular: validação de registro no BID/CBF antes do jogo
-- Motor de Regras Esportivas: parâmetros CBF/FPF configuráveis via JSONB em `rules-validator.ts`
-
-**Marketing**
-
-- Site público: landing page, preços, contato — route group `(marketing)` no Next.js
-
-### Itens do MUST concluídos na Auditoria Final
-
-| Item                   | Status Atual                                                                            |
-| ---------------------- | --------------------------------------------------------------------------------------- |
-| M3 — Tela de cobranças | ✅ Concluído. Frontend: CRUD cobranças, exibição QR Code, status por sócio finalizados. |
-| M2 — CSV no frontend   | ✅ Concluído. Fluxo de upload na `MembersPage` totalmente exposto e funcional.          |
-| M6 — Job D-0           | ✅ Concluído. Worker automático "vencimento hoje" integrado via BullMQ.                 |
-| M9 — Stub atletas      | ✅ Concluído. Módulo `athletes/`, DDL tenant, rota e interfaces finalizadas.            |
-| M10 — Contratos/BID    | ✅ Concluído. Schema contratos + Motor de Regras Esportivas + alertas UI/API operantes. |
-| M11 — Multi-Acquiring  | ✅ Concluído. `PagarmeGateway` e `StripeGateway` com lógica de fallback operando.       |
-| S8 — Templates (UI)    | ✅ Concluído. Tela de configuração de templates WhatsApp/e-mail no frontend disponível. |
-
-> **Por que M10 é MUST HAVE?** A escalação irregular de jogadores sem registro no BID da CBF resulta em perda automática de pontos e pode excluir o clube do campeonato. É o risco jurídico-esportivo de maior impacto imediato — comparável à multa da ANPD em gravidade para o cliente.
->
-> **Por que M11 é MUST HAVE?** Gateways de pagamento caem na data de vencimento. Para um clube que depende de receita de sócios para pagar salários, uma cobrança perdida é dinheiro real que não volta.
-
-### Critério de Go/No-Go v1.0
+### Critério de Go/No-Go v1.0 — ✅ Atingido
 
 - Piloto com 3 clubes por 30 dias
-- Inadimplência média reduzida em ≥ 20% (meta stretch: 25%)
+- Inadimplência média reduzida em ≥ 20%
 - Zero duplicidades de cobrança ou falha silenciosa em produção
-- Pelo menos 1 clube disposto a pagar o plano mensal
+- Pelo menos 1 clube pagando o plano mensal
 - NPS dos tesoureiros ≥ 40
 
 ---
 
-## Versão 1.5 — "O Campo"
+## Versão 1.5 — "O Campo" ✅
 
 **Período:** Semanas 7–14 | **Módulos:** TreinoOS + BaseForte + Peneiras LGPD
 
 ### Meta Estratégica
 
-Transformar o ClubOS de "ferramenta do tesoureiro" para "plataforma do clube inteiro". O treinador — que até agora usava WhatsApp e caderno — passa a registrar treinos no sistema. Esse é o upsell natural para clubes da v1.0: o cadastro de atletas já existe; basta ativar as features esportivas.
+Transformar o ClubOS de "ferramenta do tesoureiro" para "plataforma do clube inteiro". O treinador — que até agora usava WhatsApp e caderno — passa a registrar treinos no sistema.
 
-### Por que a v1.5 depende obrigatoriamente da v1.0?
+### Status de implementação — ✅ Concluído (Sprints 6, 7 e 8)
 
-O stub de atleta criado na v1.0 é a espinha dorsal desta versão. Sem ele, há migração dolorosa de dados. A base de sócios organizada também vira dado de entrada para o funil torcedor do ArenaPass futuro. Não existe atalho.
+**Infraestrutura Offline-First (Sprint 6)**
 
-### Features incluídas na v1.5
+- PWA completo: `manifest.json`, ícones nativos iOS/Android, Workbox (Stale-while-revalidate + Network-first)
+- Dexie.js (IndexedDB): schema local para `athletes` e `training_sessions`
+- Motor de Sincronização: listener online/offline + fila de ações + worker com retry exponencial
 
-**TreinoOS — Planejamento Técnico (Offline-First)**
+**Séries Temporais — BaseForte (Sprint 6)**
 
-- PWA Offline-First completo: Service Workers (Workbox) + IndexedDB (Dexie.js) + Background Sync
-- Planejador de sessão de treino: biblioteca de exercícios (40 pré-carregados + customizáveis) em formato de prancheta visual
-- Chamada digital de presença: técnico registra em 30s por app, funciona sem 4G
-- Sincronização assíncrona transparente: dados pendentes são enviados quando sinal retorna
-- Ranking de assiduidade por posição com alerta de escalação baseado em frequência
-- Avaliação técnica por microciclo (competências 1–5, exportável em PDF)
+- Tabela `workload_metrics` com Índice BRIN em coluna de data
+- `MATERIALIZED VIEW` ACWR semanal (carga aguda vs crônica)
+- `REFRESH MATERIALIZED VIEW CONCURRENTLY` via script SQL + rotina Prisma
+- Job BullMQ `refresh-acwr-aggregates` a cada 4 horas
 
-**BaseForte — Carga e Saúde de Base**
+**Pendências v1.0 SHOULD (Sprint 6)**
 
-- Registro de treino via app: tipo, intensidade RPE 1–10 (padrão FIFA), duração
-- Integração opcional com Apple Watch / Google Fit via HealthKit API (hardware-agnostic)
-- Cálculo automático de carga ACWR por atleta (séries temporais com PostgreSQL nativo e Materialized Views)
-- Sinalização de zona de risco de lesão: verde (< 1.3), amarelo (1.3–1.5), vermelho (> 1.5)
-- Relatório semanal automático para pais/responsáveis via WhatsApp/e-mail (linguagem acessível, não técnica)
-- Preparação de dados para integração com FisioBase na v2.0
+- S3 ✅ Carteirinha digital do sócio com QR Code assinado
+- S4 ✅ Conciliação bancária OFX (parser + algoritmo de correspondência + UI)
+- S5 ✅ Painel de Transparência SAF (MVP pré-v2.0)
+- S7 ✅ Histórico de pagamentos (UI integrada ao endpoint)
+- S10 ✅ Registro de despesas P&L (CRUD + tela de listagem)
 
-**Módulo de Peneiras — Captação com LGPD**
+**TreinoOS — Planejamento e Presença (Sprint 7)**
 
-- Formulário digital de inscrição em peneiras
-- Hard stop: inscrição bloqueada sem Assinatura de Aceite Parental digital
-- Coleta de consentimento com timestamp, IP e hash SHA-256 do documento
-- Purge automático de dados de prospects em 24 meses (configurável)
-- Eliminação completa do passivo jurídico com dados de menores sem tutela
+- Biblioteca de exercícios: grid visual (prancheta tática), 40 exercícios pré-carregados + customizáveis
+- Chamada digital mobile-first (swipes + botões grandes, Zustand, Background Sync API)
+- Ranking de assiduidade por posição + alerta de escalação por frequência
+- Avaliação técnica por microciclo (notas 1–5, exportação PDF via `react-pdf`)
 
-**Controle de Acesso (Operações)**
+**BaseForte — Carga e Saúde (Sprint 7–8)**
 
-- QR Code dinâmico via celular do staff para validar entrada de torcedores
-- Elimina CAPEX de catracas biométricas físicas
-- Log de acesso por evento com exportação
+- Registro RPE 1–10 (padrão FIFA, slider PWA otimizado)
+- Ingestão HealthKit/Google Fit: endpoints seguros hardware-agnostic
+- Dashboard ACWR Verde/Amarelo/Vermelho consumindo Materialized View
+- Job BullMQ semanal: relatório de assiduidade/RPE para responsáveis via WhatsApp
 
-### Critério de Go/No-Go v1.5
+**Peneiras LGPD (Sprint 8)**
+
+- Formulário público de peneiras em route group `(marketing)`
+- Hard stop de aceite parental: IP + Timestamp + hash SHA-256 em `audit_log`
+- Job de expurgo LGPD: cron mensal para hard delete em cascata após > 24 meses
+
+### Critério de Go/No-Go v1.5 — ✅ Atingido
 
 - 60% dos clubes da v1.0 ativam o módulo de treino
 - Treinador usa por 4 semanas consecutivas sem lembrete externo
-- Pelo menos 5 pais pagando relatório premium (valida camada B2C)
-- Dados de ACWR sendo gerados para ≥ 80% dos atletas ativos
-- Zero incidentes de perda de dados offline (sincronização confiável)
+- Pelo menos 5 pais com relatório premium ativo
+- Dados de ACWR gerados para ≥ 80% dos atletas ativos
+- Zero incidentes de perda de dados offline
 
 ---
 
-## Versão 2.0 — "O Vestiário"
+## Versão 2.0 — "O Vestiário" 🟡
 
-**Período:** Semanas 15–22 | **Módulos:** FisioBase + SAF Compliance Full + Conciliação Financeira
+**Período:** Semanas 15–20 | **Módulos:** FisioBase + SAF Compliance Full + Conciliação Financeira
 
 ### Meta Estratégica
 
@@ -260,30 +165,27 @@ Sem dados de carga ACWR do TreinoOS, o FisioBase é apenas um prontuário digita
 
 **FisioBase — Saúde do Atleta**
 
-- Prontuário esportivo simplificado: histórico de lesões, protocolos, evolução por sessão
-- Status de retorno ao jogo (RTP) visível para o treinador em tempo real: Afastado / Retorno Progressivo / Liberado
-- Separação de permissões: treinador vê status, nunca dados clínicos privados
-- Biblioteca de protocolos baseada em evidência (FIFA Medical, entorses, distensões)
-- Correlação carga × lesão integrada com BaseForte: identificação de padrões de risco
-- Relatório para seguro/plano de saúde: exportação estruturada para reembolso
-- Multi-clube e multi-fisio: painel único, histórico transferível com permissão do atleta
-- Prontuário 100% criptografado; acesso restrito por role `PHYSIO | ADMIN`
+- Role `PHYSIO` ativo: guards de rota na API, visibilidade no RBAC e no token JWT
+- Prontuário esportivo: histórico de lesões, estrutura anatômica, grau, mecanismo e evolução clínica — criptografado AES-256, acesso restrito a `PHYSIO | ADMIN`
+- Status de Retorno ao Jogo (RTP): `AFASTADO | RETORNO_PROGRESSIVO | LIBERADO` — COACH vê apenas o semáforo, nunca dados clínicos
+- Biblioteca de 20 protocolos de retorno baseados em evidência (FIFA Medical): entorses, distensões, contusões, fraturas
+- Correlação carga × lesão: query analítica cruzando `workload_metrics` (ACWR) com `medical_records` (ocorrências)
+- Relatório estruturado para seguro/plano de saúde (PDF `react-pdf`) com histórico e protocolo aplicado
+- Multi-fisio e multi-clube: painel único para fisioterapeuta com múltiplos clubes vinculados; histórico transferível com consentimento
+- Audit log de acesso: qualquer leitura de prontuário gera entrada em `data_access_log` (compliance LGPD)
 
 **SAF Compliance Full (Lei 14.193/2021)**
 
-- Painel de Transparência Institucional: publicação de balanços com hash SHA-256 imutável no audit_log
-- Módulo de Passivos Trabalhistas: CRUD de credores + exportação PDF assinado
-- Dashboard financeiro SAF com KPIs para acionistas e investidores
-- Demonstrativo de Receitas integrado com dados de sócios + cobranças
-- Conciliação bancária automática via arquivos OFX (zero intervenção manual)
-- Registro de despesas do clube (P&L simplificado para tesoureiro)
-- Relatório financeiro mensal exportável em PDF para diretoria
+- Dashboard financeiro SAF: KPIs para acionistas (MRR, passivos, status de compliance, data da última publicação)
+- Módulo de Passivos Trabalhistas: CRUD de credores + exportação PDF com hash SHA-256 imutável no `audit_log`
+- Demonstrativo de Receitas: query consolidada de `charges` + `payments` + `expenses` por período selecionável
+- Publicação de balanços: upload + hash SHA-256 em `balance_sheets` (imutável) + URL pública por clube
 
-**Carteirinha Digital (Should atrasado da v1.0)**
+**Pendências SHOULD migradas para v2.0**
 
-- Carteirinha digital do sócio com QR Code validável (PWA, funciona offline)
-- Benefícios configuráveis por plano exibidos na carteirinha
-- Identidade digital do torcedor; incentivo ao pagamento em dia
+- S6 ✅ (→ S14): Relatório financeiro mensal PDF — template `react-pdf` + job BullMQ mensal para diretoria
+- S11 ✅ (→ S16): Controle de acesso QR Code dinâmico — validação por câmera do celular, offline-first com Dexie.js, log de acesso por evento exportável
+- Conciliação OFX aprimorada: aprovação em lote + filtros por status + exportação contábil simplificada
 
 ### Critério de Go/No-Go v2.0
 
@@ -294,17 +196,13 @@ Sem dados de carga ACWR do TreinoOS, o FisioBase é apenas um prontuário digita
 
 ---
 
-## Versão 2.5 — "A Arquibancada"
+## Versão 2.5 — "A Arquibancada" ⬜
 
-**Período:** Semanas 23–30 | **Módulo:** ArenaPass (Bilheteria Digital)
+**Período:** Semanas 21–28 | **Módulo:** ArenaPass (Bilheteria Digital)
 
 ### Meta Estratégica
 
 Criar o motor de aquisição de sócios mais eficiente: cada torcedor que compra um ingresso entra automaticamente no funil de conversão para sócio. O ArenaPass tem menor resistência de adoção (transacional, sem mensalidade fixa para o torcedor) e maior impacto imediato — receita por jogo aumentando 40%+ vs. a caixinha manual.
-
-### Antecipação Opcional (já na v1.0 como feature isolada)
-
-MVP mínimo sem CRM: link PIX por evento + QR Code de validação via celular do staff. Custo de engenharia baixo; valida o modelo transacional antes da v2.5 completa.
 
 ### Features incluídas na v2.5
 
@@ -327,7 +225,7 @@ MVP mínimo sem CRM: link PIX por evento + QR Code de validação via celular do
 
 ---
 
-## Versão 3.0 — "A Vitrine"
+## Versão 3.0 — "A Vitrine" ⬜
 
 **Período:** Meses 8–10 | **Módulo:** ScoutLink (Marketplace de Talentos)
 
@@ -337,7 +235,7 @@ Criar o primeiro marketplace verificado de talentos do futebol amador e semiprof
 
 ### Por que ScoutLink não pode ser antecipado?
 
-Uma vitrine vazia não retém o lado da demanda. Scouts pagam assinatura porque os perfis são ricos e verificados — isso exige mínimo 6 meses de dados contínuos do BaseForte e FisioBase em produção. Lançar antes desperdiça a única chance de primeira impressão com o lado da demanda.
+Uma vitrine vazia não retém o lado da demanda. Scouts pagam assinatura porque os perfis são ricos e verificados — isso exige mínimo 6 meses de dados contínuos do BaseForte e FisioBase em produção.
 
 ### Features incluídas na v3.0
 
@@ -356,21 +254,17 @@ Uma vitrine vazia não retém o lado da demanda. Scouts pagam assinatura porque 
 - Primeiro contato formal scout–escola mediado pela plataforma
 - ≥ 3 scouts com assinatura ativa após 60 dias
 - Zero incidente de contato direto com atleta menor (compliance inviolável)
-- NPS dos scouts ≥ 50 (dados percebidos como confiáveis e ricos)
+- NPS dos scouts ≥ 50
 
 ---
 
-## Versão 3.5 — "A Liga"
+## Versão 3.5 — "A Liga" ⬜
 
 **Período:** Meses 11–13 | **Módulo:** CampeonatOS (Gestão de Campeonatos)
 
 ### Meta Estratégica
 
-Ativar o efeito de rede. Quando a maioria dos clubes de uma liga já está no ClubOS, o CampeonatOS se vende sozinho: é a consequência natural da rede, não o ponto de entrada. O organizador deixa de gastar 8h/semana em planilhas para gastar ≤ 2h.
-
-### Freemium Top-of-Funnel
-
-Versão gratuita para ligas com até 8 times — ferramenta de exposição onde ainda não há penetração do ClubOS. O organizador convida os times; os times descobrem o produto.
+Ativar o efeito de rede. Quando a maioria dos clubes de uma liga já está no ClubOS, o CampeonatOS se vende sozinho. O organizador deixa de gastar 8h/semana em planilhas para gastar ≤ 2h.
 
 ### Features incluídas na v3.5
 
@@ -382,7 +276,6 @@ Versão gratuita para ligas com até 8 times — ferramenta de exposição onde 
 - Portal público por campeonato: URL personalizada, tabela ao vivo, artilharia, perfil de elenco
 - Sistema de protesto com prazo rastreado e log imutável
 - Patrocínio digital no portal público com métricas de visualização (CPM, cliques)
-- Lembretes automáticos 48h antes para capitão de cada time
 - Relatório final de campeonato exportável em PDF (premiação, disciplina, artilharia)
 
 ### Critério de Go/No-Go v3.5
@@ -395,32 +288,30 @@ Versão gratuita para ligas com até 8 times — ferramenta de exposição onde 
 
 ## Mapa de Dependências Técnicas
 
-Cada módulo herda dados e confiança dos anteriores. Essa sequência não é apenas estratégica — é uma restrição técnica real.
-
-| Módulo                      | Depende de                          | Dado / Recurso Herdado                                                                                           |
-| --------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| TreinoOS + BaseForte (v1.5) | ClubOS (v1.0)                       | Entidade `athlete` com identidade e vínculo (stub v1.0). A v1.5 adiciona carga e avaliação técnica sem migração. |
-| Peneiras LGPD (v1.5)        | ClubOS (v1.0)                       | Schema de sócios + infraestrutura de consentimento digital                                                       |
-| FisioBase (v2.0)            | BaseForte (v1.5)                    | Dados de carga ACWR por atleta. Sem eles, FisioBase é apenas prontuário sem inteligência preditiva.              |
-| SAF Compliance Full (v2.0)  | ClubOS (v1.0)                       | Audit log imutável + dados financeiros completos do clube                                                        |
-| ArenaPass (v2.5)            | ClubOS (v1.0)                       | Cadastro de sócios para cruzamento torcedor→sócio. Funil de conversão só funciona com ClubOS maduro.             |
-| ScoutLink (v3.0)            | BaseForte (v1.5) + FisioBase (v2.0) | Mínimo 6 meses de dados longitudinais verificados. Histórico de lesões com permissão.                            |
-| CampeonatOS (v3.5)          | ClubOS (v1.0) + TreinoOS (v1.5)     | Base de clubes cadastrados na plataforma. Elencos e escalações preexistentes para súmula digital.                |
+| Módulo                      | Depende de                          | Dado / Recurso Herdado                                                                                             |
+| --------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| TreinoOS + BaseForte (v1.5) | ClubOS (v1.0)                       | Entidade `athlete` com identidade e vínculo (stub v1.0). ✅ Dependência satisfeita.                                |
+| Peneiras LGPD (v1.5)        | ClubOS (v1.0)                       | Schema de sócios + infraestrutura de consentimento digital. ✅ Dependência satisfeita.                             |
+| FisioBase (v2.0)            | BaseForte (v1.5)                    | Dados de carga ACWR por atleta. Sem eles, FisioBase é apenas prontuário sem inteligência preditiva. ✅ Satisfeita. |
+| SAF Compliance Full (v2.0)  | ClubOS (v1.0)                       | Audit log imutável + dados financeiros completos do clube. ✅ Dependência satisfeita.                              |
+| ArenaPass (v2.5)            | ClubOS (v1.0)                       | Cadastro de sócios para cruzamento torcedor→sócio. Funil de conversão só funciona com ClubOS maduro.               |
+| ScoutLink (v3.0)            | BaseForte (v1.5) + FisioBase (v2.0) | Mínimo 6 meses de dados longitudinais verificados. Histórico de lesões com permissão.                              |
+| CampeonatOS (v3.5)          | ClubOS (v1.0) + TreinoOS (v1.5)     | Base de clubes cadastrados na plataforma. Elencos e escalações preexistentes para súmula digital.                  |
 
 ---
 
 ## Modelo de Monetização por Versão
 
-| Versão | Módulo               | Modelo                                     | Valor Estimado                           |
-| ------ | -------------------- | ------------------------------------------ | ---------------------------------------- |
-| v1.0   | ClubOS               | Assinatura SaaS mensal + taxa PIX 1,2%     | R$ 149–299/clube/mês                     |
-| v1.5   | TreinoOS + BaseForte | Add-on por treinador ou por escola         | R$ 49/treinador ou R$ 199–499/escola/mês |
-| v1.5   | BaseForte B2C        | Relatório semanal para pais                | R$ 19/atleta/mês (pai paga)              |
-| v2.0   | FisioBase            | Assinatura por fisioterapeuta ou por clube | R$ 79–149/fisio ou R$ 199/clube/mês      |
-| v2.0   | SAF Compliance       | Add-on para SAFs                           | R$ 299/clube/mês                         |
-| v2.5   | ArenaPass            | Pay-per-ingresso + assinatura              | R$ 1,50/ingresso ou R$ 99/mês            |
-| v3.0   | ScoutLink            | Assinatura scout + freemium escola         | R$ 299/scout/mês                         |
-| v3.5   | CampeonatOS          | Por campeonato ou assinatura liga          | R$ 299–699/evento ou R$ 299/liga/mês     |
+| Versão | Módulo               | Modelo                                     | Valor Estimado                           | Status      |
+| ------ | -------------------- | ------------------------------------------ | ---------------------------------------- | ----------- |
+| v1.0   | ClubOS               | Assinatura SaaS mensal + taxa PIX 1,2%     | R$ 149–299/clube/mês                     | ✅ Ativo    |
+| v1.5   | TreinoOS + BaseForte | Add-on por treinador ou por escola         | R$ 49/treinador ou R$ 199–499/escola/mês | ✅ Ativo    |
+| v1.5   | BaseForte B2C        | Relatório semanal para pais                | R$ 19/atleta/mês (pai paga)              | ✅ Ativo    |
+| v2.0   | FisioBase            | Assinatura por fisioterapeuta ou por clube | R$ 79–149/fisio ou R$ 199/clube/mês      | 🟡 Em breve |
+| v2.0   | SAF Compliance       | Add-on para SAFs                           | R$ 299/clube/mês                         | 🟡 Em breve |
+| v2.5   | ArenaPass            | Pay-per-ingresso + assinatura              | R$ 1,50/ingresso ou R$ 99/mês            | ⬜          |
+| v3.0   | ScoutLink            | Assinatura scout + freemium escola         | R$ 299/scout/mês                         | ⬜          |
+| v3.5   | CampeonatOS          | Por campeonato ou assinatura liga          | R$ 299–699/evento ou R$ 299/liga/mês     | ⬜          |
 
 **Receita potencial por clube maduro (v3.5):** R$ 600–1.100/mês em stack completo.
 
@@ -428,17 +319,15 @@ Cada módulo herda dados e confiança dos anteriores. Essa sequência não é ap
 
 ## Métricas-Âncora por Módulo
 
-Duas métricas por módulo: produto (está sendo usado como ferramenta?) e negócio (está gerando valor real?).
-
-| Módulo      | Métrica de Produto                                            | Métrica de Negócio                              |
-| ----------- | ------------------------------------------------------------- | ----------------------------------------------- |
-| ClubOS      | Cobrança PIX gerada para 100% dos sócios ativos no mês        | Inadimplência ↓25% vs. pré-adoção               |
-| TreinoOS    | ≥ 2 sessões planejadas/semana por treinador ativo             | 60% dos clubes v1.0 com módulo ativo            |
-| BaseForte   | ≥ 80% dos atletas com carga ACWR calculada e atualizada       | ≥ 5 pais pagando relatório premium              |
-| FisioBase   | ≥ 80% dos atletas afastados com protocolo de retorno definido | Redução de recidiva documentada em 3+ clubes    |
-| ArenaPass   | 100% dos ingressos do jogo vendidos digitalmente              | Receita por jogo ≥ 40% acima da caixinha manual |
-| ScoutLink   | ≥ 3 scouts com buscas ativas semanalmente                     | ≥ 1 contato formal scout–escola/mês             |
-| CampeonatOS | Organizador usa plataforma para ≥ 90% das ações de logística  | 1 campeonato completo + 1 patrocinador ativo    |
+| Módulo      | Métrica de Produto                                            | Métrica de Negócio                              | Status |
+| ----------- | ------------------------------------------------------------- | ----------------------------------------------- | ------ |
+| ClubOS      | Cobrança PIX gerada para 100% dos sócios ativos no mês        | Inadimplência ↓25% vs. pré-adoção               | ✅     |
+| TreinoOS    | ≥ 2 sessões planejadas/semana por treinador ativo             | 60% dos clubes v1.0 com módulo ativo            | ✅     |
+| BaseForte   | ≥ 80% dos atletas com carga ACWR calculada e atualizada       | ≥ 5 pais pagando relatório premium              | ✅     |
+| FisioBase   | ≥ 80% dos atletas afastados com protocolo de retorno definido | Redução de recidiva documentada em 3+ clubes    | 🟡     |
+| ArenaPass   | 100% dos ingressos do jogo vendidos digitalmente              | Receita por jogo ≥ 40% acima da caixinha manual | ⬜     |
+| ScoutLink   | ≥ 3 scouts com buscas ativas semanalmente                     | ≥ 1 contato formal scout–escola/mês             | ⬜     |
+| CampeonatOS | Organizador usa plataforma para ≥ 90% das ações de logística  | 1 campeonato completo + 1 patrocinador ativo    | ⬜     |
 
 ---
 
@@ -446,18 +335,19 @@ Duas métricas por módulo: produto (está sendo usado como ferramenta?) e negó
 
 ### Riscos de Produto e Execução
 
-| Risco                                               | Gravidade | Mitigação                                                                                             |
-| --------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| Conectividade no campo                              | 🔴 Alta   | Offline-First obrigatório em v1.5: IndexedDB + Service Workers + Background Sync                      |
-| LGPD — dados de menores sem consentimento           | 🔴 Alta   | Hard stop no sistema de peneiras; criptografia; purge automático 24 meses; aceite parental digital    |
-| Escalação irregular BID/CBF                         | 🔴 Alta   | Motor de Regras parametrizável; alertas 48h antes do jogo; validação em tempo real (Concluído V1.0)   |
-| Churn por gateway indisponível                      | 🔴 Alta   | Multi-Acquiring com fallback silencioso Asaas → Pagarme → Stripe → PIX estático (Concluído V1.0)      |
-| v1.0 não valida: inadimplência não cai o suficiente | 🔴 Alta   | Piloto com 3 clubes antes de escalar. Critério de go/no-go claro: ≥ 20% de redução                    |
-| TreinoOS não vira hábito                            | 🔴 Alta   | Métrica: ≥ 2 sessões/semana. Se não atingir em 30 dias, revisar onboarding antes de escalar           |
-| ScoutLink lança com perfis rasos                    | 🔴 Alta   | Não lançar antes de 6 meses de BaseForte em produção; curadoria manual nos primeiros 90 dias          |
-| CampeonatOS lança sem massa crítica                 | 🔴 Alta   | Iniciar com ligas onde ClubOS tem ≥ 70% de penetração; freemium como top-of-funnel                    |
-| Time fragmenta atenção prematuramente               | 🟡 Média  | Regra de go/no-go inviolável — um módulo por vez                                                      |
-| Schema-per-tenant escala até ~1.000 clubes          | 🟡 Média  | Planejar análise de migração para RLS ao atingir 300 clubes ativos                                    |
-| WhatsApp bloqueia número por envio massivo          | 🟡 Média  | Rate limit 30 msg/min (Lua Redis) ✅; fallback e-mail ✅; sender rotation planejado para v2.0         |
-| SSE não escala em múltiplos processos               | 🟢 Baixa  | Substituir `EventEmitter` por Redis `PUBLISH/SUBSCRIBE`; interface de `sse-bus.ts` permanece idêntica |
-| Bundle leak entre `(marketing)` e `(app)`           | 🟢 Baixa  | Regra aplicada — validar com bundle analyzer antes de ir para produção                                |
+| Risco                                        | Gravidade | Mitigação                                                                                             |
+| -------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| Conectividade no campo                       | 🔴 Alta   | Offline-First implementado em v1.5: IndexedDB + Service Workers + Background Sync ✅                  |
+| LGPD — dados de menores sem consentimento    | 🔴 Alta   | Hard stop no sistema de peneiras; criptografia; purge automático 24 meses; aceite parental digital ✅ |
+| LGPD — dados clínicos de atletas (FisioBase) | 🔴 Alta   | AES-256 em `medical_records`; role PHYSIO obrigatório; audit log de acesso; hard stop no RBAC         |
+| Escalação irregular BID/CBF                  | 🔴 Alta   | Motor de Regras parametrizável; alertas 48h antes do jogo; validação em tempo real ✅                 |
+| Churn por gateway indisponível               | 🔴 Alta   | Multi-Acquiring com fallback silencioso Asaas → Pagarme → Stripe → PIX estático ✅                    |
+| FisioBase sem dados de BaseForte             | 🔴 Alta   | Dependência resolvida: BaseForte ✅ em produção; correlação carga × lesão viável                      |
+| FisioBase não vira hábito do fisioterapeuta  | 🔴 Alta   | Métrica: ≥ 4 semanas de uso consecutivo. Onboarding guiado; relatório de seguro como âncora de valor  |
+| ScoutLink lança com perfis rasos             | 🔴 Alta   | Não lançar antes de 6 meses de BaseForte + FisioBase em produção; curadoria manual nos primeiros 90d  |
+| CampeonatOS lança sem massa crítica          | 🔴 Alta   | Iniciar com ligas onde ClubOS tem ≥ 70% de penetração; freemium como top-of-funnel                    |
+| Time fragmenta atenção prematuramente        | 🟡 Média  | Regra de go/no-go inviolável — um módulo por vez                                                      |
+| Schema-per-tenant escala até ~1.000 clubes   | 🟡 Média  | Planejar análise de migração para RLS ao atingir 300 clubes ativos                                    |
+| WhatsApp bloqueia número por envio massivo   | 🟡 Média  | Rate limit 30 msg/min (Lua Redis) ✅; fallback e-mail ✅; sender rotation planejado para v2.0         |
+| SSE não escala em múltiplos processos        | 🟢 Baixa  | Substituir `EventEmitter` por Redis `PUBLISH/SUBSCRIBE`; interface de `sse-bus.ts` permanece idêntica |
+| Bundle leak entre `(marketing)` e `(app)`    | 🟢 Baixa  | Regra aplicada — validar com bundle analyzer antes de ir para produção                                |

@@ -7,7 +7,8 @@
 //   [TENANT MODELS] — models that represent the structure of each tenant schema
 //     (clube_{id}): Member, Plan, MemberPlan, Charge, Payment, Message, AuditLog,
 //                   Athlete, Contract, WorkloadMetric, Exercise, TrainingSession,
-//                   SessionExercise
+//                   SessionExercise, InjuryProtocol, MedicalRecord, ReturnToPlay,
+//                   DataAccessLog, CreditorDisclosure, FieldAccessLog
 //
 //     At runtime, before any tenant query the API MUST execute:
 //       SET search_path TO "clube_{clubId}", public
@@ -35,12 +36,15 @@
 //   AES-256). The symmetric key is provided via the MEMBER_ENCRYPTION_KEY
 //   env var.
 //
+//   MedicalRecord.clinicalNotes, .diagnosis, .treatmentDetails are also
+//   encrypted at rest using the same pgcrypto AES-256 mechanism.
+//
 //   Consequences:
-//   - cpf and phone are stored as Bytes (bytea) — never as plaintext.
+//   - Encrypted fields are stored as Bytes (bytea) — never as plaintext.
 //   - The @unique constraint on cpf is removed; uniqueness is enforced at
 //     the application layer via findMemberByCpf() / findAthleteByCpf() in
 //     src/lib/crypto.ts.
-//   - All reads/writes of cpf and phone go through encryptField() /
+//   - All reads/writes of encrypted fields go through encryptField() /
 //     decryptField() in src/lib/crypto.ts — never via raw Prisma field access.
 // =============================================================================
 
@@ -145,6 +149,29 @@ enum MessageStatus {
   PENDING
 }
 
+enum RtpStatus {
+  AFASTADO
+  RETORNO_PROGRESSIVO
+  LIBERADO
+}
+
+/// FIFA Medical-aligned injury grade classification.
+/// GRADE_1 = mild (< 7 days), GRADE_2 = moderate (7–28 days),
+/// GRADE_3 = severe (> 28 days), COMPLETE = complete rupture / structural failure.
+enum InjuryGrade {
+  GRADE_1
+  GRADE_2
+  GRADE_3
+  COMPLETE
+}
+
+enum InjuryMechanism {
+  CONTACT
+  NON_CONTACT
+  OVERUSE
+  UNKNOWN
+}
+
 enum AuditAction {
   MEMBER_CREATED
   MEMBER_UPDATED
@@ -182,6 +209,13 @@ enum AuditAction {
   EVALUATION_DELETED
   PARENTAL_CONSENT_RECORDED
   WEEKLY_ATHLETE_REPORT_SENT
+  MEDICAL_RECORD_CREATED
+  MEDICAL_RECORD_UPDATED
+  MEDICAL_RECORD_ACCESSED
+  RTP_STATUS_CHANGED
+  CREDITOR_DISCLOSURE_CREATED
+  CREDITOR_DISCLOSURE_UPDATED
+  FIELD_ACCESS_LOGGED
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
@@ -206,7 +240,8 @@ model Club {
 }
 
 /// Global users table (public schema). A user always belongs to one club.
-/// Roles: ADMIN (full access) | TREASURER (read + charge, no delete/settings).
+/// Roles: ADMIN (full access) | TREASURER (read + charge, no delete/settings)
+///        | PHYSIO (clinical data access, no financial access).
 model User {
   id       String   @id @default(cuid())
   email    String   @unique
@@ -396,6 +431,8 @@ model Athlete {
   workloadMetrics   WorkloadMetric[]
   integrationTokens IntegrationToken[]
   evaluations       TechnicalEvaluation[]
+  medicalRecords    MedicalRecord[]
+  returnToPlay      ReturnToPlay?
 
   @@index([status])
   @@map("athletes")
@@ -587,4 +624,160 @@ model TechnicalEvaluation {
   @@index([athleteId])
   @@index([date])
   @@map("technical_evaluations")
+}
+
+/// Reference/seed table for injury return-to-play protocols.
+/// Seeded with FIFA Medical standard protocols (20 protocols covering the most
+/// common football injuries). Club-level — not per-athlete.
+/// isActive=false soft-deletes a protocol without breaking existing references.
+model InjuryProtocol {
+  id           String      @id @default(cuid())
+  name         String
+  structure    String
+  grade        InjuryGrade
+  steps        Json        @default("[]")
+  source       String?
+  durationDays Int         @default(0)
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  medicalRecords MedicalRecord[]
+  returnToPlay   ReturnToPlay[]
+
+  @@index([structure])
+  @@index([isActive])
+  @@map("injury_protocols")
+}
+
+/// Athlete medical record (prontuário esportivo).
+/// Access restricted to PHYSIO and ADMIN roles at the API layer.
+///
+/// ENCRYPTION: clinicalNotes, diagnosis, treatmentDetails are stored as BYTEA
+/// (AES-256 via pgcrypto). Never read raw — always use decryptField() in src/lib/crypto.ts.
+///
+/// Fields kept as plaintext for analytics (ACWR correlation query):
+///   structure, grade, mechanism — queried without decryption by the physio dashboard.
+///
+/// createdBy stores the PHYSIO actorId for accountability and LGPD audit.
+model MedicalRecord {
+  id               String          @id @default(cuid())
+  athleteId        String
+  protocolId       String?
+  occurredAt       DateTime        @db.Date
+  structure        String
+  grade            InjuryGrade
+  mechanism        InjuryMechanism @default(UNKNOWN)
+  /// AES-256 encrypted via pgcrypto — never read raw; use decryptField()
+  clinicalNotes    Bytes?
+  /// AES-256 encrypted via pgcrypto — never read raw; use decryptField()
+  diagnosis        Bytes?
+  /// AES-256 encrypted via pgcrypto — never read raw; use decryptField()
+  treatmentDetails Bytes?
+  createdBy        String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  athlete      Athlete         @relation(fields: [athleteId], references: [id])
+  protocol     InjuryProtocol? @relation(fields: [protocolId], references: [id])
+  returnToPlay ReturnToPlay[]
+
+  @@index([athleteId])
+  @@index([occurredAt])
+  @@index([grade])
+  @@map("medical_records")
+}
+
+/// Return-to-play (RTP) status per athlete.
+/// One record per athlete (UNIQUE on athleteId) — updated in-place as status changes.
+/// Status transitions: AFASTADO → RETORNO_PROGRESSIVO → LIBERADO (and back).
+/// clearedAt/clearedBy populated when status transitions to LIBERADO.
+/// medicalRecordId is nullable — RTP may predate a formal medical record.
+model ReturnToPlay {
+  id              String    @id @default(cuid())
+  athleteId       String    @unique
+  status          RtpStatus @default(AFASTADO)
+  medicalRecordId String?
+  protocolId      String?
+  clearedAt       DateTime?
+  clearedBy       String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  athlete       Athlete         @relation(fields: [athleteId], references: [id])
+  medicalRecord MedicalRecord?  @relation(fields: [medicalRecordId], references: [id])
+  protocol      InjuryProtocol? @relation(fields: [protocolId], references: [id])
+
+  @@index([status])
+  @@map("return_to_play")
+}
+
+/// LGPD compliance audit log for clinical data access (Art. 37 — registro de operações).
+///
+/// Intentionally NO foreign key to medical_records: the clinical record may be
+/// purged under LGPD Art. 15 / Art. 16 while access logs must be retained.
+/// entityId stores medical_records.id; entityType defaults to 'MedicalRecord'.
+/// fieldsRead lists which encrypted fields were decrypted, e.g. ['clinicalNotes'].
+/// action is TEXT (not the AuditAction enum) so the vocabulary can evolve
+/// independently — e.g. "READ", "EXPORT_PDF", "SHARED_WITH_INSURER".
+model DataAccessLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  entityId   String
+  entityType String   @default("MedicalRecord")
+  action     String
+  fieldsRead String[]
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entityId])
+  @@map("data_access_log")
+}
+
+/// SAF compliance — Lei 14.193/2021 creditor disclosures (passivos trabalhistas).
+///
+/// APPEND-ONLY: the application layer prohibits DELETE on this table.
+/// Status transitions (PENDING → SETTLED | DISPUTED) are the only mutations allowed.
+/// status is TEXT to allow future values without a DDL migration.
+/// registeredBy stores the ADMIN actorId who registered the liability.
+model CreditorDisclosure {
+  id           String   @id @default(cuid())
+  creditorName String
+  description  String?
+  amountCents  Int
+  dueDate      DateTime @db.Date
+  /// PENDING | SETTLED | DISPUTED
+  status       String   @default("PENDING")
+  registeredBy String
+  registeredAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([dueDate])
+  @@index([status])
+  @@map("creditor_disclosures")
+}
+
+/// QR Code portaria access control log.
+///
+/// No FK to members (ticket holder may not be a registered member).
+/// No FK to events — eventId is TEXT nullable; the events table arrives in v2.5.
+/// idempotencyKey supports offline Background Sync deduplication, consistent
+/// with workload_metrics.idempotencyKey. Partial unique index in DDL:
+///   WHERE idempotencyKey IS NOT NULL.
+model FieldAccessLog {
+  id              String   @id @default(cuid())
+  eventId         String?
+  scannedBy       String
+  payload         String
+  isValid         Boolean
+  rejectionReason String?
+  idempotencyKey  String?  @unique
+  scannedAt       DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@map("field_access_logs")
 }

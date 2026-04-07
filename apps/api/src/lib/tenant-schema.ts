@@ -150,10 +150,40 @@ const TENANT_ENUMS_DDL = `
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EVALUATION_DELETED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'PARENTAL_CONSENT_RECORDED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'WEEKLY_ATHLETE_REPORT_SENT';
+
+  -- v2.0 — FisioBase enum types
+  -- Must run outside a transaction block (ADD VALUE restriction).
+  DO $$ BEGIN
+    CREATE TYPE "RtpStatus" AS ENUM (
+      'AFASTADO', 'RETORNO_PROGRESSIVO', 'LIBERADO'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  DO $$ BEGIN
+    CREATE TYPE "InjuryGrade" AS ENUM (
+      'GRADE_1', 'GRADE_2', 'GRADE_3', 'COMPLETE'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  DO $$ BEGIN
+    CREATE TYPE "InjuryMechanism" AS ENUM (
+      'CONTACT', 'NON_CONTACT', 'OVERUSE', 'UNKNOWN'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  -- v2.0 — Extend AuditAction with FisioBase, SAF and portaria actions.
+  -- All ADD VALUE statements must remain outside any transaction block.
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'MEDICAL_RECORD_CREATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'MEDICAL_RECORD_UPDATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'MEDICAL_RECORD_ACCESSED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'RTP_STATUS_CHANGED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CREDITOR_DISCLOSURE_CREATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'CREDITOR_DISCLOSURE_UPDATED';
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'FIELD_ACCESS_LOGGED';
 `;
 
 /**
- * All tenant tables in dependency order.
+ * All tenant tables in dependency order (v1.0 / v1.5).
  *
  * Critical notes:
  * - members.cpf and members.phone are BYTEA (not TEXT) — encrypted via pgcrypto.
@@ -445,7 +475,8 @@ const TENANT_TABLES_DDL = `
 `;
 
 /**
- * All indexes on tenant tables. CREATE INDEX IF NOT EXISTS is available from PG 9.5+.
+ * All indexes on tenant tables (v1.0 / v1.5).
+ * CREATE INDEX IF NOT EXISTS is available from PG 9.5+.
  */
 const TENANT_INDEXES_DDL = `
   -- members
@@ -559,7 +590,7 @@ const TENANT_INDEXES_DDL = `
 `;
 
 /**
- * Foreign key constraints on tenant tables.
+ * Foreign key constraints on tenant tables (v1.0 / v1.5).
  */
 const TENANT_FOREIGN_KEYS_DDL = `
   -- member_plans → members
@@ -707,6 +738,247 @@ const TENANT_MATERIALIZED_VIEW_INDEXES_DDL = `
 `;
 
 /**
+ * Design notes:
+ * - injury_protocols: reference/seed table — no FK to athletes. Club-level templates.
+ * - medical_records.clinicalNotes / diagnosis / treatmentDetails: BYTEA (AES-256 via
+ *   pgcrypto). Fields needed for analytics (structure, grade, mechanism) stay as TEXT/enum
+ *   so they can be queried without decryption (see design-docs.md § Correlação carga × lesão).
+ * - return_to_play: UNIQUE on athleteId — only one active RTP record per athlete.
+ *   History is tracked via medical_records. Status transitions only (no hard delete).
+ * - data_access_log: intentionally NO FK to medical_records. The clinical record may be
+ *   purged (LGPD) while access logs must be retained for audit. Mirrors audit_log pattern.
+ * - creditor_disclosures: append-only (Lei 14.193/2021). No DELETE permitted at the
+ *   application layer. Status transitions only (PENDING → SETTLED | DISPUTED).
+ * - field_access_logs: no FK to members (ticket holder may not be a registered member)
+ *   and no FK to events (events table arrives in v2.5). idempotencyKey supports
+ *   offline Background Sync deduplication — same pattern as workload_metrics.
+ */
+const TENANT_V2_TABLES_DDL = `
+  -- injury_protocols (no FK dependencies — reference/seed table)
+  -- Seeded with FIFA Medical standard protocols in a separate migration script.
+  -- source stores the originating reference, e.g. "FIFA Medical 2023".
+  -- steps is a JSONB array of structured protocol steps.
+  CREATE TABLE IF NOT EXISTS "injury_protocols" (
+    "id"           TEXT           NOT NULL,
+    "name"         TEXT           NOT NULL,
+    "structure"    TEXT           NOT NULL,
+    "grade"        "InjuryGrade"  NOT NULL,
+    "steps"        JSONB          NOT NULL DEFAULT '[]',
+    "source"       TEXT,
+    "durationDays" INTEGER        NOT NULL DEFAULT 0,
+    "isActive"     BOOLEAN        NOT NULL DEFAULT true,
+    "createdAt"    TIMESTAMP(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"    TIMESTAMP(3)   NOT NULL,
+
+    CONSTRAINT "injury_protocols_pkey" PRIMARY KEY ("id")
+  );
+
+  -- medical_records (FK → athletes, injury_protocols)
+  -- clinicalNotes, diagnosis, treatmentDetails: BYTEA — AES-256 encrypted via pgcrypto.
+  -- structure, grade, mechanism: plaintext — required for ACWR correlation analytics.
+  -- createdBy stores the PHYSIO actorId for accountability.
+  CREATE TABLE IF NOT EXISTS "medical_records" (
+    "id"               TEXT              NOT NULL,
+    "athleteId"        TEXT              NOT NULL,
+    "protocolId"       TEXT,
+    "occurredAt"       DATE              NOT NULL,
+    "structure"        TEXT              NOT NULL,
+    "grade"            "InjuryGrade"     NOT NULL,
+    "mechanism"        "InjuryMechanism" NOT NULL DEFAULT 'UNKNOWN',
+    "clinicalNotes"    BYTEA,
+    "diagnosis"        BYTEA,
+    "treatmentDetails" BYTEA,
+    "createdBy"        TEXT              NOT NULL,
+    "createdAt"        TIMESTAMP(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"        TIMESTAMP(3)      NOT NULL,
+
+    CONSTRAINT "medical_records_pkey" PRIMARY KEY ("id")
+  );
+
+  -- return_to_play (FK → athletes; unique per athlete)
+  -- UNIQUE on athleteId enforces at-most-one active RTP record per athlete.
+  -- medicalRecordId nullable: RTP may be set before a formal record is created.
+  -- clearedAt/clearedBy populated when status transitions to LIBERADO.
+  CREATE TABLE IF NOT EXISTS "return_to_play" (
+    "id"              TEXT         NOT NULL,
+    "athleteId"       TEXT         NOT NULL,
+    "status"          "RtpStatus"  NOT NULL DEFAULT 'AFASTADO',
+    "medicalRecordId" TEXT,
+    "protocolId"      TEXT,
+    "clearedAt"       TIMESTAMP(3),
+    "clearedBy"       TEXT,
+    "notes"           TEXT,
+    "createdAt"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"       TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "return_to_play_pkey" PRIMARY KEY ("id")
+  );
+
+  -- data_access_log — LGPD compliance audit for clinical data reads.
+  -- No FK to medical_records (intentional): clinical records may be purged under LGPD
+  -- Art. 15 / Art. 16 while access logs must be retained for compliance audits.
+  -- entityId stores medical_records.id; entityType defaults to 'MedicalRecord'.
+  -- fieldsRead is a TEXT[] listing which encrypted fields were decrypted (e.g. ['clinicalNotes']).
+  CREATE TABLE IF NOT EXISTS "data_access_log" (
+    "id"         TEXT         NOT NULL,
+    "actorId"    TEXT         NOT NULL,
+    "entityId"   TEXT         NOT NULL,
+    "entityType" TEXT         NOT NULL DEFAULT 'MedicalRecord',
+    "action"     TEXT         NOT NULL,
+    "fieldsRead" TEXT[]       NOT NULL DEFAULT '{}',
+    "ipAddress"  TEXT,
+    "userAgent"  TEXT,
+    "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "data_access_log_pkey" PRIMARY KEY ("id")
+  );
+
+  -- creditor_disclosures — SAF compliance (Lei 14.193/2021).
+  -- Append-only: application layer prohibits DELETE. Status transitions only.
+  -- status: PENDING | SETTLED | DISPUTED (TEXT to allow future values without DDL migration).
+  -- registeredBy stores the ADMIN actorId who registered the liability.
+  CREATE TABLE IF NOT EXISTS "creditor_disclosures" (
+    "id"           TEXT         NOT NULL,
+    "creditorName" TEXT         NOT NULL,
+    "description"  TEXT,
+    "amountCents"  INTEGER      NOT NULL,
+    "dueDate"      DATE         NOT NULL,
+    "status"       TEXT         NOT NULL DEFAULT 'PENDING',
+    "registeredBy" TEXT         NOT NULL,
+    "registeredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"    TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "creditor_disclosures_pkey" PRIMARY KEY ("id")
+  );
+
+  -- field_access_logs — QR Code portaria access control.
+  -- No FK to members (ticket holder may not be a registered member).
+  -- No FK to events (events table arrives in v2.5 — eventId is TEXT nullable).
+  -- idempotencyKey supports offline Background Sync deduplication, same pattern
+  -- as workload_metrics.idempotencyKey. Partial unique index (WHERE NOT NULL).
+  CREATE TABLE IF NOT EXISTS "field_access_logs" (
+    "id"              TEXT         NOT NULL,
+    "eventId"         TEXT,
+    "scannedBy"       TEXT         NOT NULL,
+    "payload"         TEXT         NOT NULL,
+    "isValid"         BOOLEAN      NOT NULL,
+    "rejectionReason" TEXT,
+    "idempotencyKey"  TEXT,
+    "scannedAt"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "field_access_logs_pkey" PRIMARY KEY ("id")
+  );
+`;
+
+/**
+ * v2.0 indexes on tenant tables.
+ *
+ * Index strategy notes:
+ * - data_access_log.createdAt uses BRIN — access logs are high-volume, append-only,
+ *   naturally ordered by time. BRIN is ~100× smaller than B-tree for such workloads.
+ * - field_access_logs.scannedAt uses BRIN for the same reason.
+ * - field_access_logs.idempotencyKey uses a partial unique index (WHERE NOT NULL)
+ *   because NULL values are allowed (sessions without offline idempotency support)
+ *   and PostgreSQL does not enforce uniqueness across NULLs in a standard unique index.
+ * - return_to_play.athleteId uses a standard UNIQUE index (one record per athlete).
+ */
+const TENANT_V2_INDEXES_DDL = `
+  -- injury_protocols
+  CREATE INDEX IF NOT EXISTS "injury_protocols_structure_idx"
+    ON "injury_protocols" ("structure");
+  CREATE INDEX IF NOT EXISTS "injury_protocols_isActive_idx"
+    ON "injury_protocols" ("isActive");
+
+  -- medical_records
+  CREATE INDEX IF NOT EXISTS "medical_records_athleteId_idx"
+    ON "medical_records" ("athleteId");
+  CREATE INDEX IF NOT EXISTS "medical_records_occurredAt_idx"
+    ON "medical_records" ("occurredAt");
+  CREATE INDEX IF NOT EXISTS "medical_records_grade_idx"
+    ON "medical_records" ("grade");
+
+  -- return_to_play
+  CREATE UNIQUE INDEX IF NOT EXISTS "return_to_play_athleteId_key"
+    ON "return_to_play" ("athleteId");
+  CREATE INDEX IF NOT EXISTS "return_to_play_status_idx"
+    ON "return_to_play" ("status");
+
+  -- data_access_log (high-volume, append-only — BRIN on createdAt)
+  CREATE INDEX IF NOT EXISTS "data_access_log_actorId_idx"
+    ON "data_access_log" ("actorId");
+  CREATE INDEX IF NOT EXISTS "data_access_log_entityId_idx"
+    ON "data_access_log" ("entityId");
+  CREATE INDEX IF NOT EXISTS "data_access_log_createdAt_brin_idx"
+    ON "data_access_log" USING BRIN ("createdAt");
+
+  -- creditor_disclosures
+  CREATE INDEX IF NOT EXISTS "creditor_disclosures_dueDate_idx"
+    ON "creditor_disclosures" ("dueDate");
+  CREATE INDEX IF NOT EXISTS "creditor_disclosures_status_idx"
+    ON "creditor_disclosures" ("status");
+
+  -- field_access_logs
+  -- Partial unique index: allows multiple rows with idempotencyKey IS NULL
+  -- (sessions without offline dedup) while enforcing uniqueness for non-null keys.
+  CREATE UNIQUE INDEX IF NOT EXISTS "field_access_logs_idempotencyKey_key"
+    ON "field_access_logs" ("idempotencyKey")
+    WHERE "idempotencyKey" IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS "field_access_logs_scannedAt_brin_idx"
+    ON "field_access_logs" USING BRIN ("scannedAt");
+  CREATE INDEX IF NOT EXISTS "field_access_logs_isValid_idx"
+    ON "field_access_logs" ("isValid");
+`;
+
+/**
+ * v2.0 foreign key constraints.
+ *
+ * FK design notes:
+ * - medical_records → injury_protocols: ON DELETE SET NULL.
+ *   A protocol may be retired (isActive=false) or deleted (admin cleanup) without
+ *   losing the clinical record that referenced it.
+ * - return_to_play → medical_records: ON DELETE SET NULL.
+ *   An RTP status may predate or outlive a specific medical record.
+ * - return_to_play → injury_protocols: ON DELETE SET NULL.
+ *   Same rationale as medical_records → injury_protocols.
+ * - No FK from data_access_log (intentional — see TENANT_V2_TABLES_DDL comments).
+ * - No FK from field_access_logs to events (events table arrives in v2.5).
+ * - No FK from creditor_disclosures (standalone SAF liability registry).
+ */
+const TENANT_V2_FOREIGN_KEYS_DDL = `
+  -- medical_records → athletes
+  ALTER TABLE "medical_records"
+    ADD CONSTRAINT IF NOT EXISTS "medical_records_athleteId_fkey"
+    FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- medical_records → injury_protocols (nullable)
+  ALTER TABLE "medical_records"
+    ADD CONSTRAINT IF NOT EXISTS "medical_records_protocolId_fkey"
+    FOREIGN KEY ("protocolId") REFERENCES "injury_protocols" ("id")
+    ON DELETE SET NULL ON UPDATE CASCADE;
+
+  -- return_to_play → athletes
+  ALTER TABLE "return_to_play"
+    ADD CONSTRAINT IF NOT EXISTS "return_to_play_athleteId_fkey"
+    FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- return_to_play → medical_records (nullable — RTP may predate a formal record)
+  ALTER TABLE "return_to_play"
+    ADD CONSTRAINT IF NOT EXISTS "return_to_play_medicalRecordId_fkey"
+    FOREIGN KEY ("medicalRecordId") REFERENCES "medical_records" ("id")
+    ON DELETE SET NULL ON UPDATE CASCADE;
+
+  -- return_to_play → injury_protocols (nullable)
+  ALTER TABLE "return_to_play"
+    ADD CONSTRAINT IF NOT EXISTS "return_to_play_protocolId_fkey"
+    FOREIGN KEY ("protocolId") REFERENCES "injury_protocols" ("id")
+    ON DELETE SET NULL ON UPDATE CASCADE;
+`;
+
+/**
  * Provisions a complete PostgreSQL tenant schema for a new club.
  *
  * Creates the schema `clube_{clubId}` and applies the full tenant DDL
@@ -718,6 +990,7 @@ const TENANT_MATERIALIZED_VIEW_INDEXES_DDL = `
  *
  * **Execution order rationale:**
  *   Steps 1–3 run outside any transaction because `ALTER TYPE ... ADD VALUE`
+ *   cannot execute inside an open transaction block (PostgreSQL restriction).
  *
  *   Step 4 runs inside a transaction to keep table/index/FK/view creation atomic.
  *
@@ -751,5 +1024,9 @@ export async function provisionTenantSchema(
 
     await tx.$executeRawUnsafe(TENANT_MATERIALIZED_VIEWS_DDL);
     await tx.$executeRawUnsafe(TENANT_MATERIALIZED_VIEW_INDEXES_DDL);
+
+    await tx.$executeRawUnsafe(TENANT_V2_TABLES_DDL);
+    await tx.$executeRawUnsafe(TENANT_V2_INDEXES_DDL);
+    await tx.$executeRawUnsafe(TENANT_V2_FOREIGN_KEYS_DDL);
   });
 }

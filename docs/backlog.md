@@ -109,7 +109,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                                                                                                                   | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
-| **T-134** | Provisionamento DDL tenant v2.0: atualizar `provisionTenantSchema` com novas tabelas `medical_records`, `injury_protocols`, `return_to_play`, `balance_sheets`, `creditor_disclosures`, `data_access_log`, `field_access_logs`. DDL idempotente. | 0.5d    | S9     | ⬜     |
+| **T-134** | Provisionamento DDL tenant v2.0: atualizar `provisionTenantSchema` com novas tabelas `medical_records`, `injury_protocols`, `return_to_play`, `balance_sheets`, `creditor_disclosures`, `data_access_log`, `field_access_logs`. DDL idempotente. | 0.5d    | S9     | ✅     |
 | **T-135** | Testes de integração E2E para fluxo de prontuário: criação → RTP → correlação ACWR. Cobertura mínima de 80% nos endpoints novos do FisioBase.                                                                                                    | 1d      | S11    | ⬜     |
 
 ## Plano de Execução Recomendado (Ordem Lógica)
@@ -120,7 +120,6 @@
 
 **Fase 1: Fundações de Segurança e Banco de Dados (Bloqueadores)**
 
-2. `T-134` — Provisionamento DDL Tenant v2.0 (Prepara o banco para todas as novas entidades)
 3. `T-115` — Schema Prisma e Tabelas do FisioBase (Foca nos dados clínicos e criptografia)
 
 **Fase 2: APIs, Lógica Clínica e Compliance (Depende da Fase 1)** 4. `T-116` — CRUD de Prontuário Esportivo com Criptografia (Backend) 5. `T-133` — Job de Audit Log de Acesso a Dados Médicos (Garante compliance LGPD sobre o CRUD) 6. `T-119` — API de Status de Retorno ao Jogo (RTP) 7. `T-121` — Biblioteca de Protocolos (Seed e Endpoint de listagem)

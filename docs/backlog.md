@@ -111,3 +111,42 @@
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
 | **T-134** | Provisionamento DDL tenant v2.0: atualizar `provisionTenantSchema` com novas tabelas `medical_records`, `injury_protocols`, `return_to_play`, `balance_sheets`, `creditor_disclosures`, `data_access_log`, `field_access_logs`. DDL idempotente. | 0.5d    | S9     | ⬜     |
 | **T-135** | Testes de integração E2E para fluxo de prontuário: criação → RTP → correlação ACWR. Cobertura mínima de 80% nos endpoints novos do FisioBase.                                                                                                    | 1d      | S11    | ⬜     |
+
+## Plano de Execução Recomendado (Ordem Lógica)
+
+> A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
+
+### Sprint 9 (FisioBase Core — Prontuário, RTP e Protocolos)
+
+**Fase 1: Fundações de Segurança e Banco de Dados (Bloqueadores)**
+
+1. `T-114` — Ativação do Role PHYSIO no RBAC e Isolamento de Rotas
+2. `T-134` — Provisionamento DDL Tenant v2.0 (Prepara o banco para todas as novas entidades)
+3. `T-115` — Schema Prisma e Tabelas do FisioBase (Foca nos dados clínicos e criptografia)
+
+**Fase 2: APIs, Lógica Clínica e Compliance (Depende da Fase 1)** 4. `T-116` — CRUD de Prontuário Esportivo com Criptografia (Backend) 5. `T-133` — Job de Audit Log de Acesso a Dados Médicos (Garante compliance LGPD sobre o CRUD) 6. `T-119` — API de Status de Retorno ao Jogo (RTP) 7. `T-121` — Biblioteca de Protocolos (Seed e Endpoint de listagem)
+
+**Fase 3: Interfaces do Fisioterapeuta e Dashboards (Depende da Fase 2)** 8. `T-117` — UI do Prontuário (Formulário de Registro) 9. `T-118` — Timeline de Eventos Clínicos por Atleta 10. `T-120` — UI e Widget do Status RTP no Perfil do Atleta 11. `T-122` — Dashboard Analítico de Correlação Carga (ACWR) × Lesão
+
+### Sprint 10 (SAF Compliance Full e Demonstrativos)
+
+**Fase 1: Motor Financeiro e Agregação de Dados (Bloqueadores)**
+
+1. `T-124` — Módulo e API de Passivos Trabalhistas (Dados base para a SAF)
+2. `T-125` — Query Agregada do Demonstrativo de Receitas (Consolida a saúde financeira)
+3. `T-127` — Lógica e UI de Conciliação Bancária OFX Aprimorada (Garante a precisão dos dados)
+
+**Fase 2: Interfaces de Transparência SAF (Depende da Fase 1)** 4. `T-126` — Painel SAF de Publicação e Upload de Balanços 5. `T-123` — Dashboard SAF (Consome os KPIs gerados nas tarefas 124, 125 e 126)
+
+**Fase 3: Automação e Relatórios (Paralelizável com a Fase 2)** 6. `T-128` — Job BullMQ Mensal e Geração de Relatório Financeiro PDF
+
+### Sprint 11 (Relatórios, Controle de Acesso e Quality Assurance)
+
+**Fase 1: APIs, Integrações e Geração de Documentos (Bloqueadores)**
+
+1. `T-131` — Backend de Validação de QR Code de Acesso (Motor de regras da portaria)
+2. `T-129` — Geração de PDF do Relatório de Lesão para Seguro (Depende dos dados da Sprint 9)
+
+**Fase 2: UI Operacional e Multi-Tenant (Depende da Fase 1)** 3. `T-132` — UI Portaria Mobile-First (Scanner de câmera e fila offline para o QR Code) 4. `T-130` — Painel Multi-Fisio e Multi-Clube (Consolidação de visualização na UI)
+
+**Fase 3: Homologação e Qualidade (Finalização da v2.0)** 5. `T-135` — Testes E2E de Integração para o Fluxo de Prontuário (Valida de ponta a ponta a Sprint 9 antes do deploy final)

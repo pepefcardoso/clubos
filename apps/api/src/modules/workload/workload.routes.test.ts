@@ -78,7 +78,7 @@ async function buildApp(
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars --- IGNORE ---
-  app.decorate("requireRole", (_minimumRole: "ADMIN" | "TREASURER") => {
+  app.decorate("requireRole", (_minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
     return async () => {
       // Not called in workload routes (both are accessible by all roles)
     };

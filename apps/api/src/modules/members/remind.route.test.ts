@@ -135,7 +135,7 @@ async function buildApp(): Promise<FastifyInstance> {
 
   app.decorate(
     "requireRole",
-    (_minimumRole: "ADMIN" | "TREASURER") =>
+    (_minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") =>
       async (
         _request: import("fastify").FastifyRequest,
         _reply: import("fastify").FastifyReply,

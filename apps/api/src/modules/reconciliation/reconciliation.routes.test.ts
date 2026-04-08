@@ -48,7 +48,7 @@ async function buildApp(
 
   fastify.decorate(
     "requireRole",
-    (minimumRole: "ADMIN" | "TREASURER") =>
+    (minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") =>
       async (
         request: import("fastify").FastifyRequest,
         reply: import("fastify").FastifyReply,

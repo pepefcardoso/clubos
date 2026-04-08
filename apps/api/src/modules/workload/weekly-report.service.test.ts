@@ -56,7 +56,8 @@ function makeAthleteStats(
     totalAu: 1680,
     acwrRatio: 1.15,
     riskZone: "optimal",
-    guardianPhone: "+5511999990001",
+    guardianMemberId: "member_001",
+    encryptedGuardianPhone: Buffer.from("encrypted") as unknown as Uint8Array,
     ...overrides,
   };
 }
@@ -201,7 +202,8 @@ describe("gatherAthleteStats()", () => {
         total_au: 1680,
         acwr_ratio: "1.15",
         risk_zone: "optimal",
-        guardian_phone: "+5511999990001",
+        guardian_member_id: "member_001",
+        encrypted_guardian_phone: Buffer.from("encrypted"),
       },
     ]);
 
@@ -220,7 +222,8 @@ describe("gatherAthleteStats()", () => {
     expect(athlete.totalAu).toBe(1680);
     expect(athlete.acwrRatio).toBe(1.15);
     expect(athlete.riskZone).toBe("optimal");
-    expect(athlete.guardianPhone).toBe("+5511999990001");
+    expect(athlete.guardianMemberId).toBe("member_001");
+    expect(athlete.encryptedGuardianPhone).toEqual(Buffer.from("encrypted"));
   });
 
   it("maps NUMERIC acwr_ratio string to JS number", async () => {
@@ -271,7 +274,7 @@ describe("gatherAthleteStats()", () => {
     expect(result[0]!.riskZone).toBeNull();
   });
 
-  it("returns guardianPhone: null when no matching member found", async () => {
+  it("returns null values for guardian fields when no matching member found", async () => {
     vi.mocked(prisma.$queryRaw).mockResolvedValue([
       {
         athleteId: "a",
@@ -280,7 +283,8 @@ describe("gatherAthleteStats()", () => {
         total_au: 900,
         acwr_ratio: "1.0",
         risk_zone: "optimal",
-        guardian_phone: null,
+        guardian_member_id: null,
+        encrypted_guardian_phone: null,
       },
     ]);
 
@@ -291,7 +295,8 @@ describe("gatherAthleteStats()", () => {
       new Date("2025-06-09"),
     );
 
-    expect(result[0]!.guardianPhone).toBeNull();
+    expect(result[0]!.guardianMemberId).toBeNull();
+    expect(result[0]!.encryptedGuardianPhone).toBeNull();
   });
 
   it("calls withTenantSchema ($transaction) once", async () => {

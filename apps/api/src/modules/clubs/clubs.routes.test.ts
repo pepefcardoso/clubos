@@ -38,7 +38,7 @@ async function buildTestApp(): Promise<FastifyInstance> {
   app.decorate("redis", {} as never);
 
   app.decorate("verifyAccessToken", async () => {});
-  app.decorate("requireRole", (_role: "ADMIN" | "TREASURER") => async () => {});
+  app.decorate("requireRole", (_role: "ADMIN" | "TREASURER" | "PHYSIO") => async () => {});
 
   await app.register(clubRoutes, { prefix: "/api/clubs" });
   return app;

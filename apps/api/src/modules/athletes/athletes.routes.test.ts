@@ -74,7 +74,7 @@ async function buildApp(
     (request as FastifyRequest & { actorId: string }).actorId = userPayload.sub;
   });
 
-  app.decorate("requireRole", (minimumRole: "ADMIN" | "TREASURER") => {
+  app.decorate("requireRole", (minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
     return async (request: FastifyRequest, reply: FastifyReply) => {
       const role: string =
         (request as FastifyRequest & { user?: AccessTokenPayload }).user

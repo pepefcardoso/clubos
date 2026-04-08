@@ -124,7 +124,7 @@ describe.skipIf(!hasDatabase)(
       `;
 
       const tableNames = result.map(
-        (r: { table_name: string }) => r.table_name,
+        (r) => r["table_name"] as string,
       );
       expect(tableNames).toEqual(
         expect.arrayContaining([

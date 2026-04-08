@@ -51,6 +51,7 @@ const MOCK_RESULT = {
   generated: 3,
   skipped: 1,
   errors: [],
+  staticPixFallbackCount: 0, 
   gatewayErrors: [],
   charges: [
     {
@@ -74,6 +75,7 @@ const EMPTY_RESULT = {
   skipped: 0,
   errors: [],
   gatewayErrors: [],
+  staticPixFallbackCount: 0,
   charges: [],
 };
 
@@ -309,6 +311,7 @@ describe("POST /api/charges/generate", () => {
           reason: "Asaas 503",
         },
       ],
+      staticPixFallbackCount: 0,
       charges: [],
     };
     vi.mocked(generateMonthlyCharges).mockResolvedValue(partialResult);

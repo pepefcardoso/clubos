@@ -187,7 +187,7 @@ async function buildApp(user: AccessTokenPayload): Promise<FastifyInstance> {
 
   app.decorate(
     "requireRole",
-    (_role: "ADMIN" | "TREASURER") =>
+    (_role: "ADMIN" | "TREASURER" | "PHYSIO") =>
       async (_req: FastifyRequest, _rep: FastifyReply) => {
         /* allow all */
       },

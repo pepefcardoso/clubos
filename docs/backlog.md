@@ -23,7 +23,7 @@
 | ID        | Tarefa Técnica                                                                                                                                                                                                       | Esforço | Sprint | Status |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-114** | Ativar role `PHYSIO` no RBAC: guards de rota na API (`requireRole('PHYSIO', 'ADMIN')`), visibilidade no middleware de autenticação e token JWT. Sem exposição na UI de outros roles.                                 | 0.5d    | S9     | ✅     |
-| **T-115** | Schema Prisma + DDL tenant para tabelas `medical_records`, `injury_protocols` e `return_to_play`. Campos de dados clínicos marcados como `BYTEA` (criptografia AES-256). Índices BRIN em datas de ocorrência.        | 1d      | S9     | ⬜     |
+| **T-115** | Schema Prisma + DDL tenant para tabelas `medical_records`, `injury_protocols` e `return_to_play`. Campos de dados clínicos marcados como `BYTEA` (criptografia AES-256). Índices BRIN em datas de ocorrência.        | 1d      | S9     | ✅     |
 | **T-116** | CRUD de prontuário esportivo (`/api/medical-records`): criação, leitura com descriptografia, atualização e soft-delete. Criptografia AES-256 via pgcrypto para campos clínicos. Audit log em cada acesso de leitura. | 1d      | S9     | ⬜     |
 | **T-133** | Job de audit log de acesso a dados médicos: qualquer leitura de `medical_records` por qualquer role gera entrada em `data_access_log` com actor, timestamp e campo acessado (compliance LGPD).                       | 0.5d    | S9     | ⬜     |
 
@@ -117,10 +117,6 @@
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
 
 ### Sprint 9 (FisioBase Core — Prontuário, RTP e Protocolos)
-
-**Fase 1: Fundações de Segurança e Banco de Dados (Bloqueadores)**
-
-3. `T-115` — Schema Prisma e Tabelas do FisioBase (Foca nos dados clínicos e criptografia)
 
 **Fase 2: APIs, Lógica Clínica e Compliance (Depende da Fase 1)** 4. `T-116` — CRUD de Prontuário Esportivo com Criptografia (Backend) 5. `T-133` — Job de Audit Log de Acesso a Dados Médicos (Garante compliance LGPD sobre o CRUD) 6. `T-119` — API de Status de Retorno ao Jogo (RTP) 7. `T-121` — Biblioteca de Protocolos (Seed e Endpoint de listagem)
 

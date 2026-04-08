@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "../../generated/prisma/index.js";
+import { seedInjuryProtocols } from "./seed-injury-protocols.js";
 
 /**
  * Validates that a clubId is a safe cuid2-like value before interpolating it
@@ -183,7 +184,7 @@ const TENANT_ENUMS_DDL = `
 `;
 
 /**
- * All tenant tables in dependency order (v1.0 / v1.5).
+ * All tenant tables in dependency order (v1.0 / v1.5 + v2.0 technical_evaluations).
  *
  * Critical notes:
  * - members.cpf and members.phone are BYTEA (not TEXT) — encrypted via pgcrypto.
@@ -207,6 +208,9 @@ const TENANT_ENUMS_DDL = `
  * - exercises.isActive uses soft-delete to preserve session_exercises references.
  * - training_sessions.isCompleted = true makes the session immutable (no DELETE allowed).
  * - session_exercises.order is advisory (UI-managed); NOT enforced unique.
+ * - technical_evaluations.microcycle uses ISO week format YYYY-Www.
+ * - technical_evaluations UNIQUE on (athleteId, microcycle) — one evaluation per athlete per week.
+ * - technical_evaluations.actorId stores the ADMIN/COACH who submitted the evaluation.
  */
 const TENANT_TABLES_DDL = `
   -- plans (no FK dependencies)
@@ -472,10 +476,33 @@ const TENANT_TABLES_DDL = `
     "updatedAt"   TIMESTAMP(3) NOT NULL,
     CONSTRAINT "integration_tokens_pkey" PRIMARY KEY ("id")
   );
+
+  -- technical_evaluations (FK → athletes)
+  -- microcycle uses ISO week format YYYY-Www (e.g. "2025-W03").
+  -- UNIQUE on (athleteId, microcycle) enforces one evaluation per athlete per training week.
+  -- actorId stores the ADMIN/COACH who submitted the evaluation.
+  -- Scores (technique, tactical, physical, mental, attitude) use 1–5 scale enforced by Zod.
+  CREATE TABLE IF NOT EXISTS "technical_evaluations" (
+    "id"         TEXT         NOT NULL,
+    "athleteId"  TEXT         NOT NULL,
+    "microcycle" TEXT         NOT NULL,
+    "date"       DATE         NOT NULL,
+    "technique"  INTEGER      NOT NULL,
+    "tactical"   INTEGER      NOT NULL,
+    "physical"   INTEGER      NOT NULL,
+    "mental"     INTEGER      NOT NULL,
+    "attitude"   INTEGER      NOT NULL,
+    "notes"      TEXT,
+    "actorId"    TEXT         NOT NULL,
+    "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"  TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "technical_evaluations_pkey" PRIMARY KEY ("id")
+  );
 `;
 
 /**
- * All indexes on tenant tables (v1.0 / v1.5).
+ * All indexes on tenant tables (v1.0 / v1.5 + v2.0 technical_evaluations).
  * CREATE INDEX IF NOT EXISTS is available from PG 9.5+.
  */
 const TENANT_INDEXES_DDL = `
@@ -587,10 +614,19 @@ const TENANT_INDEXES_DDL = `
     ON "integration_tokens" ("athleteId");
   CREATE INDEX IF NOT EXISTS "integration_tokens_isActive_idx"
     ON "integration_tokens" ("isActive");
+
+  -- technical_evaluations
+  -- UNIQUE on (athleteId, microcycle) mirrors the Prisma @@unique constraint.
+  CREATE UNIQUE INDEX IF NOT EXISTS "technical_evaluations_athleteId_microcycle_key"
+    ON "technical_evaluations" ("athleteId", "microcycle");
+  CREATE INDEX IF NOT EXISTS "technical_evaluations_athleteId_idx"
+    ON "technical_evaluations" ("athleteId");
+  CREATE INDEX IF NOT EXISTS "technical_evaluations_date_idx"
+    ON "technical_evaluations" ("date");
 `;
 
 /**
- * Foreign key constraints on tenant tables (v1.0 / v1.5).
+ * Foreign key constraints on tenant tables (v1.0 / v1.5 + v2.0 technical_evaluations).
  */
 const TENANT_FOREIGN_KEYS_DDL = `
   -- member_plans → members
@@ -662,6 +698,13 @@ const TENANT_FOREIGN_KEYS_DDL = `
   -- integration_tokens → athletes
   ALTER TABLE "integration_tokens"
     ADD CONSTRAINT IF NOT EXISTS "integration_tokens_athleteId_fkey"
+    FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- technical_evaluations → athletes
+  -- ON DELETE RESTRICT: prevents deleting an athlete who has evaluation history.
+  ALTER TABLE "technical_evaluations"
+    ADD CONSTRAINT IF NOT EXISTS "technical_evaluations_athleteId_fkey"
     FOREIGN KEY ("athleteId") REFERENCES "athletes" ("id")
     ON DELETE RESTRICT ON UPDATE CASCADE;
 `;
@@ -743,6 +786,8 @@ const TENANT_MATERIALIZED_VIEW_INDEXES_DDL = `
  * - medical_records.clinicalNotes / diagnosis / treatmentDetails: BYTEA (AES-256 via
  *   pgcrypto). Fields needed for analytics (structure, grade, mechanism) stay as TEXT/enum
  *   so they can be queried without decryption (see design-docs.md § Correlação carga × lesão).
+ * - medical_records.occurredAt uses BRIN index — consistent with workload_metrics.date pattern.
+ *   Medical records are append-only per athlete (injuries don't get backdated).
  * - return_to_play: UNIQUE on athleteId — only one active RTP record per athlete.
  *   History is tracked via medical_records. Status transitions only (no hard delete).
  * - data_access_log: intentionally NO FK to medical_records. The clinical record may be
@@ -876,6 +921,9 @@ const TENANT_V2_TABLES_DDL = `
  * v2.0 indexes on tenant tables.
  *
  * Index strategy notes:
+ * - medical_records.occurredAt uses BRIN — medical records are append-only per athlete
+ *   (injuries don't get backdated). Consistent with the workload_metrics.date BRIN pattern.
+ *   BRIN is ~100× smaller than B-tree for naturally time-ordered, append-only workloads.
  * - data_access_log.createdAt uses BRIN — access logs are high-volume, append-only,
  *   naturally ordered by time. BRIN is ~100× smaller than B-tree for such workloads.
  * - field_access_logs.scannedAt uses BRIN for the same reason.
@@ -894,8 +942,10 @@ const TENANT_V2_INDEXES_DDL = `
   -- medical_records
   CREATE INDEX IF NOT EXISTS "medical_records_athleteId_idx"
     ON "medical_records" ("athleteId");
-  CREATE INDEX IF NOT EXISTS "medical_records_occurredAt_idx"
-    ON "medical_records" ("occurredAt");
+  -- BRIN: medical records are append-only per athlete (injuries don't get backdated).
+  -- Consistent with workload_metrics.date BRIN pattern.
+  CREATE INDEX IF NOT EXISTS "medical_records_occurredAt_brin_idx"
+    ON "medical_records" USING BRIN ("occurredAt");
   CREATE INDEX IF NOT EXISTS "medical_records_grade_idx"
     ON "medical_records" ("grade");
 
@@ -978,6 +1028,14 @@ const TENANT_V2_FOREIGN_KEYS_DDL = `
     ON DELETE SET NULL ON UPDATE CASCADE;
 `;
 
+export const TENANT_TABLES_DDL_FOR_TESTING = TENANT_TABLES_DDL;
+export const TENANT_INDEXES_DDL_FOR_TESTING = TENANT_INDEXES_DDL;
+export const TENANT_FOREIGN_KEYS_DDL_FOR_TESTING = TENANT_FOREIGN_KEYS_DDL;
+export const TENANT_V2_TABLES_DDL_FOR_TESTING = TENANT_V2_TABLES_DDL;
+export const TENANT_V2_INDEXES_DDL_FOR_TESTING = TENANT_V2_INDEXES_DDL;
+export const TENANT_V2_FOREIGN_KEYS_DDL_FOR_TESTING =
+  TENANT_V2_FOREIGN_KEYS_DDL;
+
 /**
  * Provisions a complete PostgreSQL tenant schema for a new club.
  *
@@ -993,6 +1051,10 @@ const TENANT_V2_FOREIGN_KEYS_DDL = `
  *   cannot execute inside an open transaction block (PostgreSQL restriction).
  *
  *   Step 4 runs inside a transaction to keep table/index/FK/view creation atomic.
+ *
+ *   Step 5 (seed) runs outside the transaction — seedInjuryProtocols opens its
+ *   own transaction via withTenantSchema. Nested transactions are not supported
+ *   by Prisma interactive transactions.
  *
  * @param prisma  - The global Prisma client (public schema connection).
  * @param clubId  - The cuid2 identifier of the new club.
@@ -1029,4 +1091,6 @@ export async function provisionTenantSchema(
     await tx.$executeRawUnsafe(TENANT_V2_INDEXES_DDL);
     await tx.$executeRawUnsafe(TENANT_V2_FOREIGN_KEYS_DDL);
   });
+
+  await seedInjuryProtocols(prisma, clubId);
 }

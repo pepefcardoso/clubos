@@ -24,7 +24,7 @@
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-114** | Ativar role `PHYSIO` no RBAC: guards de rota na API (`requireRole('PHYSIO', 'ADMIN')`), visibilidade no middleware de autenticação e token JWT. Sem exposição na UI de outros roles.                                 | 0.5d    | S9     | ✅     |
 | **T-115** | Schema Prisma + DDL tenant para tabelas `medical_records`, `injury_protocols` e `return_to_play`. Campos de dados clínicos marcados como `BYTEA` (criptografia AES-256). Índices BRIN em datas de ocorrência.        | 1d      | S9     | ✅     |
-| **T-116** | CRUD de prontuário esportivo (`/api/medical-records`): criação, leitura com descriptografia, atualização e soft-delete. Criptografia AES-256 via pgcrypto para campos clínicos. Audit log em cada acesso de leitura. | 1d      | S9     | ⬜     |
+| **T-116** | CRUD de prontuário esportivo (`/api/medical-records`): criação, leitura com descriptografia, atualização e soft-delete. Criptografia AES-256 via pgcrypto para campos clínicos. Audit log em cada acesso de leitura. | 1d      | S9     | ✅     |
 | **T-133** | Job de audit log de acesso a dados médicos: qualquer leitura de `medical_records` por qualquer role gera entrada em `data_access_log` com actor, timestamp e campo acessado (compliance LGPD).                       | 0.5d    | S9     | ⬜     |
 
 ### US-37 — Prontuário Esportivo (UI)
@@ -118,7 +118,7 @@
 
 ### Sprint 9 (FisioBase Core — Prontuário, RTP e Protocolos)
 
-**Fase 2: APIs, Lógica Clínica e Compliance (Depende da Fase 1)** 4. `T-116` — CRUD de Prontuário Esportivo com Criptografia (Backend) 5. `T-133` — Job de Audit Log de Acesso a Dados Médicos (Garante compliance LGPD sobre o CRUD) 6. `T-119` — API de Status de Retorno ao Jogo (RTP) 7. `T-121` — Biblioteca de Protocolos (Seed e Endpoint de listagem)
+**Fase 2: APIs, Lógica Clínica e Compliance (Depende da Fase 1)** 5. `T-133` — Job de Audit Log de Acesso a Dados Médicos (Garante compliance LGPD sobre o CRUD) 6. `T-119` — API de Status de Retorno ao Jogo (RTP) 7. `T-121` — Biblioteca de Protocolos (Seed e Endpoint de listagem)
 
 **Fase 3: Interfaces do Fisioterapeuta e Dashboards (Depende da Fase 2)** 8. `T-117` — UI do Prontuário (Formulário de Registro) 9. `T-118` — Timeline de Eventos Clínicos por Atleta 10. `T-120` — UI e Widget do Status RTP no Perfil do Atleta 11. `T-122` — Dashboard Analítico de Correlação Carga (ACWR) × Lesão
 

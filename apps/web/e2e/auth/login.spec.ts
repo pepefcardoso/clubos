@@ -8,6 +8,8 @@ import {
 import { LoginPage } from "../page-objects/login.page";
 import { ADMIN_TOKEN } from "../fixtures/fake-token";
 
+const API_BASE = process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3001";
+
 test.describe("Login Page — unauthenticated", () => {
   test.beforeEach(async ({ page }) => {
     const { mockRefreshFailure } = await import("../fixtures/mock-api");
@@ -63,11 +65,16 @@ test.describe("Login Page — unauthenticated", () => {
 
   test("redirects to /dashboard on successful login", async ({ page }) => {
     await mockLoginSuccess(page, ADMIN_TOKEN);
-    await mockRefreshSuccess(page, ADMIN_TOKEN);
     await mockGetCharges(page);
 
     const lp = new LoginPage(page);
     await lp.goto();
+
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await mockRefreshSuccess(page, ADMIN_TOKEN);
+    await mockLoginSuccess(page, ADMIN_TOKEN);
+    await mockGetCharges(page);
+
     await lp.fillAndSubmit("admin@clube.com", "password123");
 
     await expect(page).toHaveURL(/\/dashboard/);
@@ -76,8 +83,14 @@ test.describe("Login Page — unauthenticated", () => {
   test("disables submit and shows 'Entrando…' during submission", async ({
     page,
   }) => {
-    const API_BASE =
-      process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3001";
+    const lp = new LoginPage(page);
+    await lp.goto();
+
+    await expect(lp.emailInput).toBeVisible();
+
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await mockRefreshSuccess(page, ADMIN_TOKEN);
+
     await page.route(`${API_BASE}/api/auth/login`, async (route) => {
       await page.waitForTimeout(400);
       await route.fulfill({
@@ -94,10 +107,7 @@ test.describe("Login Page — unauthenticated", () => {
         }),
       });
     });
-    await mockRefreshSuccess(page, ADMIN_TOKEN);
 
-    const lp = new LoginPage(page);
-    await lp.goto();
     await lp.emailInput.fill("admin@clube.com");
     await lp.passwordInput.fill("password123");
     await lp.submitButton.click();

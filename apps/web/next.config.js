@@ -133,14 +133,11 @@ function buildCsp(isProduction) {
   ].join("; ");
 }
 
-module.exports = withSerwist(
-  withSentryConfig(nextConfig, {
-    silent: true,
-    org: process.env.SENTRY_ORG ?? "clubos",
-    project: process.env.SENTRY_PROJECT ?? "clubos-web",
-    hideSourceMaps: true,
-    telemetry: false,
-    dryRun: !process.env.SENTRY_AUTH_TOKEN,
-  }),
-  SERWIST_CONFIG,
-);
+module.exports = withSentryConfig(withSerwist(SERWIST_CONFIG)(nextConfig), {
+  silent: true,
+  org: process.env.SENTRY_ORG ?? "clubos",
+  project: process.env.SENTRY_PROJECT ?? "clubos-web",
+  hideSourceMaps: true,
+  telemetry: false,
+  dryRun: !process.env.SENTRY_AUTH_TOKEN,
+});

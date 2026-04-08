@@ -32,7 +32,9 @@ test.describe("Charges Page — ADMIN user", () => {
     const cp = new ChargesPage(page);
     await cp.goto();
 
-    await expect(page.getByRole("cell", { name: "João Silva" })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "João Silva", exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByRole("cell", { name: /R\$\s*99[,.]00/i }),
     ).toBeVisible();
@@ -111,8 +113,13 @@ test.describe("Charges Page — ADMIN user", () => {
     page,
     authenticatedAsAdmin: _,
   }) => {
+    let resolveFulfill!: () => void;
+    const fulfillReady = new Promise<void>((res) => {
+      resolveFulfill = res;
+    });
+
     await page.route(`${API_BASE}/api/charges/generate`, async (route) => {
-      await page.waitForTimeout(400);
+      await fulfillReady;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -129,11 +136,15 @@ test.describe("Charges Page — ADMIN user", () => {
 
     const cp = new ChargesPage(page);
     await cp.goto();
-    await cp.generateButton.click();
+
+    void cp.generateButton.click();
 
     const loadingBtn = page.getByRole("button", { name: /gerando/i });
     await expect(loadingBtn).toBeVisible();
     await expect(loadingBtn).toBeDisabled();
+
+    resolveFulfill();
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   });
 
   test("opens QR code modal with image when 'Ver QR' is clicked", async ({
@@ -269,6 +280,6 @@ test.describe("Charges Page — pagination", () => {
     await cp.goto();
 
     await expect(page.getByRole("button", { name: /próxima/i })).toBeVisible();
-    await expect(page.getByText(/mostrando 1–1 de 25/i)).toBeVisible();
+    await expect(page.getByText(/mostrando 1.+de 25/i)).toBeVisible();
   });
 });

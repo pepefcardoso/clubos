@@ -35,3 +35,6 @@ yarn-error.log*
 *.pem
 
 apps/api/uploads/
+
+apps/web/playwright-report/
+apps/web/test-results/

@@ -20,7 +20,6 @@ import type {
  *   v2 — exercises store added
  *   v3 — meta store added (key-value, used by SW Background Sync for activeClubId)
  */
-
 export class ClubOSDatabase extends Dexie {
   athletes!: EntityTable<CachedAthlete, "id">;
   trainingSessions!: EntityTable<TrainingSession, "localId">;
@@ -34,20 +33,16 @@ export class ClubOSDatabase extends Dexie {
           "Do not import this module in Server Components or API Routes.",
       );
     }
-
     super("clubos-db");
-
     this.version(1).stores({
       athletes: "id, clubId, status, [clubId+status], cachedAt",
       trainingSessions:
         "localId, clubId, athleteId, syncStatus, date, [clubId+syncStatus], [clubId+athleteId]",
     });
-
     this.version(2).stores({
       exercises:
         "id, clubId, category, isActive, [clubId+category], [clubId+isActive], cachedAt",
     });
-
     this.version(3).stores({
       meta: "key",
     });
@@ -57,7 +52,24 @@ export class ClubOSDatabase extends Dexie {
 export { ClubOSDatabase as default };
 
 /**
- * Singleton database instance. Import this in DAL files and hooks only.
- * Never import directly in React Server Components.
+ * Lazy singleton — only instantiated in the browser, never during SSR.
+ * Import getDb() in DAL files and hooks. Never import in Server Components.
  */
-export const db = new ClubOSDatabase();
+let _db: ClubOSDatabase | null = null;
+
+export function getDb(): ClubOSDatabase {
+  if (!_db) {
+    _db = new ClubOSDatabase();
+  }
+  return _db;
+}
+
+/**
+ * Convenience alias for call sites that previously used `db` directly.
+ * Prefer getDb() for new code.
+ */
+export const db = {
+  get current() {
+    return getDb();
+  },
+};

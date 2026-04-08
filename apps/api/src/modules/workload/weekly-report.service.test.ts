@@ -6,7 +6,7 @@ import {
   buildIdempotencyKey,
   sendWeeklyAthleteReports,
   type AthleteWeeklyStats,
-} from "../../modules/workload/weekly-report.service.js";
+} from "./weekly-report.service.js";
 
 vi.mock("../../lib/crypto.js", () => ({
   getEncryptionKey: vi.fn().mockReturnValue("test-encryption-key-32chars-xx!!"),

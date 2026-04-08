@@ -77,7 +77,7 @@ export type CreateTrainingSessionInput = Pick<
 
 /**
  * No PII — safe to store in IndexedDB without encryption.
- * Cached for offline exercise selection in the coaching workflow (T-102).
+ * Cached for offline exercise selection in the coaching workflow.
  * TTL is 4 hours (same as athletes cache).
  */
 export interface CachedExercise {

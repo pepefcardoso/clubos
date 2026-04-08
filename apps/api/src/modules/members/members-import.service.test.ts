@@ -253,7 +253,7 @@ describe("validateRow", () => {
   });
 });
 
-describe("validateRow — CSV injection guard (L-07)", () => {
+describe("validateRow — CSV injection guard", () => {
   const validBase = {
     nome: "João Silva",
     cpf: "12345678901",

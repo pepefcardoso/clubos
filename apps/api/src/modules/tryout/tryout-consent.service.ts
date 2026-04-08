@@ -22,11 +22,6 @@ import type {
  *      tryout form submission so the Next.js API route can hard-stop unsigned
  *      submissions for minors.
  *
- * Why audit_log and not a dedicated table?
- *   T-112 is an MVP. audit_log is already immutable by convention, queryable
- *   by action type for LGPD expiry (T-113), and requires no schema migration
- *   for existing tenants beyond the new enum value.
- *
  * @throws NotFoundError if clubSlug does not resolve to a known club.
  * @throws Re-throws any database errors to the route handler.
  */

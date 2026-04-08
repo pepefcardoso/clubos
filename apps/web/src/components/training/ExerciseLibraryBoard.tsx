@@ -128,12 +128,9 @@ function SelectionTray({ selected, onRemove, onClear }: SelectionTrayProps) {
     );
 }
 
-// ── Main Board ────────────────────────────────────────────────────────────────
-
 interface ExerciseLibraryBoardProps {
     /**
      * Called when the user finalises a selection.
-     * Optional — for future training session wiring (T-106).
      */
     onSelectionConfirm?: (selected: ExerciseResponse[]) => void;
 }

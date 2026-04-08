@@ -276,6 +276,11 @@ describe("createMedicalRecord()", () => {
     await createMedicalRecord(prisma, CLUB_ID, ACTOR_ID, BASE_INPUT);
     expect(prisma.$transaction).toHaveBeenCalledOnce();
   });
+
+  it("does NOT create a dataAccessLog entry (no encrypted data is read back)", async () => {
+    await createMedicalRecord(prisma, CLUB_ID, ACTOR_ID, BASE_INPUT);
+    expect(prisma.dataAccessLog.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("getMedicalRecordById()", () => {
@@ -415,6 +420,7 @@ describe("updateMedicalRecord()", () => {
       RECORD_ROW as never,
     );
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.dataAccessLog.create).mockResolvedValue({} as never);
   });
 
   it("returns updated record", async () => {
@@ -507,6 +513,110 @@ describe("updateMedicalRecord()", () => {
   });
 });
 
+describe("updateMedicalRecord() — data access logging", () => {
+  let prisma: ReturnType<typeof makePrisma>;
+
+  beforeEach(() => {
+    prisma = makePrisma();
+    vi.clearAllMocks();
+    vi.mocked(encryptField).mockResolvedValue(
+      new Uint8Array(Buffer.from("encrypted-bytes")),
+    );
+    vi.mocked(decryptField).mockResolvedValue("decrypted-plaintext");
+    vi.mocked(prisma.medicalRecord.findUnique).mockResolvedValue(
+      RECORD_ROW as never,
+    );
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.dataAccessLog.create).mockResolvedValue({} as never);
+  });
+
+  it("creates a dataAccessLog with action UPDATE_READ when clinical fields are present post-update", async () => {
+    vi.mocked(prisma.medicalRecord.update).mockResolvedValue({
+      ...RECORD_ROW,
+      clinicalNotes: new Uint8Array(Buffer.from("enc-notes")),
+    } as never);
+
+    await updateMedicalRecord(prisma, CLUB_ID, ACTOR_ID, RECORD_ID, {
+      clinicalNotes: "Nova nota clínica",
+    });
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actorId: ACTOR_ID,
+          entityId: RECORD_ID,
+          entityType: "MedicalRecord",
+          action: "UPDATE_READ",
+        }),
+      }),
+    );
+  });
+
+  it("includes only the decrypted fields in fieldsRead", async () => {
+    vi.mocked(prisma.medicalRecord.update).mockResolvedValue({
+      ...RECORD_ROW,
+      clinicalNotes: new Uint8Array(Buffer.from("enc-notes")),
+      diagnosis: new Uint8Array(Buffer.from("enc-diag")),
+      treatmentDetails: null,
+    } as never);
+
+    await updateMedicalRecord(prisma, CLUB_ID, ACTOR_ID, RECORD_ID, {
+      clinicalNotes: "Nota",
+      diagnosis: "Diagnóstico",
+    });
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fieldsRead: expect.arrayContaining(["clinicalNotes", "diagnosis"]),
+        }),
+      }),
+    );
+
+    const call = vi.mocked(prisma.dataAccessLog.create).mock.calls[0]?.[0];
+    expect((call?.data as { fieldsRead: string[] }).fieldsRead).not.toContain(
+      "treatmentDetails",
+    );
+  });
+
+  it("does NOT create dataAccessLog when no clinical fields are decrypted (plaintext-only update)", async () => {
+    vi.mocked(prisma.medicalRecord.update).mockResolvedValue(
+      RECORD_ROW as never,
+    );
+
+    await updateMedicalRecord(prisma, CLUB_ID, ACTOR_ID, RECORD_ID, {
+      structure: "Tornozelo",
+    });
+
+    expect(prisma.dataAccessLog.create).not.toHaveBeenCalled();
+  });
+
+  it("forwards ipAddress and userAgent into dataAccessLog", async () => {
+    vi.mocked(prisma.medicalRecord.update).mockResolvedValue({
+      ...RECORD_ROW,
+      clinicalNotes: new Uint8Array(Buffer.from("enc")),
+    } as never);
+
+    await updateMedicalRecord(
+      prisma,
+      CLUB_ID,
+      ACTOR_ID,
+      RECORD_ID,
+      { clinicalNotes: "Nota" },
+      { ipAddress: "10.0.0.1", userAgent: "Mozilla/5.0" },
+    );
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ipAddress: "10.0.0.1",
+          userAgent: "Mozilla/5.0",
+        }),
+      }),
+    );
+  });
+});
+
 describe("deleteMedicalRecord()", () => {
   let prisma: ReturnType<typeof makePrisma>;
 
@@ -522,6 +632,7 @@ describe("deleteMedicalRecord()", () => {
     } as never);
     vi.mocked(prisma.medicalRecord.delete).mockResolvedValue({} as never);
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.dataAccessLog.create).mockResolvedValue({} as never);
   });
 
   it("resolves without error on valid id", async () => {
@@ -563,6 +674,76 @@ describe("deleteMedicalRecord()", () => {
   });
 });
 
+describe("deleteMedicalRecord() — data access logging", () => {
+  let prisma: ReturnType<typeof makePrisma>;
+
+  beforeEach(() => {
+    prisma = makePrisma();
+    vi.clearAllMocks();
+    vi.mocked(prisma.medicalRecord.findUnique).mockResolvedValue({
+      id: RECORD_ID,
+      athleteId: ATHLETE_ID,
+      structure: "Ligamento cruzado anterior",
+      grade: "GRADE_2",
+      occurredAt: new Date("2025-03-10"),
+    } as never);
+    vi.mocked(prisma.medicalRecord.delete).mockResolvedValue({} as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.dataAccessLog.create).mockResolvedValue({} as never);
+  });
+
+  it("creates a dataAccessLog entry with action DELETE_ACCESS", async () => {
+    await deleteMedicalRecord(prisma, CLUB_ID, ACTOR_ID, RECORD_ID);
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actorId: ACTOR_ID,
+          entityId: RECORD_ID,
+          entityType: "MedicalRecord",
+          action: "DELETE_ACCESS",
+        }),
+      }),
+    );
+  });
+
+  it("uses empty fieldsRead (no clinical field decryption on delete)", async () => {
+    await deleteMedicalRecord(prisma, CLUB_ID, ACTOR_ID, RECORD_ID);
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fieldsRead: [] }),
+      }),
+    );
+  });
+
+  it("forwards ipAddress and userAgent into dataAccessLog", async () => {
+    await deleteMedicalRecord(prisma, CLUB_ID, ACTOR_ID, RECORD_ID, {
+      ipAddress: "10.0.0.1",
+      userAgent: "PostmanRuntime/7.0",
+    });
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ipAddress: "10.0.0.1",
+          userAgent: "PostmanRuntime/7.0",
+        }),
+      }),
+    );
+  });
+
+  it("does NOT create dataAccessLog when record does not exist", async () => {
+    vi.mocked(prisma.medicalRecord.findUnique).mockResolvedValue(null);
+
+    await expect(
+      deleteMedicalRecord(prisma, CLUB_ID, ACTOR_ID, "bad-id"),
+    ).rejects.toThrowError(MedicalRecordNotFoundError);
+
+    expect(prisma.dataAccessLog.create).not.toHaveBeenCalled();
+  });
+});
+
 describe("listMedicalRecords()", () => {
   let prisma: ReturnType<typeof makePrisma>;
 
@@ -575,13 +756,19 @@ describe("listMedicalRecords()", () => {
       rowWithAthlete,
     ] as never);
     vi.mocked(prisma.medicalRecord.count).mockResolvedValue(1);
+    vi.mocked(prisma.dataAccessLog.create).mockResolvedValue({} as never);
   });
 
   it("returns paginated response with data and total", async () => {
-    const result = await listMedicalRecords(prisma, CLUB_ID, {
-      page: 1,
-      limit: 20,
-    });
+    const result = await listMedicalRecords(
+      prisma,
+      CLUB_ID,
+      {
+        page: 1,
+        limit: 20,
+      },
+      ACTOR_ID,
+    );
     expect(result.total).toBe(1);
     expect(result.data).toHaveLength(1);
     expect(result.page).toBe(1);
@@ -589,20 +776,20 @@ describe("listMedicalRecords()", () => {
   });
 
   it("does NOT call decryptField — list returns summaries only", async () => {
-    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 });
+    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 }, ACTOR_ID);
     expect(decryptField).not.toHaveBeenCalled();
   });
 
-  it("does NOT create dataAccessLog entries", async () => {
-    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 });
-    expect(prisma.dataAccessLog.create).not.toHaveBeenCalled();
-  });
-
   it("response items do NOT include clinicalNotes, diagnosis, treatmentDetails", async () => {
-    const result = await listMedicalRecords(prisma, CLUB_ID, {
-      page: 1,
-      limit: 20,
-    });
+    const result = await listMedicalRecords(
+      prisma,
+      CLUB_ID,
+      {
+        page: 1,
+        limit: 20,
+      },
+      ACTOR_ID,
+    );
     const item = result.data[0];
     expect(item).not.toHaveProperty("clinicalNotes");
     expect(item).not.toHaveProperty("diagnosis");
@@ -610,32 +797,47 @@ describe("listMedicalRecords()", () => {
   });
 
   it("passes athleteId filter to Prisma where clause", async () => {
-    await listMedicalRecords(prisma, CLUB_ID, {
-      page: 1,
-      limit: 20,
-      athleteId: ATHLETE_ID,
-    });
+    await listMedicalRecords(
+      prisma,
+      CLUB_ID,
+      {
+        page: 1,
+        limit: 20,
+        athleteId: ATHLETE_ID,
+      },
+      ACTOR_ID,
+    );
     const call = vi.mocked(prisma.medicalRecord.findMany).mock.calls[0]?.[0];
     expect(call?.where).toMatchObject({ athleteId: ATHLETE_ID });
   });
 
   it("passes grade filter to Prisma where clause", async () => {
-    await listMedicalRecords(prisma, CLUB_ID, {
-      page: 1,
-      limit: 20,
-      grade: "GRADE_3",
-    });
+    await listMedicalRecords(
+      prisma,
+      CLUB_ID,
+      {
+        page: 1,
+        limit: 20,
+        grade: "GRADE_3",
+      },
+      ACTOR_ID,
+    );
     const call = vi.mocked(prisma.medicalRecord.findMany).mock.calls[0]?.[0];
     expect(call?.where).toMatchObject({ grade: "GRADE_3" });
   });
 
   it("applies from/to date range filter on occurredAt", async () => {
-    await listMedicalRecords(prisma, CLUB_ID, {
-      page: 1,
-      limit: 20,
-      from: "2025-01-01",
-      to: "2025-03-31",
-    });
+    await listMedicalRecords(
+      prisma,
+      CLUB_ID,
+      {
+        page: 1,
+        limit: 20,
+        from: "2025-01-01",
+        to: "2025-03-31",
+      },
+      ACTOR_ID,
+    );
     const call = vi.mocked(prisma.medicalRecord.findMany).mock.calls[0]?.[0];
     expect(call?.where).toMatchObject({
       occurredAt: { gte: expect.any(Date), lte: expect.any(Date) },
@@ -643,7 +845,7 @@ describe("listMedicalRecords()", () => {
   });
 
   it("orders results by occurredAt desc", async () => {
-    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 });
+    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 }, ACTOR_ID);
     const call = vi.mocked(prisma.medicalRecord.findMany).mock.calls[0]?.[0];
     expect(call?.orderBy).toEqual({ occurredAt: "desc" });
   });
@@ -651,16 +853,105 @@ describe("listMedicalRecords()", () => {
   it("returns empty data array when no records match", async () => {
     vi.mocked(prisma.medicalRecord.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.medicalRecord.count).mockResolvedValue(0);
-    const result = await listMedicalRecords(prisma, CLUB_ID, {
-      page: 1,
-      limit: 20,
-    });
+    const result = await listMedicalRecords(
+      prisma,
+      CLUB_ID,
+      {
+        page: 1,
+        limit: 20,
+      },
+      ACTOR_ID,
+    );
     expect(result.data).toHaveLength(0);
     expect(result.total).toBe(0);
   });
 
   it("calls $transaction (withTenantSchema)", async () => {
-    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 });
+    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 }, ACTOR_ID);
     expect(prisma.$transaction).toHaveBeenCalledOnce();
+  });
+});
+
+describe("listMedicalRecords() — data access logging", () => {
+  let prisma: ReturnType<typeof makePrisma>;
+
+  beforeEach(() => {
+    prisma = makePrisma();
+    vi.clearAllMocks();
+    vi.mocked(prisma.medicalRecord.findMany).mockResolvedValue([
+      RECORD_ROW,
+    ] as never);
+    vi.mocked(prisma.medicalRecord.count).mockResolvedValue(1);
+    vi.mocked(prisma.dataAccessLog.create).mockResolvedValue({} as never);
+  });
+
+  it("creates a dataAccessLog entry with action LIST", async () => {
+    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 }, ACTOR_ID);
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actorId: ACTOR_ID,
+          entityType: "MedicalRecord",
+          action: "LIST",
+        }),
+      }),
+    );
+  });
+
+  it("uses entityId 'list' and entityType 'MedicalRecord'", async () => {
+    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 }, ACTOR_ID);
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          entityId: "list",
+          entityType: "MedicalRecord",
+        }),
+      }),
+    );
+  });
+
+  it("logs empty fieldsRead since no clinical field decryption occurs", async () => {
+    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 }, ACTOR_ID);
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fieldsRead: [] }),
+      }),
+    );
+  });
+
+  it("forwards ipAddress and userAgent into dataAccessLog", async () => {
+    await listMedicalRecords(
+      prisma,
+      CLUB_ID,
+      { page: 1, limit: 20 },
+      ACTOR_ID,
+      { ipAddress: "172.16.0.1", userAgent: "axios/1.0" },
+    );
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ipAddress: "172.16.0.1",
+          userAgent: "axios/1.0",
+        }),
+      }),
+    );
+  });
+
+  it("creates the dataAccessLog entry even when the result set is empty", async () => {
+    vi.mocked(prisma.medicalRecord.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.medicalRecord.count).mockResolvedValue(0);
+
+    await listMedicalRecords(prisma, CLUB_ID, { page: 1, limit: 20 }, ACTOR_ID);
+
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledOnce();
+    expect(prisma.dataAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ action: "LIST" }),
+      }),
+    );
   });
 });

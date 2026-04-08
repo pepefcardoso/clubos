@@ -149,7 +149,6 @@ export function MemberPaymentsModal({
             aria-labelledby="payments-modal-title"
         >
             <div className="relative w-full max-w-3xl mx-4 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
-                {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 flex-shrink-0">
                     <div>
                         <h2
@@ -170,7 +169,6 @@ export function MemberPaymentsModal({
                     </button>
                 </div>
 
-                {/* Table area — scrollable */}
                 <div className="flex-1 overflow-y-auto">
                     {isError ? (
                         <div className="py-12 text-center text-sm text-danger px-6">
@@ -238,7 +236,6 @@ export function MemberPaymentsModal({
                                                         : undefined
                                                 }
                                             >
-                                                {/* Paid at + optional cancelled badge */}
                                                 <td className="px-4 py-3 text-neutral-700">
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         {formatDateTime(payment.paidAt)}
@@ -250,12 +247,10 @@ export function MemberPaymentsModal({
                                                     </div>
                                                 </td>
 
-                                                {/* Due date */}
                                                 <td className="px-4 py-3 text-neutral-600">
                                                     {formatDate(payment.charge.dueDate)}
                                                 </td>
 
-                                                {/* Payment method — with mismatch hint when charge method differs */}
                                                 <td className="px-4 py-3 text-neutral-600">
                                                     {methodLabel(payment.method)}
                                                     {payment.method !== payment.charge.method && (
@@ -265,12 +260,10 @@ export function MemberPaymentsModal({
                                                     )}
                                                 </td>
 
-                                                {/* Gateway */}
                                                 <td className="px-4 py-3 text-neutral-600">
                                                     {gatewayLabel(payment.charge.gatewayName)}
                                                 </td>
 
-                                                {/* Amount — strikethrough when cancelled */}
                                                 <td
                                                     className={[
                                                         "px-4 py-3 text-right font-mono font-semibold",
@@ -290,7 +283,6 @@ export function MemberPaymentsModal({
                     )}
                 </div>
 
-                {/* Pagination — only visible when there are results */}
                 {data && data.meta.total > 0 && (
                     <div className="border-t border-neutral-100 px-4 flex-shrink-0">
                         <Pagination
@@ -302,7 +294,6 @@ export function MemberPaymentsModal({
                     </div>
                 )}
 
-                {/* Footer */}
                 <div className="flex justify-end px-6 py-4 border-t border-neutral-200 bg-neutral-50 flex-shrink-0">
                     <Button variant="secondary" onClick={onClose}>
                         Fechar

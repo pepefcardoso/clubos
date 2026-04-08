@@ -35,7 +35,8 @@ export async function medicalRecordRoutes(
    * Paginated list of medical record summaries.
    * Clinical fields (clinicalNotes, diagnosis, treatmentDetails) are NOT
    * returned here — use GET /:recordId for the full decrypted record.
-   * No data_access_log entries are written for list responses.
+   * A data_access_log entry (action: "LIST") is written for every call
+   * per LGPD Art. 37.
    */
   fastify.get(
     "/",
@@ -52,10 +53,17 @@ export async function medicalRecordRoutes(
       }
 
       const { clubId } = request.user as AccessTokenPayload;
+      const userAgent = request.headers["user-agent"];
+
       const result = await listMedicalRecords(
         fastify.prisma,
         clubId,
         parsed.data,
+        request.actorId,
+        {
+          ipAddress: request.ip,
+          ...(userAgent ? { userAgent } : {}),
+        },
       );
       return reply.status(200).send(result);
     },
@@ -65,6 +73,7 @@ export async function medicalRecordRoutes(
    * POST /api/medical-records
    * Create a new injury medical record for an athlete.
    * Clinical fields are encrypted at rest (AES-256 via pgcrypto).
+   * No data_access_log entry is written on create — no encrypted data is read back.
    */
   fastify.post(
     "/",
@@ -153,6 +162,9 @@ export async function medicalRecordRoutes(
    * PUT /api/medical-records/:recordId
    * Partially update a medical record — any subset of fields.
    * Clinical fields are re-encrypted on update or set to NULL if cleared.
+   * A data_access_log entry (action: "UPDATE_READ") is written when clinical
+   * fields are decrypted for the response. Plaintext-only updates
+   * do NOT generate a data_access_log entry.
    */
   fastify.put(
     "/:recordId",
@@ -170,6 +182,7 @@ export async function medicalRecordRoutes(
       }
 
       const { clubId } = request.user as AccessTokenPayload;
+      const userAgent = request.headers["user-agent"];
 
       try {
         const record = await updateMedicalRecord(
@@ -178,6 +191,10 @@ export async function medicalRecordRoutes(
           request.actorId,
           recordId,
           parsed.data,
+          {
+            ipAddress: request.ip,
+            ...(userAgent ? { userAgent } : {}),
+          },
         );
         return reply.status(200).send(record);
       } catch (err) {
@@ -204,6 +221,8 @@ export async function medicalRecordRoutes(
    * DELETE /api/medical-records/:recordId
    * Permanently removes a medical record (hard delete).
    * Deletion is tracked in audit_log with metadata.deleted = true.
+   * A data_access_log entry (action: "DELETE_ACCESS") is also written
+   * per LGPD Art. 37.
    */
   fastify.delete(
     "/:recordId",
@@ -211,6 +230,7 @@ export async function medicalRecordRoutes(
     async (request, reply) => {
       const { recordId } = request.params as { recordId: string };
       const { clubId } = request.user as AccessTokenPayload;
+      const userAgent = request.headers["user-agent"];
 
       try {
         await deleteMedicalRecord(
@@ -218,6 +238,10 @@ export async function medicalRecordRoutes(
           clubId,
           request.actorId,
           recordId,
+          {
+            ipAddress: request.ip,
+            ...(userAgent ? { userAgent } : {}),
+          },
         );
         return reply.status(204).send();
       } catch (err) {

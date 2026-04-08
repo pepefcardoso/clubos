@@ -41,6 +41,22 @@ export interface RequestMeta {
   userAgent?: string;
 }
 
+/**
+ * Standardized action strings for data_access_log entries on medical records.
+ * These are TEXT (not an enum) — new values can be added without DDL migrations.
+ * Used for LGPD Art. 37 compliance audit trail.
+ */
+const DATA_ACCESS_ACTIONS = {
+  /** getMedicalRecordById — full clinical field decrypt */
+  READ: "READ",
+  /** listMedicalRecords — no clinical field decryption, but access is still logged */
+  LIST: "LIST",
+  /** updateMedicalRecord — decrypt of post-update clinical field state */
+  UPDATE_READ: "UPDATE_READ",
+  /** deleteMedicalRecord — metadata read before hard delete (no clinical decrypt) */
+  DELETE_ACCESS: "DELETE_ACCESS",
+} as const;
+
 type RawRecordRow = {
   id: string;
   athleteId: string;
@@ -72,6 +88,8 @@ type RawRecordRow = {
  * Writes a `MEDICAL_RECORD_CREATED` audit log entry inside the same transaction.
  * The response returns plaintext clinical values from `input` directly, avoiding
  * a redundant decrypt round-trip for the just-written ciphertext.
+ *
+ * No `dataAccessLog` entry is written on create — no encrypted data is read back.
  */
 export async function createMedicalRecord(
   prisma: PrismaClient,
@@ -204,7 +222,7 @@ export async function getMedicalRecordById(
         actorId,
         entityId: record.id,
         entityType: "MedicalRecord",
-        action: "READ",
+        action: DATA_ACCESS_ACTIONS.READ,
         fieldsRead,
         ipAddress: requestMeta.ipAddress ?? null,
         userAgent: requestMeta.userAgent ?? null,
@@ -253,6 +271,11 @@ export async function getMedicalRecordById(
  * Decrypts the post-update state to return accurate plaintext values.
  * Uses `Promise.all` for parallel decryption of multiple fields.
  *
+ * LGPD compliance: when clinical fields are decrypted for the response,
+ * a `data_access_log` entry is written with action `UPDATE_READ`. This entry is
+ * conditional — plaintext-only updates (structure, grade, etc.) do NOT generate
+ * a data_access_log entry since no encrypted data is read.
+ *
  * Throws `MedicalRecordNotFoundError` / `ProtocolNotFoundError` as appropriate.
  * Writes a `MEDICAL_RECORD_UPDATED` audit log entry.
  */
@@ -262,6 +285,7 @@ export async function updateMedicalRecord(
   actorId: string,
   recordId: string,
   input: UpdateMedicalRecordInput,
+  requestMeta: RequestMeta = {},
 ): Promise<MedicalRecordResponse> {
   return withTenantSchema(prisma, clubId, async (tx) => {
     const existing = (await tx.medicalRecord.findUnique({
@@ -334,6 +358,25 @@ export async function updateMedicalRecord(
         : Promise.resolve(null),
     ]);
 
+    const decryptedFields: string[] = [];
+    if (updated.clinicalNotes) decryptedFields.push("clinicalNotes");
+    if (updated.diagnosis) decryptedFields.push("diagnosis");
+    if (updated.treatmentDetails) decryptedFields.push("treatmentDetails");
+
+    if (decryptedFields.length > 0) {
+      await tx.dataAccessLog.create({
+        data: {
+          actorId,
+          entityId: recordId,
+          entityType: "MedicalRecord",
+          action: DATA_ACCESS_ACTIONS.UPDATE_READ,
+          fieldsRead: decryptedFields,
+          ipAddress: requestMeta.ipAddress ?? null,
+          userAgent: requestMeta.userAgent ?? null,
+        },
+      });
+    }
+
     return {
       id: updated.id,
       athleteId: updated.athleteId,
@@ -360,15 +403,20 @@ export async function updateMedicalRecord(
  * via the `audit_log` entry with `metadata.deleted = true`. This mirrors the
  * `deleteEvaluation` pattern used throughout the codebase.
  *
+ * LGPD compliance : writes a `data_access_log` entry with action
+ * `DELETE_ACCESS` before the row is removed. The record is read for metadata
+ * purposes only (no clinical field decryption), so `fieldsRead` is `[]`.
+ * The log row intentionally has no FK to `medical_records` (the record is about
+ * to be hard-deleted) — the schema already accommodates this via design.
+ *
  * Throws `MedicalRecordNotFoundError` when the record does not exist.
- * Writes an audit log entry with MEDICAL_RECORD_UPDATED action and
- * `metadata.deleted = true` before the row is removed.
  */
 export async function deleteMedicalRecord(
   prisma: PrismaClient,
   clubId: string,
   actorId: string,
   recordId: string,
+  requestMeta: RequestMeta = {},
 ): Promise<void> {
   return withTenantSchema(prisma, clubId, async (tx) => {
     const existing = await tx.medicalRecord.findUnique({
@@ -385,6 +433,18 @@ export async function deleteMedicalRecord(
     if (!existing) throw new MedicalRecordNotFoundError();
 
     await tx.medicalRecord.delete({ where: { id: recordId } });
+
+    await tx.dataAccessLog.create({
+      data: {
+        actorId,
+        entityId: recordId,
+        entityType: "MedicalRecord",
+        action: DATA_ACCESS_ACTIONS.DELETE_ACCESS,
+        fieldsRead: [],
+        ipAddress: requestMeta.ipAddress ?? null,
+        userAgent: requestMeta.userAgent ?? null,
+      },
+    });
 
     await tx.auditLog.create({
       data: {
@@ -411,7 +471,12 @@ export async function deleteMedicalRecord(
  *   - Avoids bulk pgcrypto round-trips for potentially hundreds of records.
  *   - Minimises LGPD exposure surface — `structure`, `grade`, and `mechanism`
  *     (stored as plaintext) are sufficient for timeline and dashboard views.
- *   - No `data_access_log` entries are written — no encrypted data is read.
+ *
+ * LGPD compliance: even without field decryption, a list query is a
+ * data processing operation under LGPD Art. 37. A single `data_access_log`
+ * entry is written per call with action `LIST` and `fieldsRead = []`.
+ * `entityId` is set to `"list"` — there is no FK constraint on this column,
+ * and a per-row entry would be prohibitively expensive for large result sets.
  *
  * Supported filters:
  *   - `athleteId` — restrict to a single athlete
@@ -424,6 +489,8 @@ export async function listMedicalRecords(
   prisma: PrismaClient,
   clubId: string,
   params: ListMedicalRecordsQuery,
+  actorId: string,
+  requestMeta: RequestMeta = {},
 ): Promise<PaginatedResponse<MedicalRecordSummary>> {
   return withTenantSchema(prisma, clubId, async (tx) => {
     const where = {
@@ -451,6 +518,18 @@ export async function listMedicalRecords(
       }),
       tx.medicalRecord.count({ where }),
     ]);
+
+    await tx.dataAccessLog.create({
+      data: {
+        actorId,
+        entityId: "list",
+        entityType: "MedicalRecord",
+        action: DATA_ACCESS_ACTIONS.LIST,
+        fieldsRead: [],
+        ipAddress: requestMeta.ipAddress ?? null,
+        userAgent: requestMeta.userAgent ?? null,
+      },
+    });
 
     return {
       data: rows.map((r) => ({

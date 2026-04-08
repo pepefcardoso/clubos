@@ -33,13 +33,12 @@ const CLUB_ID = "testclubid0000000001";
 
 /**
  * The number of protocols in the FIFA_PROTOCOLS constant inside the module.
- * Update this when T-121 expands the library.
  */
 const PROTOCOL_COUNT = 6;
 
 /**
  * Expected protocol IDs — must exactly match the `id` field of each entry
- * in FIFA_PROTOCOLS. Update when T-121 adds more protocols.
+ * in FIFA_PROTOCOLS.
  */
 const EXPECTED_IDS = [
   "proto_hamstring_g1",

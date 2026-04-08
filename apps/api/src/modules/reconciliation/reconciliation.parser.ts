@@ -77,7 +77,7 @@ export function validateOfxContent(content: string): void {
  *   "20250115120000.000[-3:BRT]"   → 2025-01-15T12:00:00Z (TZ offset dropped)
  *
  * The timezone component is intentionally dropped — all dates are treated as UTC
- * for consistent comparison in the matching algorithm (T-099).
+ * for consistent comparison in the matching algorithm.
  */
 export function parseOfxDate(raw: string): Date {
   const cleaned = raw

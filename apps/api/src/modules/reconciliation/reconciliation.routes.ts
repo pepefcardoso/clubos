@@ -24,7 +24,7 @@ export async function reconciliationRoutes(
    * Accepts a multipart OFX file upload (.ofx extension required) and returns
    * the parsed bank statement as structured JSON.
    *
-   * No data is persisted — the response feeds the T-099 matching UI directly.
+   * No data is persisted — the response feeds the matching UI directly.
    *
    * Access:  ADMIN only.
    * Errors:  400 (no file / bad extension / exceeds 2 MB), 422 (parse failure)

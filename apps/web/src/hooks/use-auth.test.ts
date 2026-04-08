@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useAuth } from "./use-auth";
 
-// vi.hoisted ensures these variables are initialized before the hoisted vi.mock factories run
 const { mockUseAuthContext } = vi.hoisted(() => ({
   mockUseAuthContext: vi.fn(),
 }));

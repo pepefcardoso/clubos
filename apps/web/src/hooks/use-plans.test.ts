@@ -7,9 +7,6 @@ import {
   PLANS_QUERY_KEY,
 } from "./use-plans";
 
-// ── Mocks ──────────────────────────────────────────────────────────────────
-// vi.hoisted ensures variables are initialized before the hoisted vi.mock factories run
-
 const {
   mockUseQuery,
   mockUseMutation,
@@ -54,8 +51,6 @@ vi.mock("@/lib/api/plans", () => ({
   deletePlan: mockDeletePlan,
 }));
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
 const FAKE_TOKEN = "test-token";
 
 const fakePlan = {
@@ -68,8 +63,6 @@ const fakePlan = {
   createdAt: "2025-01-01T00:00:00.000Z",
   updatedAt: "2025-01-01T00:00:00.000Z",
 };
-
-// ── Tests ──────────────────────────────────────────────────────────────────
 
 describe("PLANS_QUERY_KEY", () => {
   it("is ['plans']", () => {

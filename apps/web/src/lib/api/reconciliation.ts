@@ -116,7 +116,7 @@ export class ReconciliationApiError extends Error {
 /**
  * Uploads an OFX file to the backend parse endpoint and returns the
  * structured bank statement. No DB writes occur — this is a pure parse
- * operation whose result feeds the T-099 matching UI.
+ * operation whose result feeds the matching UI.
  */
 export async function uploadOfxFile(
   file: File,

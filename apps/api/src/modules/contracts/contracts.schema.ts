@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// ISO date string YYYY-MM-DD — same pattern as athletes birthDate
 const isoDateString = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be an ISO date string (YYYY-MM-DD)");
@@ -17,7 +16,6 @@ export const CreateContractSchema = z
   })
   .strip();
 
-// PUT: athleteId and type are immutable post-creation — excluded from this schema
 export const UpdateContractSchema = z
   .object({
     status: z.enum(["ACTIVE", "EXPIRED", "TERMINATED", "SUSPENDED"]).optional(),

@@ -47,12 +47,12 @@ export interface SyncQueueState {
 /**
  * Manages the offline-first workload recording queue.
  *
- * Responsibilities (T-089 scope):
+ * Responsibilities:
  *   1. Persist new sessions to IndexedDB immediately (syncStatus='pending').
  *   2. Attempt best-effort immediate sync when online.
  *   3. Trigger flushPending() automatically on network reconnection.
  *
- * Out of scope (T-090):
+ * Out of scope:
  *   - Background Sync API / Service Worker retry
  *   - Exponential backoff with retry counter
  *   - Moving sessions to permanent 'error' state after N retries
@@ -71,8 +71,7 @@ export function useSyncQueue(): SyncQueueState {
    * Calls markSessionSyncing() before the fetch to prevent duplicate
    * in-flight requests if flushPending is triggered concurrently.
    *
-   * On failure the session is moved to 'error' status so T-090 can apply
-   * its retry policy. This hook does NOT implement retries itself.
+   * This hook does NOT implement retries itself.
    */
   const attemptSync = useCallback(
     async (session: TrainingSession): Promise<void> => {

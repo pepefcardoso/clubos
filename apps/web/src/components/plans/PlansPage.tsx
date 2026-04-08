@@ -11,8 +11,6 @@ import { PlanFormModal } from "./PlanFormModal";
 import { DeletePlanDialog } from "./DeletePlanDialog";
 import type { PlanResponse } from "@/lib/api/plans";
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
 interface Toast {
     id: number;
     type: "success" | "error";

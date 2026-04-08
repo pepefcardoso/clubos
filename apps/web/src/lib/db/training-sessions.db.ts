@@ -8,8 +8,7 @@ import type {
 
 /**
  * Generates a 32-character hex ID using the Web Crypto API.
- * Available in all modern browsers and in Service Worker context (required
- * for T-089 Background Sync). Falls back to Math.random() only if crypto
+ * Available in all modern browsers and in Service Worker context. Falls back to Math.random() only if crypto
  * is unavailable (test environments without jsdom).
  *
  * This ID becomes the idempotency key sent to POST /api/workload/metrics,
@@ -48,7 +47,7 @@ export async function createLocalTrainingSession(
 
 /**
  * Returns all sessions with syncStatus="pending" for a club, sorted oldest-first.
- * This is the primary feed for the T-089 Background Sync worker.
+ * This is the primary feed for the Background Sync worker.
  * Uses the compound [clubId+syncStatus] index — no full-table scan.
  */
 export async function getPendingSessions(
@@ -62,7 +61,7 @@ export async function getPendingSessions(
 
 /**
  * Returns all sessions for a specific athlete within a club, sorted by date ascending.
- * Used for offline ACWR history display (T-109) and athlete detail views.
+ * Used for offline ACWR history display and athlete detail views.
  * Uses the compound [clubId+athleteId] index.
  */
 export async function getSessionsByAthlete(

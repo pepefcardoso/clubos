@@ -37,7 +37,7 @@ const DEFAULT_BACKOFF_MS = [0, 5_000, 15_000] as const;
  *
  * Called from:
  *   - `useSyncWorker` hook (React layer) on online event
- *   - SW `sync` event handler (T-104)
+ *   - SW `sync` event handler
  */
 export async function flushPendingSessions(
   clubId: string,

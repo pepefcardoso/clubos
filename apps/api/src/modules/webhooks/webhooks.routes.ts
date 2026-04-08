@@ -20,7 +20,7 @@ import {
  * Five-step flow:
  *   1. Resolve the gateway from GatewayRegistry (404 → unknown provider)
  *   2. Validate signature via parseWebhook()       (401 → tampered/missing)
- *   3. Redis SET NX dedup check (T-071 / L-11)     (200 → duplicate, no enqueue)
+ *   3. Redis SET NX dedup check     (200 → duplicate, no enqueue)
  *   4. Enqueue the normalised event in BullMQ      (500 → infrastructure failure)
  *   5. Respond HTTP 200 immediately                (PSP must never time out)
  *
@@ -31,7 +31,7 @@ import {
  *   This override is scoped to this plugin only (Fastify encapsulation model) —
  *   all other routes keep standard JSON parsing.
  *
- * Replay protection (L-11):
+ * Replay protection:
  *   After successful signature validation, a Redis SET NX gate prevents the same
  *   (gateway, gatewayTxId) pair from being enqueued more than once within 24 hours.
  *   This is layer 1 of a three-layer defence:

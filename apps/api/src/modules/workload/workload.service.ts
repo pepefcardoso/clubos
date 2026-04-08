@@ -24,7 +24,7 @@ export class AthleteNotFoundError extends NotFoundError {
  * Idempotency: when `idempotencyKey` is present and a metric with that key
  * already exists in the tenant schema, the existing record is returned
  * immediately without creating a duplicate. This supports the PWA offline
- * sync queue (T-089) where the same session may be retried after a network
+ * sync queue where the same session may be retried after a network
  * failure.
  *
  * The training load (AU = rpe × durationMinutes) is intentionally NOT stored

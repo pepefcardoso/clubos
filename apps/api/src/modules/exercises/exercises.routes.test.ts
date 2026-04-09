@@ -69,30 +69,35 @@ async function buildApp(
     (request as FastifyRequest & { actorId: string }).actorId = userPayload.sub;
   });
 
-  app.decorate("requireRole", (minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
-    return async (request: FastifyRequest, reply: FastifyReply) => {
-      const role: string =
-        (request as FastifyRequest & { user?: AccessTokenPayload }).user
-          ?.role ?? "";
-      const allowed =
-        role === "ADMIN" ||
-        (minimumRole === "TREASURER" && role === "TREASURER");
-      if (!allowed) {
-        return reply.status(403).send({
-          statusCode: 403,
-          error: "Forbidden",
-          message: "Insufficient role",
-        });
-      }
-    };
-  });
+  app.decorate(
+    "requireRole",
+    (minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
+      return async (request: FastifyRequest, reply: FastifyReply) => {
+        const role: string =
+          (request as FastifyRequest & { user?: AccessTokenPayload }).user
+            ?.role ?? "";
+        const allowed =
+          role === "ADMIN" ||
+          (minimumRole === "TREASURER" && role === "TREASURER");
+        if (!allowed) {
+          return reply.status(403).send({
+            statusCode: 403,
+            error: "Forbidden",
+            message: "Insufficient role",
+          });
+        }
+      };
+    },
+  );
 
   app.addHook("preHandler", async (request: FastifyRequest) => {
     const r = request as FastifyRequest & {
       user?: AccessTokenPayload;
       actorId?: string;
     };
-    if (r.user) r.actorId = r.user.sub;
+    // Ensure the mock user is injected for every request
+    r.user = userPayload;
+    r.actorId = userPayload.sub;
   });
 
   await app.register(exerciseRoutes, { prefix: "/" });
@@ -291,7 +296,7 @@ describe("PUT /:exerciseId (update)", () => {
     const res = await app.inject({
       method: "PUT",
       url: "/exercise_001",
-      payload: { name: "X" },
+      payload: { name: "Valid" },
     });
     expect(res.statusCode).toBe(403);
     expect(updateExercise).not.toHaveBeenCalled();
@@ -304,7 +309,7 @@ describe("PUT /:exerciseId (update)", () => {
     const res = await app.inject({
       method: "PUT",
       url: "/nonexistent",
-      payload: { name: "X" },
+      payload: { name: "Valid" },
     });
     expect(res.statusCode).toBe(404);
   });

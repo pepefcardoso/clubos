@@ -35,7 +35,7 @@ describe("CreateExerciseSchema", () => {
     ] as const;
     for (const category of categories) {
       expect(
-        CreateExerciseSchema.safeParse({ name: "X", category }).success,
+        CreateExerciseSchema.safeParse({ name: "Valid", category }).success,
       ).toBe(true);
     }
   });

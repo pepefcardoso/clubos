@@ -13,8 +13,6 @@ import {
   DuplicatePlanNameError,
   PlanHasActiveMembersError,
 } from "./plans.service.js";
-import { withTenantSchema } from "../../lib/prisma.js";
-import { assertPlanExists } from "../../lib/assert-tenant-ownership.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
 
 export async function planRoutes(fastify: FastifyInstance): Promise<void> {
@@ -98,19 +96,12 @@ export async function planRoutes(fastify: FastifyInstance): Promise<void> {
       const user = request.user as AccessTokenPayload;
 
       try {
-        const plan = await withTenantSchema(
+        const plan = await updatePlan(
           fastify.prisma,
           user.clubId,
-          async (tx) => {
-            await assertPlanExists(tx, planId);
-            return updatePlan(
-              tx,
-              user.clubId,
-              request.actorId,
-              planId,
-              parsed.data,
-            );
-          },
+          request.actorId,
+          planId,
+          parsed.data,
         );
         return reply.status(200).send(plan);
       } catch (err) {
@@ -144,10 +135,7 @@ export async function planRoutes(fastify: FastifyInstance): Promise<void> {
       const user = request.user as AccessTokenPayload;
 
       try {
-        await withTenantSchema(fastify.prisma, user.clubId, async (tx) => {
-          await assertPlanExists(tx, planId);
-          return deletePlan(tx, user.clubId, request.actorId, planId);
-        });
+        await deletePlan(fastify.prisma, user.clubId, request.actorId, planId);
         return reply.status(204).send();
       } catch (err) {
         if (err instanceof PlanNotFoundError) {

@@ -94,20 +94,22 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/members/:memberId
+   *
+   * assertMemberExists runs in its own withTenantSchema call (IDOR guard).
+   * getMemberById manages its own schema context internally — calling it inside
+   * a second withTenantSchema would nest transactions and prevent the mock from
+   * working correctly in tests (the outer mock resolves null before the service runs).
    */
   fastify.get("/:memberId", async (request, reply) => {
     const { memberId } = request.params as { memberId: string };
     const user = request.user as AccessTokenPayload;
 
     try {
-      const member = await withTenantSchema(
-        fastify.prisma,
-        user.clubId,
-        async (tx) => {
-          await assertMemberExists(tx, memberId);
-          return getMemberById(tx, user.clubId, memberId);
-        },
-      );
+      await withTenantSchema(fastify.prisma, user.clubId, async (tx) => {
+        await assertMemberExists(tx, memberId);
+      });
+
+      const member = await getMemberById(fastify.prisma, user.clubId, memberId);
       return reply.status(200).send(member);
     } catch (err) {
       if (err instanceof MemberNotFoundError) {
@@ -123,6 +125,9 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * PUT /api/members/:memberId
+   *
+   * Same separation as GET — assertMemberExists in its own withTenantSchema,
+   * then updateMember called directly (it opens its own transaction internally).
    */
   fastify.put(
     "/:memberId",
@@ -142,19 +147,16 @@ export async function memberRoutes(fastify: FastifyInstance): Promise<void> {
       const user = request.user as AccessTokenPayload;
 
       try {
-        const member = await withTenantSchema(
+        await withTenantSchema(fastify.prisma, user.clubId, async (tx) => {
+          await assertMemberExists(tx, memberId);
+        });
+
+        const member = await updateMember(
           fastify.prisma,
           user.clubId,
-          async (tx) => {
-            await assertMemberExists(tx, memberId);
-            return updateMember(
-              tx,
-              user.clubId,
-              request.actorId,
-              memberId,
-              parsed.data,
-            );
-          },
+          request.actorId,
+          memberId,
+          parsed.data,
         );
         return reply.status(200).send(member);
       } catch (err) {

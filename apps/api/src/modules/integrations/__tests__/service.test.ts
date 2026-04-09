@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import bcrypt from "bcryptjs";
 import type { PrismaClient } from "../../../../generated/prisma/index.js";
 
-vi.mock("../../lib/prisma.js", () => ({
+vi.mock("../../../lib/prisma.js", () => ({
   withTenantSchema: vi.fn(
     async (
       _prisma: unknown,

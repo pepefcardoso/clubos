@@ -95,15 +95,17 @@ export function validateRow(
   const errors: ImportRowError[] = [];
   const rowNumber = rowIndex + 2;
 
-  const name = raw.nome?.trim() ?? "";
-  if (!name || name.length < 2 || name.length > 120) {
+  const nameRaw = raw.nome ?? "";
+  const nameTrimmed = nameRaw.trim();
+
+  if (!nameTrimmed || nameTrimmed.length < 2 || nameTrimmed.length > 120) {
     errors.push({
       row: rowNumber,
       cpf: raw.cpf,
       field: "nome",
       message: "Nome deve ter entre 2 e 120 caracteres",
     });
-  } else if (hasCsvInjection(name)) {
+  } else if (hasCsvInjection(nameRaw)) {
     errors.push({
       row: rowNumber,
       cpf: raw.cpf,
@@ -170,7 +172,7 @@ export function validateRow(
 
   return {
     row: {
-      name: name,
+      name: nameTrimmed,
       cpf,
       phone,
       email,

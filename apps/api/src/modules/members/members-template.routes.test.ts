@@ -42,6 +42,9 @@ describe("GET /api/members/import/template", () => {
     process.env["JWT_REFRESH_SECRET"] = "ci-test-refresh-secret-at-least-32ch!";
     process.env["MEMBER_ENCRYPTION_KEY"] = "ci-test-encryption-key-32chars-xxx";
     process.env["REDIS_URL"] = "redis://localhost:6379";
+    process.env["DATABASE_URL"] =
+      "postgresql://user:pass@localhost:5432/clubos_test";
+    process.env["MEMBER_CARD_SECRET"] = "ci-test-member-card-secret-32chars!!";
 
     app = await buildApp();
   });

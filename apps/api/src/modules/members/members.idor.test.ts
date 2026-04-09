@@ -56,19 +56,42 @@ const MEMBER_IN_A = { id: "mem_in_a_001" };
 const CHARGE_IN_A = { id: "chg_in_a_001" };
 const ATHLETE_IN_A = { id: "ath_in_a_001" };
 
-/**
- * Builds a fake tx that resolves findUnique based on the active clubId.
- * When the route runs under Club B's context, the same IDs (from Club A)
- * return null because those rows do not exist in Club B's schema.
- */
+vi.mock("../../lib/assert-tenant-ownership.js", () => ({
+  assertMemberExists: vi.fn(async (tx: any, id: string) => {
+    const res = await tx.member.findUnique({ where: { id } });
+    if (!res) {
+      const err = new Error("Not Found");
+      (err as any).statusCode = 404;
+      throw err;
+    }
+  }),
+  assertChargeExists: vi.fn(async (tx: any, id: string) => {
+    const res = await tx.charge.findUnique({ where: { id } });
+    if (!res) {
+      const err = new Error("Not Found");
+      (err as any).statusCode = 404;
+      throw err;
+    }
+  }),
+  assertAthleteExists: vi.fn(async (tx: any, id: string) => {
+    const res = await tx.athlete.findUnique({ where: { id } });
+    if (!res) {
+      const err = new Error("Not Found");
+      (err as any).statusCode = 404;
+      throw err;
+    }
+  }),
+}));
+
 function makeFakeTxForClub(activeClubId: string) {
   return {
     member: {
       findUnique: vi
         .fn()
-        .mockImplementation(({ where }: { where: { id: string } }) =>
-          activeClubId === CLUB_A_ID && where.id === MEMBER_IN_A.id
-            ? MEMBER_IN_A
+        .mockImplementation(async ({ where }: { where: { id: string } }) =>
+          activeClubId === "club_aaa_000000000001" &&
+          where.id === "mem_in_a_001"
+            ? { id: "mem_in_a_001" }
             : null,
         ),
       findFirst: vi.fn().mockResolvedValue(null),
@@ -76,9 +99,10 @@ function makeFakeTxForClub(activeClubId: string) {
     charge: {
       findUnique: vi
         .fn()
-        .mockImplementation(({ where }: { where: { id: string } }) =>
-          activeClubId === CLUB_A_ID && where.id === CHARGE_IN_A.id
-            ? CHARGE_IN_A
+        .mockImplementation(async ({ where }: { where: { id: string } }) =>
+          activeClubId === "club_aaa_000000000001" &&
+          where.id === "chg_in_a_001"
+            ? { id: "chg_in_a_001" }
             : null,
         ),
       update: vi.fn(),
@@ -86,9 +110,10 @@ function makeFakeTxForClub(activeClubId: string) {
     athlete: {
       findUnique: vi
         .fn()
-        .mockImplementation(({ where }: { where: { id: string } }) =>
-          activeClubId === CLUB_A_ID && where.id === ATHLETE_IN_A.id
-            ? ATHLETE_IN_A
+        .mockImplementation(async ({ where }: { where: { id: string } }) =>
+          activeClubId === "club_aaa_000000000001" &&
+          where.id === "ath_in_a_001"
+            ? { id: "ath_in_a_001" }
             : null,
         ),
     },
@@ -111,9 +136,9 @@ vi.mock("./members.service.js", () => ({
   listMembers: vi
     .fn()
     .mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
-  getMemberById: vi.fn().mockResolvedValue(MEMBER_IN_A),
-  updateMember: vi.fn().mockResolvedValue(MEMBER_IN_A),
-  createMember: vi.fn().mockResolvedValue(MEMBER_IN_A),
+  getMemberById: vi.fn().mockResolvedValue({ id: "mem_in_a_001" }),
+  updateMember: vi.fn().mockResolvedValue({ id: "mem_in_a_001" }),
+  createMember: vi.fn().mockResolvedValue({ id: "mem_in_a_001" }),
   DuplicateCpfError: class extends Error {
     constructor() {
       super("dup");
@@ -154,9 +179,9 @@ vi.mock("../athletes/athletes.service.js", () => ({
   listAthletes: vi
     .fn()
     .mockResolvedValue({ data: [], total: 0, page: 1, limit: 20 }),
-  createAthlete: vi.fn().mockResolvedValue(ATHLETE_IN_A),
-  getAthleteById: vi.fn().mockResolvedValue(ATHLETE_IN_A),
-  updateAthlete: vi.fn().mockResolvedValue(ATHLETE_IN_A),
+  createAthlete: vi.fn().mockResolvedValue({ id: "ath_in_a_001" }),
+  getAthleteById: vi.fn().mockResolvedValue({ id: "ath_in_a_001" }),
+  updateAthlete: vi.fn().mockResolvedValue({ id: "ath_in_a_001" }),
   DuplicateAthleteCpfError: class extends Error {
     constructor() {
       super("dup");
@@ -187,19 +212,13 @@ async function buildApp(user: AccessTokenPayload): Promise<FastifyInstance> {
 
   app.decorate(
     "requireRole",
-    (_role: "ADMIN" | "TREASURER" | "PHYSIO") =>
+    (..._allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO">) =>
       async (_req: FastifyRequest, _rep: FastifyReply) => {
-        /* allow all */
+        /* allow all in IDOR tests */
       },
   );
 
-  app.addHook("preHandler", async (request: FastifyRequest) => {
-    const r = request as FastifyRequest & {
-      user?: AccessTokenPayload;
-      actorId?: string;
-    };
-    if (r.user) r.actorId = r.user.sub;
-  });
+  app.addHook("preHandler", app.verifyAccessToken);
 
   await app.register(memberRoutes, { prefix: "/api/members" });
   await app.register(chargeRoutes, { prefix: "/api/charges" });

@@ -106,6 +106,8 @@ async function buildApp(
     (request as FastifyRequest & { actorId: string }).actorId = userPayload.sub;
   });
 
+  app.addHook("preHandler", app.verifyAccessToken);
+
   app.decorate(
     "requireRole",
     (...allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO">) => {
@@ -191,6 +193,8 @@ describe("GET /medical-records (list)", () => {
       expect.anything(),
       ADMIN_USER.clubId,
       expect.objectContaining({ athleteId: "athlete_001" }),
+      ADMIN_USER.sub,
+      expect.objectContaining({ ipAddress: expect.any(String) }),
     );
   });
 
@@ -207,6 +211,8 @@ describe("GET /medical-records (list)", () => {
       expect.anything(),
       ADMIN_USER.clubId,
       expect.objectContaining({ grade: "GRADE_3" }),
+      ADMIN_USER.sub,
+      expect.objectContaining({ ipAddress: expect.any(String) }),
     );
   });
 
@@ -521,6 +527,7 @@ describe("PUT /medical-records/:recordId (update)", () => {
       ADMIN_USER.sub,
       "record_001",
       expect.objectContaining({ clinicalNotes: "Updated notes" }),
+      expect.objectContaining({ ipAddress: expect.any(String) }),
     );
   });
 });
@@ -565,6 +572,7 @@ describe("DELETE /medical-records/:recordId (delete)", () => {
       PHYSIO_USER.clubId,
       PHYSIO_USER.sub,
       "record_001",
+      expect.objectContaining({ ipAddress: expect.any(String) }),
     );
   });
 });

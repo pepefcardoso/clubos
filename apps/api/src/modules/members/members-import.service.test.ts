@@ -581,7 +581,7 @@ J,INVALIDO,bad`;
 
   it("skips row with formula injection in nome and processes remaining valid rows", async () => {
     const csv = `nome,cpf,telefone
-=HYPERLINK("http://evil.com","Click"),12345678901,11999990000
+"=HYPERLINK(""http://evil.com"",""Click"")",12345678901,11999990000
 Maria Souza,98765432100,21988881111`;
     const prisma = buildMockPrisma();
     const result = await importMembersFromCsv(prisma, clubId, actorId, csv);

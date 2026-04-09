@@ -1,7 +1,59 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { emitPaymentConfirmed, sseBus } from "../../lib/sse-bus.js";
 
-vi.mock("../../src/plugins/auth.plugin.js", () => ({
+vi.mock("../../lib/redis.js", () => ({
+  getRedisClient: vi.fn(() => ({
+    on: vi.fn(),
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue("OK"),
+    del: vi.fn().mockResolvedValue(1),
+    incr: vi.fn().mockResolvedValue(1),
+    expire: vi.fn().mockResolvedValue(1),
+    quit: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+vi.mock("../../jobs/queues.js", () => ({
+  webhookQueue: {
+    add: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+  },
+  getWebhookQueue: vi.fn(() => ({
+    add: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+  })),
+}));
+
+vi.mock("../../jobs/index.js", () => ({
+  registerWorkers: vi.fn(),
+}));
+
+vi.mock("../../plugins/prisma.plugin.js", () => ({
+  default: async (fastify: {
+    decorate: (name: string, val: unknown) => void;
+  }) => {
+    fastify.decorate("prisma", {
+      $connect: vi.fn(),
+      $disconnect: vi.fn(),
+    });
+  },
+}));
+
+vi.mock("../../plugins/redis.plugin.js", () => ({
+  default: async (fastify: {
+    decorate: (name: string, val: unknown) => void;
+  }) => {
+    fastify.decorate("redis", {
+      on: vi.fn(),
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue("OK"),
+      del: vi.fn().mockResolvedValue(1),
+      quit: vi.fn().mockResolvedValue(undefined),
+    });
+  },
+}));
+
+vi.mock("../../plugins/auth.plugin.js", () => ({
   default: async (fastify: {
     decorate: (name: string, fn: unknown) => void;
   }) => {
@@ -27,6 +79,15 @@ vi.mock("../../src/plugins/auth.plugin.js", () => ({
         request.user = { sub: "user-1", clubId, role: "ADMIN", type: "access" };
       },
     );
+    fastify.decorate("verifyRefreshToken", vi.fn());
+    fastify.decorate(
+      "requireRole",
+      vi.fn(() => vi.fn()),
+    );
+    fastify.decorate("refresh", {
+      sign: vi.fn(),
+      verify: vi.fn(),
+    });
   },
 }));
 

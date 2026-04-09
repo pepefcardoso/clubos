@@ -87,23 +87,36 @@ async function buildApp(
     (request as FastifyRequest & { actorId: string }).actorId = userPayload.sub;
   });
 
-  app.decorate("requireRole", (minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
-    return async (request: FastifyRequest, reply: FastifyReply) => {
-      const role: string =
-        (request as FastifyRequest & { user?: AccessTokenPayload }).user
-          ?.role ?? "";
-      const allowed =
-        role === "ADMIN" ||
-        (minimumRole === "TREASURER" && role === "TREASURER");
-      if (!allowed) {
-        return reply.status(403).send({
-          statusCode: 403,
-          error: "Forbidden",
-          message: "Insufficient role",
-        });
+  app.addHook("onRequest", async (request) => {
+    await (
+      app as unknown as {
+        verifyAccessToken: (r: FastifyRequest) => Promise<void>;
       }
-    };
+    ).verifyAccessToken(request);
   });
+
+  app.decorate(
+    "requireRole",
+    (...allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO">) => {
+      return async (request: FastifyRequest, reply: FastifyReply) => {
+        const role: string =
+          (request as FastifyRequest & { user?: AccessTokenPayload }).user
+            ?.role ?? "";
+
+        const allowed =
+          role === "ADMIN" ||
+          allowedRoles.includes(role as "ADMIN" | "TREASURER" | "PHYSIO");
+
+        if (!allowed) {
+          return reply.status(403).send({
+            statusCode: 403,
+            error: "Forbidden",
+            message: "Insufficient role",
+          });
+        }
+      };
+    },
+  );
 
   await app.register(evaluationRoutes, { prefix: "/" });
   await app.ready();

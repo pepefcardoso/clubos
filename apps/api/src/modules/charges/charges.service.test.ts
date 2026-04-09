@@ -464,7 +464,6 @@ describe("dispatchChargeToGateway", () => {
   });
 
   it("returns error string when no gateway supports the method", async () => {
-    // Empty list → createChargeWithFallback throws (no pixKeyFallback configured)
     vi.mocked(GatewayRegistry.listForMethod).mockReturnValue([]);
 
     const tx = buildMockTx();
@@ -524,8 +523,6 @@ describe("dispatchChargeToGateway", () => {
 
     expect("error" in result).toBe(true);
     if ("error" in result) {
-      // createChargeWithFallback converts non-Error to string; the outer
-      // catch in dispatchChargeToGateway wraps it in the final error message.
       expect(result.error).toBeTruthy();
     }
   });

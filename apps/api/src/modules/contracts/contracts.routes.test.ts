@@ -27,6 +27,14 @@ vi.mock("./contracts.service.js", async (importOriginal) => {
   };
 });
 
+vi.mock("../../lib/prisma.js", () => ({
+  withTenantSchema: vi.fn(async (prisma, clubId, cb) => cb(prisma)),
+}));
+
+vi.mock("../../lib/assert-tenant-ownership.js", () => ({
+  assertContractExists: vi.fn().mockResolvedValue(undefined),
+}));
+
 import {
   createContract,
   getContractById,
@@ -82,30 +90,34 @@ async function buildApp(
     (request as FastifyRequest & { actorId: string }).actorId = userPayload.sub;
   });
 
-  app.decorate("requireRole", (minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
-    return async (request: FastifyRequest, reply: FastifyReply) => {
-      const role: string =
-        (request as FastifyRequest & { user?: AccessTokenPayload }).user
-          ?.role ?? "";
-      const allowed =
-        role === "ADMIN" ||
-        (minimumRole === "TREASURER" && role === "TREASURER");
-      if (!allowed) {
-        return reply.status(403).send({
-          statusCode: 403,
-          error: "Forbidden",
-          message: "Insufficient role",
-        });
-      }
-    };
-  });
+  app.decorate(
+    "requireRole",
+    (minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
+      return async (request: FastifyRequest, reply: FastifyReply) => {
+        const role: string =
+          (request as FastifyRequest & { user?: AccessTokenPayload }).user
+            ?.role ?? "";
+        const allowed =
+          role === "ADMIN" ||
+          (minimumRole === "TREASURER" && role === "TREASURER");
+        if (!allowed) {
+          return reply.status(403).send({
+            statusCode: 403,
+            error: "Forbidden",
+            message: "Insufficient role",
+          });
+        }
+      };
+    },
+  );
 
-  app.addHook("preHandler", async (request: FastifyRequest) => {
+  app.addHook("onRequest", async (request: FastifyRequest) => {
     const r = request as FastifyRequest & {
       user?: AccessTokenPayload;
       actorId?: string;
     };
-    if (r.user) r.actorId = r.user.sub;
+    r.user = userPayload;
+    r.actorId = userPayload.sub;
   });
 
   await app.register(contractRoutes, { prefix: "/" });

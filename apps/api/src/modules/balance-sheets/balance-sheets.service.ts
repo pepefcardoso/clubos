@@ -36,7 +36,8 @@ async function savePdfFile(clubId: string, buffer: Buffer): Promise<string> {
   await mkdir(fullDir, { recursive: true });
   await writeFile(join(fullDir, filename), buffer);
 
-  return `${getStorageBaseUrl()}/uploads/${subdir}/${filename}`;
+  const urlPath = ["balance-sheets", clubId, filename].join("/");
+  return `${getStorageBaseUrl()}/uploads/${urlPath}`;
 }
 
 /**

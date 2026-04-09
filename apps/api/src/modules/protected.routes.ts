@@ -18,6 +18,7 @@ import { trainingSessionRoutes } from "./training-sessions/training-sessions.rou
 import { integrationRoutes } from "./integrations/integrations.routes.js";
 import { evaluationRoutes } from "./evaluations/evaluations.routes.js";
 import { medicalRecordRoutes } from "./medical-records/medical-records.routes.js";
+import { rtpRoutes } from "./rtp/rtp.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -64,6 +65,7 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(messageRoutes, { prefix: "/messages" });
   await fastify.register(dashboardRoutes, { prefix: "/dashboard" });
   await fastify.register(athleteRoutes, { prefix: "/athletes" });
+  await fastify.register(rtpRoutes, { prefix: "/athletes" });
   await fastify.register(contractRoutes, { prefix: "/contracts" });
   await fastify.register(rulesConfigRoutes, { prefix: "/rules-config" });
   await fastify.register(workloadRoutes, { prefix: "/workload" });

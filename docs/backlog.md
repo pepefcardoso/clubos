@@ -38,7 +38,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                                                             | Esforço             | Sprint                                                                                                        | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------- | ------ | --- | --- |
-| **T-119** | API de Status RTP (`/api/athletes/:id/rtp`): endpoint que lê `return_to_play.status` (enum: `AFASTADO                                                                                      | RETORNO_PROGRESSIVO | LIBERADO`) e o expõe por role. `PHYSIO/ADMIN`veem status + notas clínicas;`COACH` vê apenas o enum de status. | 0.5d   | S9  | ⬜  |
+| **T-119** | API de Status RTP (`/api/athletes/:id/rtp`): endpoint que lê `return_to_play.status` (enum: `AFASTADO                                                                                      | RETORNO_PROGRESSIVO | LIBERADO`) e o expõe por role. `PHYSIO/ADMIN`veem status + notas clínicas;`COACH` vê apenas o enum de status. | 0.5d   | S9  | ✅  |
 | **T-120** | UI RTP no perfil do atleta: widget `RtpStatusBadge` exibido na `AthletesPage` e na tela de escalação. Treinador vê o semáforo (Afastado/Progressivo/Liberado) sem acesso a dados clínicos. | 0.5d                | S9                                                                                                            | ⬜     |
 
 ### US-39 — Biblioteca de Protocolos e Correlação de Dados
@@ -118,7 +118,7 @@
 
 ### Sprint 9 (FisioBase Core — Prontuário, RTP e Protocolos)
 
-**Fase 2: APIs, Lógica Clínica e Compliance (Depende da Fase 1)** 6. `T-119` — API de Status de Retorno ao Jogo (RTP) 7. `T-121` — Biblioteca de Protocolos (Seed e Endpoint de listagem)
+**Fase 2: APIs, Lógica Clínica e Compliance (Depende da Fase 1)** 7. `T-121` — Biblioteca de Protocolos (Seed e Endpoint de listagem)
 
 **Fase 3: Interfaces do Fisioterapeuta e Dashboards (Depende da Fase 2)** 8. `T-117` — UI do Prontuário (Formulário de Registro) 9. `T-118` — Timeline de Eventos Clínicos por Atleta 10. `T-120` — UI e Widget do Status RTP no Perfil do Atleta 11. `T-122` — Dashboard Analítico de Correlação Carga (ACWR) × Lesão
 

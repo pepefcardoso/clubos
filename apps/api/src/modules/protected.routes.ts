@@ -19,6 +19,7 @@ import { integrationRoutes } from "./integrations/integrations.routes.js";
 import { evaluationRoutes } from "./evaluations/evaluations.routes.js";
 import { medicalRecordRoutes } from "./medical-records/medical-records.routes.js";
 import { rtpRoutes } from "./rtp/rtp.routes.js";
+import { injuryProtocolRoutes } from "./injury-protocols/injury-protocols.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -78,5 +79,6 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   });
   await fastify.register(integrationRoutes, { prefix: "/integrations" });
   await fastify.register(evaluationRoutes, { prefix: "/evaluations" });
+  await fastify.register(injuryProtocolRoutes, { prefix: "/injury-protocols" });
   await fastify.register(medicalRecordRoutes, { prefix: "/medical-records" });
 }

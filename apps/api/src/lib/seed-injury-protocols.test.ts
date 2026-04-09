@@ -7,7 +7,7 @@
  *
  * Key design notes that tests encode:
  *   - seedInjuryProtocols() routes through withTenantSchema → prisma.$transaction
- *   - Each of the 6 FIFA protocols triggers exactly one tx.$executeRaw call
+ *   - Each of the 20 FIFA protocols triggers exactly one tx.$executeRaw call
  *   - Inserts use the safer tagged $executeRaw (parameterised), never $executeRawUnsafe
  *   - ON CONFLICT ("id") DO NOTHING guarantees idempotency at the DB level
  *   - steps are passed as JSON.stringify'd strings cast to ::jsonb
@@ -34,7 +34,7 @@ const CLUB_ID = "testclubid0000000001";
 /**
  * The number of protocols in the FIFA_PROTOCOLS constant inside the module.
  */
-const PROTOCOL_COUNT = 6;
+const PROTOCOL_COUNT = 20;
 
 /**
  * Expected protocol IDs — must exactly match the `id` field of each entry
@@ -47,6 +47,20 @@ const EXPECTED_IDS = [
   "proto_ankle_lateral_g1",
   "proto_ankle_lateral_g2",
   "proto_quad_g1",
+  "proto_ankle_lateral_g3",
+  "proto_quad_g2",
+  "proto_quad_g3",
+  "proto_mcl_g1",
+  "proto_mcl_g2",
+  "proto_mcl_g3",
+  "proto_acl_complete",
+  "proto_calf_g1",
+  "proto_calf_g2",
+  "proto_adductor_g1",
+  "proto_adductor_g2",
+  "proto_hip_flexor_g1",
+  "proto_metatarsal_fracture",
+  "proto_patellar_tendon_g2",
 ] as const;
 
 type ExecuteRawCall = [TemplateStringsArray, ...unknown[]];
@@ -192,22 +206,30 @@ describe("seedInjuryProtocols()", () => {
     expect(unique.size).toBe(PROTOCOL_COUNT);
   });
 
-  it("all three anatomical structures (Hamstring, Ankle, Quadriceps) are seeded", async () => {
+  it("all anatomical structures are seeded", async () => {
     await seedInjuryProtocols(prisma, CLUB_ID);
     const calls = vi.mocked(prisma.$executeRaw).mock.calls as ExecuteRawCall[];
     const structures = calls.map(getStructure);
     expect(structures).toContain("Hamstring");
     expect(structures).toContain("Ankle");
     expect(structures).toContain("Quadriceps");
+    expect(structures).toContain("MCL");
+    expect(structures).toContain("ACL");
+    expect(structures).toContain("Calf");
+    expect(structures).toContain("Adductor");
+    expect(structures).toContain("Hip Flexor");
+    expect(structures).toContain("Metatarsal");
+    expect(structures).toContain("Patellar Tendon");
   });
 
-  it("all three grades (GRADE_1, GRADE_2, GRADE_3) are seeded", async () => {
+  it("all four grades (GRADE_1, GRADE_2, GRADE_3, COMPLETE) are seeded", async () => {
     await seedInjuryProtocols(prisma, CLUB_ID);
     const calls = vi.mocked(prisma.$executeRaw).mock.calls as ExecuteRawCall[];
     const grades = calls.map(getGrade);
     expect(grades).toContain("GRADE_1");
     expect(grades).toContain("GRADE_2");
     expect(grades).toContain("GRADE_3");
+    expect(grades).toContain("COMPLETE");
   });
 
   it("no grade value outside the InjuryGrade enum is passed", async () => {
@@ -293,16 +315,15 @@ describe("seedInjuryProtocols()", () => {
     expect(hamstringGrades).toContain("GRADE_3");
   });
 
-  it("Hamstring Grade III has the longest durationDays among all protocols", async () => {
+  it("ACL complete has the longest durationDays among all protocols (270d)", async () => {
     await seedInjuryProtocols(prisma, CLUB_ID);
     const calls = vi.mocked(prisma.$executeRaw).mock.calls as ExecuteRawCall[];
-    const g3Duration = calls
-      .filter(
-        (c) => getStructure(c) === "Hamstring" && getGrade(c) === "GRADE_3",
-      )
+    const aclDuration = calls
+      .filter((c) => getStructure(c) === "ACL")
       .map(getDurationDays)[0];
     const allDurations = calls.map(getDurationDays);
-    expect(g3Duration).toBe(Math.max(...allDurations));
+    expect(aclDuration).toBe(Math.max(...allDurations));
+    expect(aclDuration).toBe(270);
   });
 
   it("Grade I protocols are shorter than Grade II protocols for the same structure", async () => {
@@ -324,6 +345,14 @@ describe("seedInjuryProtocols()", () => {
       (c) => getStructure(c) === "Ankle" && getGrade(c) === "GRADE_2",
     );
     expect(getDurationDays(ankleG1!)).toBeLessThan(getDurationDays(ankleG2!));
+
+    const mclG1 = calls.find(
+      (c) => getStructure(c) === "MCL" && getGrade(c) === "GRADE_1",
+    );
+    const mclG2 = calls.find(
+      (c) => getStructure(c) === "MCL" && getGrade(c) === "GRADE_2",
+    );
+    expect(getDurationDays(mclG1!)).toBeLessThan(getDurationDays(mclG2!));
   });
 
   it("can be called twice on the same club without throwing", async () => {

@@ -23,6 +23,14 @@ vi.mock("./athletes.service.js", async (importOriginal) => {
   };
 });
 
+vi.mock("../../lib/prisma.js", () => ({
+  withTenantSchema: vi.fn(async (prisma, clubId, cb) => cb(prisma)),
+}));
+
+vi.mock("../../lib/assert-tenant-ownership.js", () => ({
+  assertAthleteExists: vi.fn(),
+}));
+
 import {
   createAthlete,
   getAthleteById,
@@ -56,10 +64,11 @@ const TREASURER_USER = {
 
 /**
  * Builds a minimal Fastify instance with:
- *   - a stub prisma decorator
- *   - stub verifyAccessToken that injects `user` based on the role param
- *   - stub requireRole that enforces ADMIN-only on PUT routes
- *   - athlete routes registered at "/"
+ * - a stub prisma decorator
+ * - a preHandler hook that injects `user` and `actorId` on every request
+ * - stub verifyAccessToken (no-op — user is set by the hook)
+ * - stub requireRole that matches the variadic (...allowedRoles) signature
+ * - athlete routes registered at "/"
  */
 async function buildApp(
   userPayload: AccessTokenPayload = ADMIN_USER,
@@ -68,37 +77,52 @@ async function buildApp(
 
   app.decorate("prisma", {} as PrismaClient);
 
-  app.decorate("verifyAccessToken", async (request: FastifyRequest) => {
-    (request as FastifyRequest & { user: AccessTokenPayload }).user =
-      userPayload;
-    (request as FastifyRequest & { actorId: string }).actorId = userPayload.sub;
-  });
-
-  app.decorate("requireRole", (minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
-    return async (request: FastifyRequest, reply: FastifyReply) => {
-      const role: string =
-        (request as FastifyRequest & { user?: AccessTokenPayload }).user
-          ?.role ?? "";
-      const allowed =
-        role === "ADMIN" ||
-        (minimumRole === "TREASURER" && role === "TREASURER");
-      if (!allowed) {
-        return reply.status(403).send({
-          statusCode: 403,
-          error: "Forbidden",
-          message: "Insufficient role",
-        });
-      }
-    };
-  });
-
   app.addHook("preHandler", async (request: FastifyRequest) => {
     const r = request as FastifyRequest & {
       user?: AccessTokenPayload;
       actorId?: string;
     };
-    if (r.user) r.actorId = r.user.sub;
+    r.user = userPayload;
+    r.actorId = userPayload.sub;
   });
+
+  app.decorate(
+    "verifyAccessToken",
+    async (_request: FastifyRequest, _reply: FastifyReply) => {},
+  );
+
+  app.decorate(
+    "requireRole",
+    (...allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO">) => {
+      return async (request: FastifyRequest, reply: FastifyReply) => {
+        const role =
+          (request as FastifyRequest & { user?: AccessTokenPayload }).user
+            ?.role ?? "";
+
+        let allowed: boolean;
+        if (allowedRoles.length === 1 && allowedRoles[0] === "ADMIN") {
+          allowed = role === "ADMIN";
+        } else if (
+          allowedRoles.length === 1 &&
+          allowedRoles[0] === "TREASURER"
+        ) {
+          allowed = role === "ADMIN" || role === "TREASURER";
+        } else {
+          allowed = allowedRoles.includes(
+            role as "ADMIN" | "TREASURER" | "PHYSIO",
+          );
+        }
+
+        if (!allowed) {
+          return reply.status(403).send({
+            statusCode: 403,
+            error: "Forbidden",
+            message: "Insufficient role",
+          });
+        }
+      };
+    },
+  );
 
   await app.register(athleteRoutes, { prefix: "/" });
   await app.ready();
@@ -378,7 +402,7 @@ describe("PUT /athletes/:athleteId (update)", () => {
     await app.inject({
       method: "PUT",
       url: "/athlete_abc123",
-      payload: { name: "X", cpf: "99999999999" },
+      payload: { name: "João", cpf: "99999999999" },
     });
 
     const calledWith = vi.mocked(updateAthlete).mock.calls[0]?.[4];
@@ -392,7 +416,7 @@ describe("PUT /athletes/:athleteId (update)", () => {
     await app.inject({
       method: "PUT",
       url: "/athlete_abc123",
-      payload: { name: "X" },
+      payload: { name: "João" },
     });
 
     expect(updateAthlete).toHaveBeenCalledWith(
@@ -400,7 +424,7 @@ describe("PUT /athletes/:athleteId (update)", () => {
       ADMIN_USER.clubId,
       ADMIN_USER.sub,
       "athlete_abc123",
-      expect.objectContaining({ name: "X" }),
+      expect.objectContaining({ name: "João" }),
     );
   });
 });

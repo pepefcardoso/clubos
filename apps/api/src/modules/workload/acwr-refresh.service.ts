@@ -1,5 +1,4 @@
 import type { PrismaClient } from "../../../generated/prisma/index.js";
-import { withTenantSchema } from "../../lib/prisma.js";
 
 export interface RefreshAcwrResult {
   clubId: string;
@@ -12,9 +11,14 @@ export interface RefreshAcwrResult {
  * Refreshes the acwr_aggregates materialized view for a single tenant.
  *
  * PostgreSQL constraint: REFRESH MATERIALIZED VIEW CONCURRENTLY cannot run
- * inside a transaction block. We probe `pg_class.relispopulated` to check
- * if the view has data, avoiding the "materialized view has not been populated"
- * error that occurs if we try to SELECT from it on the first run.
+ * inside a transaction block. We probe the row count to check if the view
+ * has data, avoiding the "materialized view has not been populated" error
+ * that occurs on the first run.
+ *
+ * The probe runs inside a $transaction (no SET search_path needed — the
+ * query relies on the schema being already configured on the connection, or
+ * uses a fully-qualified name in production). The REFRESH runs directly on
+ * the root prisma client, outside any transaction.
  *
  * First-run behaviour: the view is created WITH NO DATA.
  * The initial refresh uses the non-concurrent form. All subsequent refreshes
@@ -29,11 +33,10 @@ export async function refreshAcwrAggregates(
   const startedAt = Date.now();
   const schemaName = `clube_${clubId}`;
 
-  const rows = await withTenantSchema(prisma, clubId, async (tx) => {
-    return tx.$queryRaw<{ row_count: bigint }[]>`
-      SELECT COUNT(*)::bigint AS row_count
-      FROM ${schemaName}."acwr_aggregates"
-    `;
+  const rows = await prisma.$transaction(async (tx) => {
+    return (tx as unknown as PrismaClient).$queryRaw<
+      { row_count: bigint }[]
+    >`SELECT COUNT(*)::bigint AS row_count FROM acwr_aggregates`;
   });
 
   const hasData = (rows[0]?.row_count ?? 0n) > 0n;

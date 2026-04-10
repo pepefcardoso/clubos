@@ -71,11 +71,8 @@ export function buildWeeklyReportMessage(
  *
  * Guardian phone resolution: name-based soft link — queries `members` for a
  * row whose `name` matches the athlete's name (case-insensitive, status=ACTIVE).
- * Phone is decrypted inline via pgcrypto so we never store plaintext.
- * Returns null guardian_phone for athletes without a matching member record.
- *
- * A future migration can add an explicit `guardianMemberId` FK to `athletes`;
- * swapping the lookup is transparent to the rest of the service.
+ * Phone is returned as encrypted bytes so the caller can decrypt as needed.
+ * Returns null guardian fields for athletes without a matching member record.
  */
 export async function gatherAthleteStats(
   prisma: PrismaClient,
@@ -151,14 +148,30 @@ export function buildIdempotencyKey(
 }
 
 /**
+ * Internal row shape returned by the weekly report query.
+ * guardian_phone is the decrypted phone (or null if no matching member).
+ */
+type WeeklyReportRow = {
+  athleteId: string;
+  athleteName: string;
+  session_count: number;
+  total_au: number;
+  acwr_ratio: string | null;
+  risk_zone: string | null;
+  encrypted_guardian_phone: Uint8Array | null;
+  guardian_member_id: string | null;
+};
+
+/**
  * Orchestrates the weekly athlete report send for a single club.
  *
  * For each active athlete:
  *   1. Skip if no guardian phone or 0 sessions in the window.
  *   2. Skip if a Redis idempotency key exists (already sent this week).
- *   3. Send WhatsApp message via the provider configured in WHATSAPP_PROVIDER.
- *   4. Record the idempotency key (TTL=7 days).
- *   5. Write message + audit_log rows to the tenant schema.
+ *   3. Send WhatsApp message via sendWhatsAppMessage (providers/index).
+ *   4. On success: record Redis idempotency key (TTL=7 days), write
+ *      Message row (SENT) and AuditLog entry.
+ *   5. On failure: write Message row (FAILED).
  *
  * Per-athlete WhatsApp failures are caught and counted as `failed` — they do
  * not abort the run for other athletes in the same club.
@@ -181,28 +194,59 @@ export async function sendWeeklyAthleteReports(
   const startDate = new Date(endDate);
   startDate.setUTCDate(startDate.getUTCDate() - 7);
 
-  const stats = await gatherAthleteStats(prisma, clubId, startDate, endDate);
+  const rows = await withTenantSchema(prisma, clubId, async (tx) => {
+    return tx.$queryRaw<WeeklyReportRow[]>`
+      SELECT
+        a.id                                                         AS "athleteId",
+        a.name                                                       AS "athleteName",
+        COUNT(wm.id)::integer                                        AS session_count,
+        COALESCE(SUM(wm.rpe * wm."durationMinutes"), 0)::integer     AS total_au,
+        acwr.acwr_ratio,
+        acwr.risk_zone,
+        m.phone                                                      AS encrypted_guardian_phone,
+        m.member_id                                                  AS guardian_member_id
+      FROM athletes a
+      LEFT JOIN workload_metrics wm
+        ON  wm."athleteId" = a.id
+        AND wm.date >= ${startDate}::date
+        AND wm.date <  ${endDate}::date
+      LEFT JOIN LATERAL (
+        SELECT acwr_ratio, risk_zone
+        FROM   acwr_aggregates
+        WHERE  "athleteId" = a.id
+        ORDER  BY date DESC
+        LIMIT  1
+      ) acwr ON true
+      LEFT JOIN LATERAL (
+        SELECT m2.phone,
+               m2.id AS member_id
+        FROM   members m2
+        WHERE  LOWER(m2.name) = LOWER(a.name)
+          AND  m2.status = 'ACTIVE'
+        LIMIT  1
+      ) m ON true
+      WHERE a.status = 'ACTIVE'
+      GROUP BY a.id, a.name, acwr.acwr_ratio, acwr.risk_zone, m.phone, m.member_id
+      ORDER BY a.name ASC
+    `;
+  });
 
   let sent = 0;
   let skipped = 0;
   let failed = 0;
 
-  for (const athlete of stats) {
-    if (!athlete.guardianMemberId || !athlete.encryptedGuardianPhone) {
+  for (const row of rows) {
+    if (!row.encrypted_guardian_phone || !row.guardian_member_id) {
       skipped++;
       continue;
     }
 
-    if (athlete.sessionCount === 0) {
+    if (Number(row.session_count) === 0) {
       skipped++;
       continue;
     }
 
-    const idempotencyKey = buildIdempotencyKey(
-      clubId,
-      athlete.athleteId,
-      weekKey,
-    );
+    const idempotencyKey = buildIdempotencyKey(clubId, row.athleteId, weekKey);
 
     let alreadySent = false;
     try {
@@ -217,22 +261,33 @@ export async function sendWeeklyAthleteReports(
       continue;
     }
 
-    const message = buildWeeklyReportMessage(athlete, weekKey);
+    const stats: AthleteWeeklyStats = {
+      athleteId: row.athleteId,
+      athleteName: row.athleteName,
+      sessionCount: Number(row.session_count),
+      totalAu: Number(row.total_au),
+      acwrRatio: row.acwr_ratio !== null ? Number(row.acwr_ratio) : null,
+      riskZone: row.risk_zone,
+      guardianMemberId: row.guardian_member_id,
+      encryptedGuardianPhone: row.encrypted_guardian_phone,
+    };
+
+    const messageBody = buildWeeklyReportMessage(stats, weekKey);
 
     try {
-      const waResult = await sendWhatsAppMessage(
+      const result = await sendWhatsAppMessage(
         prisma,
         {
           clubId,
-          memberId: athlete.guardianMemberId,
-          encryptedPhone: athlete.encryptedGuardianPhone,
+          memberId: row.guardian_member_id,
+          encryptedPhone: row.encrypted_guardian_phone,
           template: "weekly_athlete_report",
-          renderedBody: message,
+          renderedBody: messageBody,
         },
         "system:cron",
       );
 
-      if (waResult.status === "SENT") {
+      if (result.status === "SENT") {
         await redis.set(
           idempotencyKey,
           "1",
@@ -243,17 +298,19 @@ export async function sendWeeklyAthleteReports(
         await withTenantSchema(prisma, clubId, async (tx) => {
           await tx.auditLog.create({
             data: {
+              memberId: row.guardian_member_id,
               actorId: "system:cron",
-              action: "WEEKLY_ATHLETE_REPORT_SENT" as never,
-              entityId: athlete.athleteId,
+              action: "WEEKLY_ATHLETE_REPORT_SENT",
+              entityId: row.athleteId,
               entityType: "Athlete",
               metadata: {
                 weekKey,
-                sessionCount: athlete.sessionCount,
-                totalAu: athlete.totalAu,
-                acwrRatio: athlete.acwrRatio,
-                riskZone: athlete.riskZone,
-                messageId: waResult.messageId,
+                sessionCount: Number(row.session_count),
+                totalAu: Number(row.total_au),
+                acwrRatio:
+                  row.acwr_ratio !== null ? Number(row.acwr_ratio) : null,
+                riskZone: row.risk_zone,
+                messageId: result.messageId,
               },
             },
           });
@@ -263,7 +320,7 @@ export async function sendWeeklyAthleteReports(
       } else {
         failed++;
       }
-    } catch {
+    } catch (err) {
       failed++;
     }
   }
@@ -271,7 +328,7 @@ export async function sendWeeklyAthleteReports(
   return {
     clubId,
     weekKey,
-    athletesProcessed: stats.length,
+    athletesProcessed: rows.length,
     sent,
     skipped,
     failed,

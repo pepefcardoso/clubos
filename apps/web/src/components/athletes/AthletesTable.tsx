@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Pencil, Stethoscope } from "lucide-react";
+import { Users, Pencil, Stethoscope, History } from "lucide-react";
 import type { PaginatedResponse } from "../../../../../packages/shared-types/src/index.js";
 import type { AthleteResponse } from "@/lib/api/athletes";
 import { AthleteStatusBadge } from "./AthleteStatusBadge";
@@ -105,6 +105,7 @@ interface AthletesTableProps {
     onPageChange: (page: number) => void;
     onEdit?: (athlete: AthleteResponse) => void;
     onMedicalRecord?: (athlete: AthleteResponse) => void;
+    onTimeline?: (athlete: AthleteResponse) => void;
 }
 
 export function AthletesTable({
@@ -114,7 +115,8 @@ export function AthletesTable({
     page,
     onPageChange,
     onEdit,
-    onMedicalRecord
+    onMedicalRecord,
+    onTimeline,
 }: AthletesTableProps) {
     const hasActions = !!onEdit;
 
@@ -194,7 +196,7 @@ export function AthletesTable({
                                     </td>
                                     {hasActions && (
                                         <td className="px-4 py-3">
-                                            <div className="flex justify-end items-center">
+                                            <div className="flex justify-end items-center gap-1">
                                                 <button
                                                     type="button"
                                                     onClick={() => onEdit?.(athlete)}
@@ -212,6 +214,17 @@ export function AthletesTable({
                                                     >
                                                         <Stethoscope size={14} aria-hidden="true" />
                                                         Prontuário
+                                                    </Button>
+                                                )}
+                                                {onTimeline && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => onTimeline(athlete)}
+                                                        aria-label={`Ver histórico clínico de ${athlete.name}`}
+                                                    >
+                                                        <History size={14} aria-hidden="true" />
+                                                        Histórico
                                                     </Button>
                                                 )}
                                             </div>

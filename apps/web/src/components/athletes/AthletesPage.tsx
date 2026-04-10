@@ -15,6 +15,7 @@ import { AthletesFilters } from "./AthletesFilters";
 import { AthletesTable } from "./AthletesTable";
 import { AthleteFormModal } from "./AthleteFormModal";
 import { MedicalRecordFormModal } from "@/components/medical/MedicalRecordFormModal";
+import { MedicalTimelineModal } from "@/components/medical/MedicalTimelineModal";
 import { canAccessClinicalData } from "@/lib/role-utils";
 
 function useDebouncedValue<T>(value: T, delay: number): T {
@@ -97,7 +98,7 @@ function ToastContainer({ toasts }: { toasts: Toast[] }) {
     );
 }
 
-interface MedicalModalTarget {
+interface ModalTarget {
     athleteId: string;
     athleteName: string;
 }
@@ -115,8 +116,8 @@ export function AthletesPage() {
         AthleteResponse | "new" | null
     >(null);
 
-    const [medicalTarget, setMedicalTarget] =
-        useState<MedicalModalTarget | null>(null);
+    const [medicalTarget, setMedicalTarget] = useState<ModalTarget | null>(null);
+    const [timelineTarget, setTimelineTarget] = useState<ModalTarget | null>(null);
 
     const { toasts, pushSuccess, pushError } = useToasts();
 
@@ -137,6 +138,12 @@ export function AthletesPage() {
     };
 
     const closeMedicalModal = () => setMedicalTarget(null);
+
+    const openTimelineModal = (athlete: AthleteResponse) => {
+        setTimelineTarget({ athleteId: athlete.id, athleteName: athlete.name });
+    };
+
+    const closeTimelineModal = () => setTimelineTarget(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ["athletes", { search: debouncedSearch, status, page }],
@@ -192,6 +199,7 @@ export function AthletesPage() {
                 onPageChange={setPage}
                 onEdit={isAdmin ? (athlete) => setFormTarget(athlete) : undefined}
                 onMedicalRecord={canSeeClinical ? openMedicalModal : undefined}
+                onTimeline={canSeeClinical ? openTimelineModal : undefined}
             />
 
             {formTarget !== null && (
@@ -215,6 +223,15 @@ export function AthletesPage() {
                             `Prontuário registrado para ${medicalTarget.athleteName}.`,
                         )
                     }
+                />
+            )}
+
+            {timelineTarget !== null && canSeeClinical && (
+                <MedicalTimelineModal
+                    key={timelineTarget.athleteId}
+                    athleteId={timelineTarget.athleteId}
+                    athleteName={timelineTarget.athleteName}
+                    onClose={closeTimelineModal}
                 />
             )}
 

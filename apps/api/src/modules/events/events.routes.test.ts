@@ -32,6 +32,8 @@ vi.mock("../../lib/redis.js", () => ({
     incr: vi.fn().mockResolvedValue(1),
     expire: vi.fn().mockResolvedValue(1),
     quit: vi.fn().mockResolvedValue(undefined),
+    defineCommand: vi.fn(),
+    disconnect: vi.fn(),
   })),
 }));
 
@@ -51,57 +53,57 @@ vi.mock("../../jobs/index.js", () => ({
   closeJobs: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../plugins/prisma.plugin.js", () => ({
-  default: async (fastify: {
-    decorate: (name: string, val: unknown) => void;
-  }) => {
+vi.mock("../../plugins/prisma.plugin.js", () => {
+  const plugin = async (fastify: any) => {
     fastify.decorate("prisma", {
       $connect: vi.fn(),
       $disconnect: vi.fn(),
     });
-  },
-}));
+  };
+  (plugin as any)[Symbol.for("skip-override")] = true;
+  return { default: plugin };
+});
 
-vi.mock("../../plugins/redis.plugin.js", () => ({
-  default: async (fastify: {
-    decorate: (name: string, val: unknown) => void;
-  }) => {
+vi.mock("../../plugins/redis.plugin.js", () => {
+  const plugin = async (fastify: any) => {
     fastify.decorate("redis", {
       on: vi.fn(),
       get: vi.fn().mockResolvedValue(null),
       set: vi.fn().mockResolvedValue("OK"),
       del: vi.fn().mockResolvedValue(1),
+      incr: vi.fn().mockResolvedValue(1),
+      expire: vi.fn().mockResolvedValue(1),
       quit: vi.fn().mockResolvedValue(undefined),
+      defineCommand: vi.fn(),
+      disconnect: vi.fn(),
     });
-  },
-}));
+  };
+  (plugin as any)[Symbol.for("skip-override")] = true;
+  return { default: plugin };
+});
 
-vi.mock("../../plugins/auth.plugin.js", () => ({
-  default: async (fastify: {
-    decorate: (name: string, fn: unknown) => void;
-  }) => {
-    fastify.decorate(
-      "verifyAccessToken",
-      async (
-        request: { headers: Record<string, string>; user?: unknown },
-        reply: {
-          status: (code: number) => { send: (body: unknown) => void };
-          sent?: boolean;
-        },
-      ) => {
-        const auth = request.headers["authorization"];
-        if (!auth || !auth.startsWith("Bearer valid-")) {
-          reply.status(401).send({
-            statusCode: 401,
-            error: "Unauthorized",
-            message: "Missing or invalid access token.",
-          });
-          return;
+vi.mock("../../plugins/auth.plugin.js", () => {
+  const plugin = async (fastify: any) => {
+    fastify.decorate("verifyAccessToken", async (request: any, reply: any) => {
+      const auth = request.headers["authorization"];
+      if (!auth || !auth.startsWith("Bearer valid-")) {
+        reply.status(401).send({
+          statusCode: 401,
+          error: "Unauthorized",
+          message: "Missing or invalid access token.",
+        });
+        return;
+      }
+      const clubId = auth.replace("Bearer valid-", "");
+      request.user = { sub: "user-1", clubId, role: "ADMIN", type: "access" };
+
+      setTimeout(() => {
+        if (request.raw && typeof request.raw.emit === "function") {
+          request.raw.emit("close");
         }
-        const clubId = auth.replace("Bearer valid-", "");
-        request.user = { sub: "user-1", clubId, role: "ADMIN", type: "access" };
-      },
-    );
+      }, 50);
+    });
+
     fastify.decorate("verifyRefreshToken", vi.fn());
     fastify.decorate(
       "requireRole",
@@ -111,8 +113,10 @@ vi.mock("../../plugins/auth.plugin.js", () => ({
       sign: vi.fn(),
       verify: vi.fn(),
     });
-  },
-}));
+  };
+  (plugin as any)[Symbol.for("skip-override")] = true;
+  return { default: plugin };
+});
 
 describe("events.routes — SSE endpoint", () => {
   beforeEach(() => {

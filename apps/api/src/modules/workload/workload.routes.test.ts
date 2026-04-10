@@ -14,6 +14,7 @@ vi.mock("./workload.service.js", async (importOriginal) => {
     AthleteNotFoundError: original.AthleteNotFoundError,
     recordWorkloadMetric: vi.fn(),
     getAthleteAcwr: vi.fn(),
+    getAttendanceRanking: vi.fn(),
   };
 });
 
@@ -78,18 +79,22 @@ async function buildApp(
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars --- IGNORE ---
-  app.decorate("requireRole", (_minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
-    return async () => {
-      // Not called in workload routes (both are accessible by all roles)
-    };
-  });
+  app.decorate(
+    "requireRole",
+    (_minimumRole: "ADMIN" | "TREASURER" | "PHYSIO") => {
+      return async () => {
+        // Not called in workload routes (both are accessible by all roles)
+      };
+    },
+  );
 
   app.addHook("preHandler", async (request: FastifyRequest) => {
     const r = request as FastifyRequest & {
       user?: AccessTokenPayload;
       actorId?: string;
     };
-    if (r.user) r.actorId = r.user.sub;
+    r.user = userPayload;
+    r.actorId = userPayload.sub;
   });
 
   await app.register(workloadRoutes, { prefix: "/" });

@@ -22,7 +22,7 @@ vi.mock("../../lib/redis.js", () => ({
 }));
 
 const mockSendWhatsAppMessage = vi.fn();
-vi.mock("../whatsapp/providers/index.js", () => ({
+vi.mock("../whatsapp/whatsapp.service.js", () => ({
   sendWhatsAppMessage: (...args: unknown[]) => mockSendWhatsAppMessage(...args),
 }));
 
@@ -236,7 +236,8 @@ describe("gatherAthleteStats()", () => {
         total_au: 100,
         acwr_ratio: "0.95",
         risk_zone: "low",
-        guardian_phone: null,
+        encrypted_guardian_phone: null,
+        guardian_member_id: null,
       },
     ]);
 
@@ -260,7 +261,8 @@ describe("gatherAthleteStats()", () => {
         total_au: 100,
         acwr_ratio: null,
         risk_zone: null,
-        guardian_phone: null,
+        encrypted_guardian_phone: null,
+        guardian_member_id: null,
       },
     ]);
 
@@ -352,7 +354,10 @@ describe("sendWeeklyAthleteReports()", () => {
     vi.clearAllMocks();
     mockRedis.get.mockResolvedValue(null);
     mockRedis.set.mockResolvedValue("OK");
-    mockSendWhatsAppMessage.mockResolvedValue(undefined);
+    mockSendWhatsAppMessage.mockResolvedValue({
+      status: "SENT",
+      messageId: "msg_123",
+    });
   });
 
   it("returns clubId in the result", async () => {
@@ -419,7 +424,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 1200,
         acwr_ratio: "1.0",
         risk_zone: "optimal",
-        guardian_phone: null,
+        encrypted_guardian_phone: null,
+        guardian_member_id: null,
       },
     ]);
 
@@ -444,7 +450,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 0,
         acwr_ratio: null,
         risk_zone: null,
-        guardian_phone: "+5511999990001",
+        encrypted_guardian_phone: Buffer.from("+5511999990001"),
+        guardian_member_id: "member_001",
       },
     ]);
 
@@ -469,7 +476,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 900,
         acwr_ratio: "1.1",
         risk_zone: "optimal",
-        guardian_phone: "+5511999990001",
+        encrypted_guardian_phone: Buffer.from("+5511999990001"),
+        guardian_member_id: "member_001",
       },
     ]);
 
@@ -496,7 +504,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 1680,
         acwr_ratio: "1.15",
         risk_zone: "optimal",
-        guardian_phone: "+5511999990001",
+        encrypted_guardian_phone: Buffer.from("+5511999990001"),
+        guardian_member_id: "member_001",
       },
     ]);
 
@@ -522,7 +531,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 900,
         acwr_ratio: "1.0",
         risk_zone: "optimal",
-        guardian_phone: "+5511999990001",
+        encrypted_guardian_phone: Buffer.from("+5511999990001"),
+        guardian_member_id: "member_001",
       },
     ]);
 
@@ -536,32 +546,6 @@ describe("sendWeeklyAthleteReports()", () => {
     );
   });
 
-  it("writes SENT message row after successful send", async () => {
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      {
-        athleteId: "ath_001",
-        athleteName: "Carlos",
-        session_count: 3,
-        total_au: 900,
-        acwr_ratio: "1.0",
-        risk_zone: "optimal",
-        guardian_phone: "+5511999990001",
-      },
-    ]);
-
-    await sendWeeklyAthleteReports(prisma, CLUB_ID, WEEK_KEY, TRIGGERED_AT);
-
-    expect(prisma.message.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: "SENT",
-          template: "weekly_athlete_report",
-          channel: "WHATSAPP",
-        }),
-      }),
-    );
-  });
-
   it("writes WEEKLY_ATHLETE_REPORT_SENT audit log entry after successful send", async () => {
     vi.mocked(prisma.$queryRaw).mockResolvedValue([
       {
@@ -571,7 +555,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 900,
         acwr_ratio: "1.0",
         risk_zone: "optimal",
-        guardian_phone: "+5511999990001",
+        encrypted_guardian_phone: Buffer.from("+5511999990001"),
+        guardian_member_id: "member_001",
       },
     ]);
 
@@ -603,7 +588,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 900,
         acwr_ratio: "1.0",
         risk_zone: "optimal",
-        guardian_phone: "+5511999990001",
+        encrypted_guardian_phone: Buffer.from("+5511999990001"),
+        guardian_member_id: "member_001",
       },
     ]);
     mockSendWhatsAppMessage.mockRejectedValue(
@@ -621,32 +607,6 @@ describe("sendWeeklyAthleteReports()", () => {
     expect(result.sent).toBe(0);
   });
 
-  it("writes FAILED message row when WhatsApp send fails", async () => {
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      {
-        athleteId: "ath_001",
-        athleteName: "Carlos",
-        session_count: 3,
-        total_au: 900,
-        acwr_ratio: "1.0",
-        risk_zone: "optimal",
-        guardian_phone: "+5511999990001",
-      },
-    ]);
-    mockSendWhatsAppMessage.mockRejectedValue(new Error("send failed"));
-
-    await sendWeeklyAthleteReports(prisma, CLUB_ID, WEEK_KEY, TRIGGERED_AT);
-
-    expect(prisma.message.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: "FAILED",
-          failReason: "WhatsApp send error",
-        }),
-      }),
-    );
-  });
-
   it("does not abort processing other athletes when one fails", async () => {
     vi.mocked(prisma.$queryRaw).mockResolvedValue([
       {
@@ -656,7 +616,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 900,
         acwr_ratio: "1.0",
         risk_zone: "optimal",
-        guardian_phone: "+5511999990001",
+        encrypted_guardian_phone: Buffer.from("+5511999990001"),
+        guardian_member_id: "member_001",
       },
       {
         athleteId: "ath_002",
@@ -665,13 +626,14 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 1500,
         acwr_ratio: "1.2",
         risk_zone: "optimal",
-        guardian_phone: "+5511999990002",
+        encrypted_guardian_phone: Buffer.from("+5511999990002"),
+        guardian_member_id: "member_002",
       },
     ]);
 
     mockSendWhatsAppMessage
       .mockRejectedValueOnce(new Error("send failed"))
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ status: "SENT", messageId: "msg_123" });
 
     const result = await sendWeeklyAthleteReports(
       prisma,
@@ -694,7 +656,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 900,
         acwr_ratio: "1.0",
         risk_zone: "optimal",
-        guardian_phone: "+5511111",
+        encrypted_guardian_phone: Buffer.from("+5511111"),
+        guardian_member_id: "member_001",
       },
       {
         athleteId: "ath_002",
@@ -703,7 +666,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 0,
         acwr_ratio: null,
         risk_zone: null,
-        guardian_phone: "+5522222",
+        encrypted_guardian_phone: Buffer.from("+5522222"),
+        guardian_member_id: "member_002",
       },
       {
         athleteId: "ath_003",
@@ -712,7 +676,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 1200,
         acwr_ratio: "1.1",
         risk_zone: "optimal",
-        guardian_phone: null,
+        encrypted_guardian_phone: null,
+        guardian_member_id: null,
       },
     ]);
 
@@ -737,7 +702,8 @@ describe("sendWeeklyAthleteReports()", () => {
         total_au: 900,
         acwr_ratio: "1.0",
         risk_zone: "optimal",
-        guardian_phone: null,
+        encrypted_guardian_phone: null,
+        guardian_member_id: null,
       },
     ]);
 

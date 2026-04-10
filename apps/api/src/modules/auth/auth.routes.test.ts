@@ -10,6 +10,13 @@ import Fastify, { type FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import type { Redis } from "ioredis";
 
+vi.mock("./login-attempts.js", () => ({
+  checkLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  recordFailedAttempt: vi.fn().mockResolvedValue(1),
+  clearLoginAttempts: vi.fn().mockResolvedValue(undefined),
+  isLockoutThreshold: vi.fn().mockReturnValue(false),
+}));
+
 vi.mock("../../lib/redis.js", () => ({
   getRedisClient: vi.fn(),
   storeRefreshToken: vi.fn().mockResolvedValue(undefined),
@@ -162,7 +169,7 @@ describe("POST /api/auth/login", () => {
     });
 
     expect(res.statusCode).toBe(401);
-    expect(res.json().message).toBe("Invalid credentials");
+    expect(res.json().message).toBe("Credenciais inválidas.");
   });
 
   it("returns 401 with the SAME generic message when password is wrong", async () => {
@@ -173,7 +180,7 @@ describe("POST /api/auth/login", () => {
     });
 
     expect(res.statusCode).toBe(401);
-    expect(res.json().message).toBe("Invalid credentials");
+    expect(res.json().message).toBe("Credenciais inválidas.");
   });
 
   it("returns 200 with accessToken and user when credentials are valid", async () => {
@@ -307,9 +314,10 @@ describe("POST /api/auth/refresh", () => {
       url: "/api/auth/login",
       payload: { email: "admin@clube.com", password: "password123" },
     });
+
     const tokenValue = loginRes.cookies.find(
       (c) => c.name === REFRESH_TOKEN_COOKIE,
-    )?.value!;
+    )!.value;
 
     await app.inject({
       method: "POST",
@@ -342,7 +350,7 @@ describe("POST /api/auth/refresh", () => {
 
     const tokenValue = loginRes.cookies.find(
       (c) => c.name === REFRESH_TOKEN_COOKIE,
-    )?.value!;
+    )!.value;
 
     const res = await appNoUser.inject({
       method: "POST",
@@ -404,9 +412,10 @@ describe("POST /api/auth/logout", () => {
       url: "/api/auth/login",
       payload: { email: "admin@clube.com", password: "password123" },
     });
+
     const tokenValue = loginRes.cookies.find(
       (c) => c.name === REFRESH_TOKEN_COOKIE,
-    )?.value!;
+    )!.value;
 
     await app.inject({
       method: "POST",
@@ -436,9 +445,10 @@ describe("POST /api/auth/logout", () => {
       url: "/api/auth/login",
       payload: { email: "admin@clube.com", password: "password123" },
     });
+
     const tokenValue = loginRes.cookies.find(
       (c) => c.name === REFRESH_TOKEN_COOKIE,
-    )?.value!;
+    )!.value;
 
     await app.inject({
       method: "POST",

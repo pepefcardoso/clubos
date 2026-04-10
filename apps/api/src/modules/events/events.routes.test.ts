@@ -1,5 +1,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { emitPaymentConfirmed, sseBus } from "../../lib/sse-bus.js";
+import { GatewayRegistry } from "../../modules/payments/gateway.registry.js";
+
+vi.hoisted(() => {
+  process.env.DATABASE_URL = "postgres://fake:fake@localhost:5432/fake";
+  process.env.REDIS_URL = "redis://localhost:6379";
+  process.env.JWT_SECRET = "test-access-secret-at-least-32-chars!!";
+  process.env.JWT_REFRESH_SECRET = "test-refresh-secret-at-least-32chars!";
+  process.env.MEMBER_ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef";
+  process.env.MEMBER_CARD_SECRET = "0123456789abcdef0123456789abcdef";
+  process.env.NODE_ENV = "test";
+  process.env.ASAAS_API_KEY = "mock-asaas-api-key";
+  process.env.ASAAS_WEBHOOK_SECRET = "mock-asaas-webhook-secret";
+});
+
+vi.mock("../../lib/prisma.js", () => ({
+  getPrismaClient: vi.fn(() => ({
+    $connect: vi.fn(),
+    $disconnect: vi.fn(),
+  })),
+  withTenantSchema: vi.fn(),
+  isPrismaUniqueConstraintError: vi.fn(),
+}));
 
 vi.mock("../../lib/redis.js", () => ({
   getRedisClient: vi.fn(() => ({
@@ -25,7 +47,8 @@ vi.mock("../../jobs/queues.js", () => ({
 }));
 
 vi.mock("../../jobs/index.js", () => ({
-  registerWorkers: vi.fn(),
+  registerJobs: vi.fn().mockResolvedValue(undefined),
+  closeJobs: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../plugins/prisma.plugin.js", () => ({
@@ -93,6 +116,7 @@ vi.mock("../../plugins/auth.plugin.js", () => ({
 
 describe("events.routes — SSE endpoint", () => {
   beforeEach(() => {
+    GatewayRegistry._reset();
     sseBus.removeAllListeners();
   });
 

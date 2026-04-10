@@ -32,11 +32,7 @@ vi.mock("../../lib/redis.js", () => ({
 
 vi.mock("./webhooks.service.js", () => ({
   enqueueWebhookEvent: vi.fn().mockResolvedValue(undefined),
-  checkAndMarkWebhookDedup: vi
-    .fn()
-    .mockResolvedValueOnce(true)
-    .mockResolvedValueOnce(false)
-    .mockResolvedValue(true),
+  checkAndMarkWebhookDedup: vi.fn().mockResolvedValue(true),
 }));
 
 import {

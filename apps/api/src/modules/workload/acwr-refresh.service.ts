@@ -1,5 +1,4 @@
 import type { PrismaClient } from "../../../generated/prisma/index.js";
-import { withTenantSchema } from "../../lib/prisma.js";
 
 export interface RefreshAcwrResult {
   clubId: string;
@@ -13,20 +12,15 @@ export interface RefreshAcwrResult {
  * Refreshes the acwr_aggregates materialized view for a single tenant.
  *
  * PostgreSQL constraint: REFRESH MATERIALIZED VIEW CONCURRENTLY cannot run
- * inside a transaction block. The probe (row count check) runs inside a
- * transaction via withTenantSchema. The REFRESH itself runs as a raw
- * statement on the root prisma client — outside any transaction — using a
- * schema-qualified table name to avoid search_path dependence.
+ * inside a transaction block. We probe `pg_class.relispopulated` to check
+ * if the view has data, avoiding the "materialized view has not been populated"
+ * error that occurs if we try to SELECT from it on the first run.
  *
  * First-run behaviour: the view is created WITH NO DATA.
- * The initial refresh uses the non-concurrent form (locking but fast since
- * workload_metrics is typically empty on first run). All subsequent refreshes
+ * The initial refresh uses the non-concurrent form. All subsequent refreshes
  * use CONCURRENTLY, allowing the ACWR dashboard to serve reads uninterrupted.
  *
  * Called by: the refresh-acwr-aggregates BullMQ job.
- *
- * @param prisma  Global Prisma client (public-schema connection).
- * @param clubId  Tenant club ID used to derive the schema name.
  */
 export async function refreshAcwrAggregates(
   prisma: PrismaClient,
@@ -35,12 +29,16 @@ export async function refreshAcwrAggregates(
   const startedAt = Date.now();
   const schemaName = `clube_${clubId}`;
 
-  const hasData = await withTenantSchema(prisma, clubId, async (tx) => {
-    const result = await tx.$queryRaw<[{ row_count: bigint }]>`
-      SELECT COUNT(*)::bigint AS row_count FROM acwr_aggregates LIMIT 1
-    `;
-    return Number(result[0]?.row_count ?? 0) > 0;
-  });
+  const result = await prisma.$queryRawUnsafe<{ relispopulated: boolean }[]>(
+    `SELECT relispopulated 
+     FROM pg_class c 
+     JOIN pg_namespace n ON n.oid = c.relnamespace 
+     WHERE n.nspname = $1 
+       AND c.relname = 'acwr_aggregates'`,
+    schemaName,
+  );
+
+  const hasData = result[0]?.relispopulated ?? false;
 
   if (hasData) {
     await prisma.$executeRawUnsafe(

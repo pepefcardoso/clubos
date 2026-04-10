@@ -41,6 +41,90 @@ vi.mock("./dashboard/dashboard.routes.js", () => ({
   },
 }));
 
+vi.mock("./athletes/athletes.routes.js", () => ({
+  athleteRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "athletes" }));
+  },
+}));
+
+vi.mock("./contracts/contracts.routes.js", () => ({
+  contractRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "contracts" }));
+  },
+}));
+
+vi.mock("./rtp/rtp.routes.js", () => ({
+  rtpRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "rtp" }));
+  },
+}));
+
+vi.mock("./rules/rules-config.routes.js", () => ({
+  rulesConfigRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "rules-config" }));
+  },
+}));
+
+vi.mock("./workload/workload.routes.js", () => ({
+  workloadRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "workload" }));
+  },
+}));
+
+vi.mock("./expenses/expenses.routes.js", () => ({
+  expenseRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "expenses" }));
+  },
+}));
+
+vi.mock("./reconciliation/reconciliation.routes.js", () => ({
+  reconciliationRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "reconciliation" }));
+  },
+}));
+
+vi.mock("./balance-sheets/balance-sheets.routes.js", () => ({
+  balanceSheetAdminRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "balance-sheets" }));
+  },
+}));
+
+vi.mock("./exercises/exercises.routes.js", () => ({
+  exerciseRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "exercises" }));
+  },
+}));
+
+vi.mock("./training-sessions/training-sessions.routes.js", () => ({
+  trainingSessionRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "training-sessions" }));
+  },
+}));
+
+vi.mock("./integrations/integrations.routes.js", () => ({
+  integrationRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "integrations" }));
+  },
+}));
+
+vi.mock("./evaluations/evaluations.routes.js", () => ({
+  evaluationRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "evaluations" }));
+  },
+}));
+
+vi.mock("./medical-records/medical-records.routes.js", () => ({
+  medicalRecordRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "medical-records" }));
+  },
+}));
+
+vi.mock("./injury-protocols/injury-protocols.routes.js", () => ({
+  injuryProtocolRoutes: async (fastify: FastifyInstance) => {
+    fastify.get("/", async () => ({ resource: "injury-protocols" }));
+  },
+}));
+
 import { protectedRoutes } from "./protected.routes.js";
 
 const ADMIN_USER: AccessTokenPayload = {
@@ -74,6 +158,14 @@ async function buildApp(): Promise<FastifyInstance> {
       const role = request.headers["x-test-role"];
       request.user = role === "TREASURER" ? TREASURER_USER : ADMIN_USER;
     },
+  );
+
+  fastify.decorate(
+    "requireRole",
+    (..._allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO">) =>
+      async () => {
+        // no-op in tests
+      },
   );
 
   await fastify.register(protectedRoutes, { prefix: "/api" });

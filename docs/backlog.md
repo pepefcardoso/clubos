@@ -31,7 +31,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                                                       | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ | --- |
-| **T-117** | UI Prontuário: formulário de registro de lesão (`MedicalRecordFormModal`) com campos de data, mecanismo, estrutura anatômica, grau e observações clínicas. Visível apenas ao `PHYSIO | ADMIN`. | 1d     | S9     | ⬜  |
+| **T-117** | UI Prontuário: formulário de registro de lesão (`MedicalRecordFormModal`) com campos de data, mecanismo, estrutura anatômica, grau e observações clínicas. Visível apenas ao `PHYSIO | ADMIN`. | 1d     | S9     | ✅  |
 | **T-118** | Linha do tempo de eventos clínicos por atleta: componente de histórico ordenado por data (`MedicalTimeline`) com badges por tipo de evento (lesão, retorno, avaliação).              | 0.5d    | S9     | ⬜     |
 
 ### US-38 — Retorno ao Jogo (RTP)
@@ -118,7 +118,7 @@
 
 ### Sprint 9 (FisioBase Core — Prontuário, RTP e Protocolos)
 
-**Fase 3: Interfaces do Fisioterapeuta e Dashboards (Depende da Fase 2)** 8. `T-117` — UI do Prontuário (Formulário de Registro) 9. `T-118` — Timeline de Eventos Clínicos por Atleta 10. `T-120` — UI e Widget do Status RTP no Perfil do Atleta 11. `T-122` — Dashboard Analítico de Correlação Carga (ACWR) × Lesão
+**Fase 3: Interfaces do Fisioterapeuta e Dashboards (Depende da Fase 2)** 9. `T-118` — Timeline de Eventos Clínicos por Atleta 10. `T-120` — UI e Widget do Status RTP no Perfil do Atleta 11. `T-122` — Dashboard Analítico de Correlação Carga (ACWR) × Lesão
 
 ### Sprint 10 (SAF Compliance Full e Demonstrativos)
 

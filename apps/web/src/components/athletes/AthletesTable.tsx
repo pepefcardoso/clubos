@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Pencil } from "lucide-react";
+import { Users, Pencil, Stethoscope } from "lucide-react";
 import type { PaginatedResponse } from "../../../../../packages/shared-types/src/index.js";
 import type { AthleteResponse } from "@/lib/api/athletes";
 import { AthleteStatusBadge } from "./AthleteStatusBadge";
@@ -104,6 +104,7 @@ interface AthletesTableProps {
     page: number;
     onPageChange: (page: number) => void;
     onEdit?: (athlete: AthleteResponse) => void;
+    onMedicalRecord?: (athlete: AthleteResponse) => void;
 }
 
 export function AthletesTable({
@@ -113,6 +114,7 @@ export function AthletesTable({
     page,
     onPageChange,
     onEdit,
+    onMedicalRecord
 }: AthletesTableProps) {
     const hasActions = !!onEdit;
 
@@ -201,6 +203,17 @@ export function AthletesTable({
                                                 >
                                                     <Pencil size={15} aria-hidden="true" />
                                                 </button>
+                                                {onMedicalRecord && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => onMedicalRecord(athlete)}
+                                                        aria-label={`Registrar lesão para ${athlete.name}`}
+                                                    >
+                                                        <Stethoscope size={14} aria-hidden="true" />
+                                                        Prontuário
+                                                    </Button>
+                                                )}
                                             </div>
                                         </td>
                                     )}

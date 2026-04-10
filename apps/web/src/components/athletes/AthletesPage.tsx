@@ -4,12 +4,18 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { fetchAthletes, type AthleteResponse, type AthleteStatus } from "@/lib/api/athletes";
+import {
+    fetchAthletes,
+    type AthleteResponse,
+    type AthleteStatus,
+} from "@/lib/api/athletes";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AthletesFilters } from "./AthletesFilters";
 import { AthletesTable } from "./AthletesTable";
 import { AthleteFormModal } from "./AthleteFormModal";
+import { MedicalRecordFormModal } from "@/components/medical/MedicalRecordFormModal";
+import { canAccessClinicalData } from "@/lib/role-utils";
 
 function useDebouncedValue<T>(value: T, delay: number): T {
     const [debounced, setDebounced] = useState(value);
@@ -66,7 +72,9 @@ function ToastContainer({ toasts }: { toasts: Toast[] }) {
                     role="status"
                     className={cn(
                         "flex items-start gap-3 min-w-[280px] max-w-sm rounded-md border-l-4 bg-white px-4 py-3 shadow-lg",
-                        toast.type === "success" ? "border-primary-500" : "border-danger",
+                        toast.type === "success"
+                            ? "border-primary-500"
+                            : "border-danger",
                     )}
                 >
                     {toast.type === "success" ? (
@@ -89,15 +97,26 @@ function ToastContainer({ toasts }: { toasts: Toast[] }) {
     );
 }
 
+interface MedicalModalTarget {
+    athleteId: string;
+    athleteName: string;
+}
+
 export function AthletesPage() {
     const { getAccessToken, user } = useAuth();
     const isAdmin = user?.role === "ADMIN";
+    const canSeeClinical = canAccessClinicalData(user?.role);
 
     const [search, setSearch] = useState("");
     const [status, setStatus] = useState<AthleteStatus | "">("");
     const [page, setPage] = useState(1);
 
-    const [formTarget, setFormTarget] = useState<AthleteResponse | "new" | null>(null);
+    const [formTarget, setFormTarget] = useState<
+        AthleteResponse | "new" | null
+    >(null);
+
+    const [medicalTarget, setMedicalTarget] =
+        useState<MedicalModalTarget | null>(null);
 
     const { toasts, pushSuccess, pushError } = useToasts();
 
@@ -112,6 +131,12 @@ export function AthletesPage() {
         setStatus(value);
         setPage(1);
     };
+
+    const openMedicalModal = (athlete: AthleteResponse) => {
+        setMedicalTarget({ athleteId: athlete.id, athleteName: athlete.name });
+    };
+
+    const closeMedicalModal = () => setMedicalTarget(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ["athletes", { search: debouncedSearch, status, page }],
@@ -166,6 +191,7 @@ export function AthletesPage() {
                 page={page}
                 onPageChange={setPage}
                 onEdit={isAdmin ? (athlete) => setFormTarget(athlete) : undefined}
+                onMedicalRecord={canSeeClinical ? openMedicalModal : undefined}
             />
 
             {formTarget !== null && (
@@ -175,6 +201,20 @@ export function AthletesPage() {
                     onClose={() => setFormTarget(null)}
                     onSuccess={pushSuccess}
                     onError={pushError}
+                />
+            )}
+
+            {medicalTarget !== null && canSeeClinical && (
+                <MedicalRecordFormModal
+                    key={medicalTarget.athleteId}
+                    athleteId={medicalTarget.athleteId}
+                    athleteName={medicalTarget.athleteName}
+                    onClose={closeMedicalModal}
+                    onSuccess={() =>
+                        pushSuccess(
+                            `Prontuário registrado para ${medicalTarget.athleteName}.`,
+                        )
+                    }
                 />
             )}
 

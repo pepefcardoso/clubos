@@ -94,8 +94,10 @@ export async function matchOfxTransactions(
         .filter((charge) => charge.amountCents === transaction.amountCents)
         .map((charge) => {
           const chargeDate = new Date(charge.dueDate);
-          const dateDeltaDays = Math.abs(
-            (txDate.getTime() - chargeDate.getTime()) / (1000 * 60 * 60 * 24),
+          const dateDeltaDays = Math.floor(
+            Math.abs(
+              (txDate.getTime() - chargeDate.getTime()) / (1000 * 60 * 60 * 24),
+            ),
           );
           return { ...charge, dateDeltaDays };
         })

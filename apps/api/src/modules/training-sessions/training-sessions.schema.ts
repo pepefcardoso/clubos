@@ -36,9 +36,8 @@ export const CreateTrainingSessionSchema = z
 
 export const UpdateTrainingSessionSchema = z
   .object({
-    title: z.string().min(2).max(200).optional(),
-    scheduledAt: z
-      .string()
+    title: z.string().min(1).max(200).optional(),
+    scheduledAt: z.iso
       .datetime({ message: "scheduledAt must be an ISO 8601 datetime string" })
       .optional(),
     sessionType: z.enum(SESSION_TYPES).optional(),

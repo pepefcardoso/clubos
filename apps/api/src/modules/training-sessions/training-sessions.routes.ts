@@ -23,6 +23,8 @@ import type { AccessTokenPayload } from "../../types/fastify.js";
 export async function trainingSessionRoutes(
   fastify: FastifyInstance,
 ): Promise<void> {
+  fastify.addHook("preHandler", fastify.verifyAccessToken);
+
   /**
    * GET /api/training-sessions
    * List — accessible by all authenticated roles.

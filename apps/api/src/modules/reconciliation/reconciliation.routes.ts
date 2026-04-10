@@ -18,6 +18,8 @@ const MAX_OFX_FILE_SIZE = 2 * 1024 * 1024;
 export async function reconciliationRoutes(
   fastify: FastifyInstance,
 ): Promise<void> {
+  fastify.addHook("preHandler", fastify.verifyAccessToken);
+
   /**
    * POST /api/reconciliation/parse-ofx
    *
@@ -174,13 +176,13 @@ export async function reconciliationRoutes(
         });
       }
 
-      const { clubId } = request.user as AccessTokenPayload;
+      const user = request.user as AccessTokenPayload;
 
       try {
         const result = await confirmReconciliationMatch(
           fastify.prisma,
-          clubId,
-          request.actorId,
+          user.clubId,
+          user.sub,
           parsed.data,
         );
         return reply.status(200).send(result);

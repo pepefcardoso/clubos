@@ -28,6 +28,8 @@ const CLINICAL_ROLES = new Set<string>(["ADMIN", "PHYSIO"]);
  * PUT is restricted to PHYSIO | ADMIN via OR-allowlist preHandler.
  */
 export async function rtpRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.addHook("preHandler", fastify.verifyAccessToken);
+
   /**
    * GET /api/athletes/:athleteId/rtp
    *

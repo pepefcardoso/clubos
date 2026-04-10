@@ -178,9 +178,10 @@ function extractOfxData(content: string): ParsedOfxStatement {
 }
 
 function extractAccountInfo(body: string): OfxBankAccount {
-  const blockMatch = body.match(
-    /<BANKACCTFROM>([\s\S]*?)(?:<\/BANKACCTFROM>|<[A-Z])/i,
-  );
+  const blockMatch =
+    body.match(/<BANKACCTFROM>([\s\S]*?)<\/BANKACCTFROM>/i) ??
+    body.match(/<BANKACCTFROM>([\s\S]*?)(?:<\/BANKACCTFROM>|<[A-Z])/i);
+
   const block = blockMatch?.[1] ?? "";
 
   const rawAcctType = extractField("ACCTTYPE", block) ?? "CHECKING";

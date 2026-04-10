@@ -55,7 +55,7 @@ vi.mock("./contracts/contracts.routes.js", () => ({
 
 vi.mock("./rtp/rtp.routes.js", () => ({
   rtpRoutes: async (fastify: FastifyInstance) => {
-    fastify.get("/", async () => ({ resource: "rtp" }));
+    fastify.get("/:athleteId/rtp", async () => ({ resource: "rtp" }));
   },
 }));
 

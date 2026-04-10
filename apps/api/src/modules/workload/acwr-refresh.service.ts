@@ -1,9 +1,9 @@
 import type { PrismaClient } from "../../../generated/prisma/index.js";
+import { withTenantSchema } from "../../lib/prisma.js";
 
 export interface RefreshAcwrResult {
   clubId: string;
   refreshedAt: Date;
-  /** true when CONCURRENTLY was used (reads not blocked during refresh). */
   concurrent: boolean;
   durationMs: number;
 }
@@ -29,16 +29,14 @@ export async function refreshAcwrAggregates(
   const startedAt = Date.now();
   const schemaName = `clube_${clubId}`;
 
-  const result = await prisma.$queryRawUnsafe<{ relispopulated: boolean }[]>(
-    `SELECT relispopulated 
-     FROM pg_class c 
-     JOIN pg_namespace n ON n.oid = c.relnamespace 
-     WHERE n.nspname = $1 
-       AND c.relname = 'acwr_aggregates'`,
-    schemaName,
-  );
+  const rows = await withTenantSchema(prisma, clubId, async (tx) => {
+    return tx.$queryRaw<{ row_count: bigint }[]>`
+      SELECT COUNT(*)::bigint AS row_count
+      FROM ${schemaName}."acwr_aggregates"
+    `;
+  });
 
-  const hasData = result[0]?.relispopulated ?? false;
+  const hasData = (rows[0]?.row_count ?? 0n) > 0n;
 
   if (hasData) {
     await prisma.$executeRawUnsafe(

@@ -12,10 +12,11 @@ vi.mock("../../lib/crypto.js", () => ({
   getEncryptionKey: vi.fn().mockReturnValue("test-encryption-key-32chars-xx!!"),
 }));
 
-const mockRedis = {
+const mockRedis = vi.hoisted(() => ({
   get: vi.fn(),
   set: vi.fn(),
-};
+}));
+
 vi.mock("../../lib/redis.js", () => ({
   getRedisClient: vi.fn().mockReturnValue(mockRedis),
 }));

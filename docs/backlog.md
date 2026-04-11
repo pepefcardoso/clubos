@@ -39,7 +39,7 @@
 | ID        | Tarefa Técnica                                                                                                                                                                             | Esforço             | Sprint                                                                                                        | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------- | ------ | --- | --- |
 | **T-119** | API de Status RTP (`/api/athletes/:id/rtp`): endpoint que lê `return_to_play.status` (enum: `AFASTADO                                                                                      | RETORNO_PROGRESSIVO | LIBERADO`) e o expõe por role. `PHYSIO/ADMIN`veem status + notas clínicas;`COACH` vê apenas o enum de status. | 0.5d   | S9  | ✅  |
-| **T-120** | UI RTP no perfil do atleta: widget `RtpStatusBadge` exibido na `AthletesPage` e na tela de escalação. Treinador vê o semáforo (Afastado/Progressivo/Liberado) sem acesso a dados clínicos. | 0.5d                | S9                                                                                                            | ⬜     |
+| **T-120** | UI RTP no perfil do atleta: widget `RtpStatusBadge` exibido na `AthletesPage` e na tela de escalação. Treinador vê o semáforo (Afastado/Progressivo/Liberado) sem acesso a dados clínicos. | 0.5d                | S9                                                                                                            | ✅     |
 
 ### US-39 — Biblioteca de Protocolos e Correlação de Dados
 
@@ -118,7 +118,7 @@
 
 ### Sprint 9 (FisioBase Core — Prontuário, RTP e Protocolos)
 
-**Fase 3: Interfaces do Fisioterapeuta e Dashboards (Depende da Fase 2)** `T-120` — UI e Widget do Status RTP no Perfil do Atleta 11. `T-122` — Dashboard Analítico de Correlação Carga (ACWR) × Lesão
+**Fase 3: Interfaces do Fisioterapeuta e Dashboards (Depende da Fase 2)** `T-122` — Dashboard Analítico de Correlação Carga (ACWR) × Lesão
 
 ### Sprint 10 (SAF Compliance Full e Demonstrativos)
 

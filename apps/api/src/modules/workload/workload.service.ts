@@ -10,6 +10,12 @@ import type {
   AttendanceRankingQuery,
   AthleteAttendanceRank,
   AttendanceRankingResponse,
+  InjuryCorrelationQuery,
+  InjuryCorrelationEvent,
+  InjuryCorrelationResponse,
+  AtRiskAthletesQuery,
+  AtRiskAthleteEntry,
+  AtRiskAthletesResponse,
 } from "./workload.schema.js";
 
 export class AthleteNotFoundError extends NotFoundError {
@@ -275,6 +281,212 @@ export async function getAttendanceRanking(
       athletes,
       windowDays: params.days,
       acwrLastRefreshedAt,
+    };
+  });
+}
+
+type CorrelationRawRow = {
+  athleteId: string;
+  name: string;
+  position: string | null;
+  injury_date: string;
+  structure: string;
+  grade: string;
+  mechanism: string;
+  acwr_ratio_at_injury: string | null;
+  risk_zone_at_injury: string | null;
+  peak_acwr_in_window: string | null;
+  acwr_data_as_of: Date | null;
+};
+
+/**
+ * Returns injury events that occurred when the athlete's ACWR was above the
+ * configured threshold (minAcwr) within the look-back window (days).
+ *
+ * Only plaintext fields from medical_records are read — clinicalNotes,
+ * diagnosis, treatmentDetails are never accessed or decrypted here.
+ * This is by design: structure/grade/mechanism are intentionally kept as
+ * plaintext for analytics (see schema.prisma and design-docs.md).
+ *
+ * No data_access_log entry is written — the fields returned are the plaintext
+ * analytics fields, not the AES-256 clinical fields subject to LGPD Art. 37.
+ *
+ * Correlation logic:
+ *   - acwr_at_injury: closest ACWR data point within 7 days before the injury
+ *   - peak_acwr_in_window: maximum ACWR in the full configured window before injury
+ *   - Events are included when EITHER value >= minAcwr
+ *
+ * ACWR data may lag up to 4h behind the latest workload metric insertions
+ * (BullMQ job refresh interval). acwrDataAsOf communicates this to the caller.
+ */
+export async function getInjuryCorrelation(
+  prisma: PrismaClient,
+  clubId: string,
+  params: InjuryCorrelationQuery,
+): Promise<InjuryCorrelationResponse> {
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const rows = await tx.$queryRaw<CorrelationRawRow[]>`
+      SELECT
+        a.id                                          AS "athleteId",
+        a.name,
+        a.position,
+        mr."occurredAt"::date::text                   AS injury_date,
+        mr.structure,
+        mr.grade::text                                AS grade,
+        mr.mechanism::text                            AS mechanism,
+        acwr_at_injury.acwr_ratio                     AS acwr_ratio_at_injury,
+        acwr_at_injury.risk_zone                      AS risk_zone_at_injury,
+        acwr_window.peak_acwr                         AS peak_acwr_in_window,
+        mv_meta.last_refreshed                        AS acwr_data_as_of
+      FROM medical_records mr
+      JOIN athletes a ON a.id = mr."athleteId"
+      LEFT JOIN LATERAL (
+        SELECT acwr_ratio, risk_zone
+        FROM acwr_aggregates
+        WHERE "athleteId" = mr."athleteId"
+          AND date <= mr."occurredAt"::date
+          AND date >= mr."occurredAt"::date - INTERVAL '7 days'
+        ORDER BY date DESC
+        LIMIT 1
+      ) acwr_at_injury ON true
+      LEFT JOIN LATERAL (
+        SELECT MAX(acwr_ratio::numeric) AS peak_acwr
+        FROM acwr_aggregates
+        WHERE "athleteId" = mr."athleteId"
+          AND date <= mr."occurredAt"::date
+          AND date >= mr."occurredAt"::date - (${params.days} || ' days')::interval
+      ) acwr_window ON true
+      LEFT JOIN LATERAL (
+        SELECT MAX(date) AS last_refreshed
+        FROM acwr_aggregates
+        WHERE "athleteId" = mr."athleteId"
+      ) mv_meta ON true
+      WHERE
+        mr."occurredAt" >= CURRENT_DATE - (${params.days} || ' days')::interval
+        AND a.status = 'ACTIVE'
+        AND (
+          acwr_at_injury.acwr_ratio::numeric >= ${params.minAcwr}
+          OR acwr_window.peak_acwr::numeric >= ${params.minAcwr}
+        )
+      ORDER BY mr."occurredAt" DESC
+    `;
+
+    const acwrDataAsOf =
+      rows.length > 0 && rows[0]!.acwr_data_as_of != null
+        ? rows[0]!.acwr_data_as_of.toISOString()
+        : null;
+
+    const events: InjuryCorrelationEvent[] = rows.map((r) => ({
+      athleteId: r.athleteId,
+      athleteName: r.name,
+      position: r.position,
+      injuryDate: r.injury_date,
+      structure: r.structure,
+      grade: r.grade,
+      mechanism: r.mechanism,
+      acwrRatioAtInjury:
+        r.acwr_ratio_at_injury !== null ? Number(r.acwr_ratio_at_injury) : null,
+      riskZoneAtInjury: r.risk_zone_at_injury as RiskZone | null,
+      peakAcwrInWindow:
+        r.peak_acwr_in_window !== null ? Number(r.peak_acwr_in_window) : null,
+    }));
+
+    return {
+      events,
+      totalEvents: events.length,
+      windowDays: params.days,
+      minAcwr: params.minAcwr,
+      acwrDataAsOf,
+    };
+  });
+}
+
+type AtRiskRawRow = {
+  athleteId: string;
+  name: string;
+  position: string | null;
+  current_acwr: string;
+  current_risk_zone: string;
+  acwr_date: string;
+  last_injury_date: string | null;
+  last_injury_structure: string | null;
+  acwr_data_as_of: Date | null;
+};
+
+/**
+ * Returns currently active athletes whose latest ACWR ratio is above the
+ * configured threshold — proactive injury prevention view.
+ *
+ * Results are ordered by ACWR descending (highest-risk athletes first).
+ * Athletes with no ACWR data in acwr_aggregates are excluded (JOIN instead
+ * of LEFT JOIN on latest_acwr) — they have no usable risk signal.
+ *
+ * last_injury_date / last_injury_structure come from the most recent
+ * medical_records row per athlete (plaintext fields only — no decryption).
+ */
+export async function getAtRiskAthletes(
+  prisma: PrismaClient,
+  clubId: string,
+  params: AtRiskAthletesQuery,
+): Promise<AtRiskAthletesResponse> {
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const rows = await tx.$queryRaw<AtRiskRawRow[]>`
+      SELECT
+        a.id                                         AS "athleteId",
+        a.name,
+        a.position,
+        latest_acwr.acwr_ratio                       AS current_acwr,
+        latest_acwr.risk_zone                        AS current_risk_zone,
+        latest_acwr.date::text                       AS acwr_date,
+        last_injury.occurred_at::text                AS last_injury_date,
+        last_injury.structure                        AS last_injury_structure,
+        mv_meta.last_refreshed                       AS acwr_data_as_of
+      FROM athletes a
+      JOIN LATERAL (
+        SELECT acwr_ratio, risk_zone, date
+        FROM acwr_aggregates
+        WHERE "athleteId" = a.id
+        ORDER BY date DESC
+        LIMIT 1
+      ) latest_acwr ON true
+      LEFT JOIN LATERAL (
+        SELECT "occurredAt" AS occurred_at, structure
+        FROM medical_records
+        WHERE "athleteId" = a.id
+        ORDER BY "occurredAt" DESC
+        LIMIT 1
+      ) last_injury ON true
+      LEFT JOIN LATERAL (
+        SELECT MAX(date) AS last_refreshed
+        FROM acwr_aggregates
+        WHERE "athleteId" = a.id
+      ) mv_meta ON true
+      WHERE
+        a.status = 'ACTIVE'
+        AND latest_acwr.acwr_ratio::numeric >= ${params.minAcwr}
+      ORDER BY latest_acwr.acwr_ratio::numeric DESC
+    `;
+
+    const acwrDataAsOf =
+      rows.length > 0 && rows[0]!.acwr_data_as_of != null
+        ? rows[0]!.acwr_data_as_of.toISOString()
+        : null;
+
+    const athletes: AtRiskAthleteEntry[] = rows.map((r) => ({
+      athleteId: r.athleteId,
+      athleteName: r.name,
+      position: r.position,
+      currentAcwr: Number(r.current_acwr),
+      currentRiskZone: r.current_risk_zone as RiskZone,
+      acwrDate: r.acwr_date,
+      lastInjuryDate: r.last_injury_date,
+      lastInjuryStructure: r.last_injury_structure,
+    }));
+
+    return {
+      athletes,
+      minAcwr: params.minAcwr,
+      acwrDataAsOf,
     };
   });
 }

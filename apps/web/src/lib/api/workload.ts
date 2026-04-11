@@ -178,3 +178,105 @@ export async function fetchAthleteAcwr(
 
   return res.json() as Promise<AthleteAcwrResponse>;
 }
+
+/**
+ * A single injury event that occurred when the athlete's ACWR was elevated.
+ * Only plaintext fields from medical_records — no clinical decryption.
+ */
+export interface InjuryCorrelationEvent {
+  athleteId: string;
+  athleteName: string;
+  position: string | null;
+  /** ISO date YYYY-MM-DD */
+  injuryDate: string;
+  structure: string;
+  grade: string;
+  mechanism: string;
+  acwrRatioAtInjury: number | null;
+  riskZoneAtInjury: RiskZone | null;
+  peakAcwrInWindow: number | null;
+}
+
+export interface InjuryCorrelationResponse {
+  events: InjuryCorrelationEvent[];
+  totalEvents: number;
+  windowDays: number;
+  minAcwr: number;
+  /** ISO timestamp of last ACWR MV update — null if MV is empty */
+  acwrDataAsOf: string | null;
+}
+
+/**
+ * An active athlete currently in a high ACWR zone without a recent injury.
+ */
+export interface AtRiskAthleteEntry {
+  athleteId: string;
+  athleteName: string;
+  position: string | null;
+  currentAcwr: number;
+  currentRiskZone: RiskZone;
+  acwrDate: string;
+  lastInjuryDate: string | null;
+  lastInjuryStructure: string | null;
+}
+
+export interface AtRiskAthletesResponse {
+  athletes: AtRiskAthleteEntry[];
+  minAcwr: number;
+  acwrDataAsOf: string | null;
+}
+
+/**
+ * Fetches injury events that occurred while the athlete's ACWR was above the
+ * configured threshold. Restricted to ADMIN | PHYSIO on the server.
+ */
+export async function fetchInjuryCorrelation(
+  params: { days?: number; minAcwr?: number },
+  accessToken: string,
+): Promise<InjuryCorrelationResponse> {
+  const query = new URLSearchParams();
+  if (params.days) query.set("days", String(params.days));
+  if (params.minAcwr) query.set("minAcwr", String(params.minAcwr));
+
+  const res = await fetch(
+    `${API_BASE}/api/workload/injury-correlation?${query.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message ?? `HTTP ${res.status}`);
+  }
+
+  return res.json() as Promise<InjuryCorrelationResponse>;
+}
+
+/**
+ * Fetches currently active athletes whose ACWR is at or above minAcwr.
+ * Restricted to ADMIN | PHYSIO on the server.
+ */
+export async function fetchAtRiskAthletes(
+  params: { minAcwr?: number },
+  accessToken: string,
+): Promise<AtRiskAthletesResponse> {
+  const query = new URLSearchParams();
+  if (params.minAcwr) query.set("minAcwr", String(params.minAcwr));
+
+  const res = await fetch(
+    `${API_BASE}/api/workload/at-risk-athletes?${query.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message ?? `HTTP ${res.status}`);
+  }
+
+  return res.json() as Promise<AtRiskAthletesResponse>;
+}

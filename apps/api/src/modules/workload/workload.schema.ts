@@ -42,6 +42,24 @@ export const AttendanceRankingQuerySchema = z.object({
     .optional(),
 });
 
+/**
+ * Query params for the injury-load correlation endpoint.
+ * days: look-back window for medical_records.occurredAt
+ * minAcwr: minimum ACWR threshold to include a correlation event
+ */
+export const InjuryCorrelationQuerySchema = z.object({
+  days: z.coerce.number().int().min(7).max(365).default(30),
+  minAcwr: z.coerce.number().min(0.5).max(3.0).default(1.3),
+});
+
+/**
+ * Query params for the at-risk athletes endpoint.
+ * minAcwr: minimum ACWR ratio to classify an athlete as at-risk
+ */
+export const AtRiskAthletesQuerySchema = z.object({
+  minAcwr: z.coerce.number().min(0.5).max(3.0).default(1.3),
+});
+
 export type CreateWorkloadMetricInput = z.infer<
   typeof CreateWorkloadMetricSchema
 >;
@@ -49,6 +67,10 @@ export type AcwrQuery = z.infer<typeof AcwrQuerySchema>;
 export type AttendanceRankingQuery = z.infer<
   typeof AttendanceRankingQuerySchema
 >;
+export type InjuryCorrelationQuery = z.infer<
+  typeof InjuryCorrelationQuerySchema
+>;
+export type AtRiskAthletesQuery = z.infer<typeof AtRiskAthletesQuerySchema>;
 
 export type RiskZone =
   | "insufficient_data"
@@ -102,4 +124,62 @@ export interface AttendanceRankingResponse {
   windowDays: number;
   /** ISO timestamp of the last ACWR refresh — null if view has no data */
   acwrLastRefreshedAt: Date | null;
+}
+
+/**
+ * A single injury event that occurred when the athlete's ACWR was above
+ * the configured threshold. Only plaintext fields from medical_records are
+ * returned — no AES-256 clinical fields (clinicalNotes, diagnosis,
+ * treatmentDetails) are read or decrypted by this endpoint.
+ */
+export interface InjuryCorrelationEvent {
+  athleteId: string;
+  athleteName: string;
+  position: string | null;
+  /** ISO date YYYY-MM-DD */
+  injuryDate: string;
+  /** Anatomical structure — plaintext */
+  structure: string;
+  /** GRADE_1 | GRADE_2 | GRADE_3 | COMPLETE — plaintext */
+  grade: string;
+  /** CONTACT | NON_CONTACT | OVERUSE | UNKNOWN — plaintext */
+  mechanism: string;
+  /** ACWR on the day closest to the injury date (within 7 days prior) */
+  acwrRatioAtInjury: number | null;
+  riskZoneAtInjury: RiskZone | null;
+  /** Peak ACWR in the configured window (days) before the injury */
+  peakAcwrInWindow: number | null;
+}
+
+export interface InjuryCorrelationResponse {
+  events: InjuryCorrelationEvent[];
+  totalEvents: number;
+  windowDays: number;
+  minAcwr: number;
+  /** ISO timestamp of the most recent ACWR MV data — null if MV is empty */
+  acwrDataAsOf: string | null;
+}
+
+/**
+ * An active athlete currently in a high ACWR risk zone without a recent
+ * injury on record — used for proactive injury prevention.
+ */
+export interface AtRiskAthleteEntry {
+  athleteId: string;
+  athleteName: string;
+  position: string | null;
+  currentAcwr: number;
+  currentRiskZone: RiskZone;
+  /** ISO date of the most recent ACWR data point */
+  acwrDate: string;
+  /** ISO date of last injury, or null if no medical record exists */
+  lastInjuryDate: string | null;
+  lastInjuryStructure: string | null;
+}
+
+export interface AtRiskAthletesResponse {
+  athletes: AtRiskAthleteEntry[];
+  minAcwr: number;
+  /** ISO timestamp of the most recent ACWR MV data — null if MV is empty */
+  acwrDataAsOf: string | null;
 }

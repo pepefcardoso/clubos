@@ -46,7 +46,7 @@
 | ID        | Tarefa Técnica                                                                                                                                                                                                   | Esforço | Sprint | Status |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-121** | Biblioteca de protocolos de retorno ao jogo: seed com 20 protocolos baseados em evidência (FIFA Medical — entorses, distensões, contusões, fraturas). UI de seleção e atribuição por lesão (`ProtocolSelector`). | 1d      | S9     | ✅     |
-| **T-122** | Correlação carga × lesão: query analítica que cruza `workload_metrics` (ACWR) com `medical_records` (ocorrências de lesão) e exibe no dashboard do PHYSIO os atletas com histórico de lesão em zona vermelha.    | 1d      | S9     | ⬜     |
+| **T-122** | Correlação carga × lesão: query analítica que cruza `workload_metrics` (ACWR) com `medical_records` (ocorrências de lesão) e exibe no dashboard do PHYSIO os atletas com histórico de lesão em zona vermelha.    | 1d      | S9     | ✅     |
 
 ---
 
@@ -115,10 +115,6 @@
 ## Plano de Execução Recomendado (Ordem Lógica)
 
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
-
-### Sprint 9 (FisioBase Core — Prontuário, RTP e Protocolos)
-
-**Fase 3: Interfaces do Fisioterapeuta e Dashboards (Depende da Fase 2)** `T-122` — Dashboard Analítico de Correlação Carga (ACWR) × Lesão
 
 ### Sprint 10 (SAF Compliance Full e Demonstrativos)
 

@@ -3,11 +3,15 @@ import {
   CreateWorkloadMetricSchema,
   AcwrQuerySchema,
   AttendanceRankingQuerySchema,
+  InjuryCorrelationQuerySchema,
+  AtRiskAthletesQuerySchema,
 } from "./workload.schema.js";
 import {
   recordWorkloadMetric,
   getAthleteAcwr,
   getAttendanceRanking,
+  getInjuryCorrelation,
+  getAtRiskAthletes,
   AthleteNotFoundError,
 } from "./workload.service.js";
 import type { AccessTokenPayload } from "../../types/fastify.js";
@@ -132,4 +136,77 @@ export async function workloadRoutes(fastify: FastifyInstance): Promise<void> {
     );
     return reply.status(200).send(result);
   });
+
+  /**
+   * GET /api/workload/injury-correlation?days=30&minAcwr=1.3
+   *
+   * Returns injury events that occurred when the athlete's ACWR was above the
+   * configured threshold. Only plaintext fields from medical_records are
+   * returned (structure, grade, mechanism, occurredAt) — no clinical field
+   * decryption happens here.
+   *
+   * No data_access_log entry is written — structure/grade/mechanism are the
+   * analytics-safe plaintext fields, not the AES-256 clinical fields subject
+   * to LGPD Art. 37 logging requirements.
+   *
+   * Restricted to ADMIN | PHYSIO via requireRole OR-allowlist.
+   * TREASURER is explicitly blocked — this endpoint correlates clinical injury
+   * data (even if plaintext) with training load, which is clinical context.
+   */
+  fastify.get(
+    "/injury-correlation",
+    { preHandler: [fastify.requireRole("ADMIN", "PHYSIO")] },
+    async (request, reply) => {
+      const parsed = InjuryCorrelationQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: parsed.error.issues[0]?.message ?? "Invalid query params",
+        });
+      }
+
+      const user = request.user as AccessTokenPayload;
+      const result = await getInjuryCorrelation(
+        fastify.prisma,
+        user.clubId,
+        parsed.data,
+      );
+      return reply.status(200).send(result);
+    },
+  );
+
+  /**
+   * GET /api/workload/at-risk-athletes?minAcwr=1.3
+   *
+   * Returns currently active athletes whose latest ACWR ratio is above the
+   * configured threshold — proactive injury prevention view for physiotherapists.
+   *
+   * Results are ordered by ACWR descending (highest-risk athletes first).
+   * Athletes with no ACWR data (before first MV refresh) are excluded.
+   *
+   * Restricted to ADMIN | PHYSIO — same rationale as /injury-correlation.
+   */
+  fastify.get(
+    "/at-risk-athletes",
+    { preHandler: [fastify.requireRole("ADMIN", "PHYSIO")] },
+    async (request, reply) => {
+      const parsed = AtRiskAthletesQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: parsed.error.issues[0]?.message ?? "Invalid query params",
+        });
+      }
+
+      const user = request.user as AccessTokenPayload;
+      const result = await getAtRiskAthletes(
+        fastify.prisma,
+        user.clubId,
+        parsed.data,
+      );
+      return reply.status(200).send(result);
+    },
+  );
 }

@@ -59,7 +59,7 @@
 | ID        | Tarefa Técnica                                                                                                                                                                                  | Esforço | Sprint | Status |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-123** | Dashboard SAF: página `/saf` com KPIs para acionistas — receita recorrente (MRR), passivos registrados, status de compliance e data da última publicação de balanço. Componente `SafDashboard`. | 1d      | S10    | ⬜     |
-| **T-124** | Módulo de Passivos Trabalhistas: CRUD de credores (`/api/creditors`) com campos de credor, valor, vencimento e status. Exportação em PDF assinado digitalmente com hash SHA-256 no `audit_log`. | 1d      | S10    | ⬜     |
+| **T-124** | Módulo de Passivos Trabalhistas: CRUD de credores (`/api/creditors`) com campos de credor, valor, vencimento e status. Exportação em PDF assinado digitalmente com hash SHA-256 no `audit_log`. | 1d      | S10    | ✅     |
 
 ### US-41 — Demonstrativo de Receitas e Publicação de Balanços
 
@@ -120,7 +120,6 @@
 
 **Fase 1: Motor Financeiro e Agregação de Dados (Bloqueadores)**
 
-1. `T-124` — Módulo e API de Passivos Trabalhistas (Dados base para a SAF)
 2. `T-125` — Query Agregada do Demonstrativo de Receitas (Consolida a saúde financeira)
 3. `T-127` — Lógica e UI de Conciliação Bancária OFX Aprimorada (Garante a precisão dos dados)
 

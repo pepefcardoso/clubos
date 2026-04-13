@@ -65,7 +65,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                                                                           | Esforço | Sprint | Status |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-125** | Demonstrativo de Receitas integrado: query agregada que consolida dados de `charges` (cobranças de sócios), `payments` (pagamentos confirmados) e `expenses` (despesas do P&L) por período selecionável. | 1d      | S10    | ⬜     |
+| **T-125** | Demonstrativo de Receitas integrado: query agregada que consolida dados de `charges` (cobranças de sócios), `payments` (pagamentos confirmados) e `expenses` (despesas do P&L) por período selecionável. | 1d      | S10    | ✅     |
 | **T-126** | Painel SAF Full de publicação: UI para upload e publicação de balanços. Cada publicação gera hash SHA-256 do arquivo, salvo em `balance_sheets` (imutável). URL pública por clube configurável.          | 1d      | S10    | ⬜     |
 
 ### US-42 — Conciliação OFX Aprimorada e Relatório Financeiro PDF
@@ -120,7 +120,6 @@
 
 **Fase 1: Motor Financeiro e Agregação de Dados (Bloqueadores)**
 
-2. `T-125` — Query Agregada do Demonstrativo de Receitas (Consolida a saúde financeira)
 3. `T-127` — Lógica e UI de Conciliação Bancária OFX Aprimorada (Garante a precisão dos dados)
 
 **Fase 2: Interfaces de Transparência SAF (Depende da Fase 1)** 4. `T-126` — Painel SAF de Publicação e Upload de Balanços 5. `T-123` — Dashboard SAF (Consome os KPIs gerados nas tarefas 124, 125 e 126)

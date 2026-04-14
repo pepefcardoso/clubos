@@ -116,6 +116,12 @@ interface MatchTableProps {
   matches: TransactionMatchResult[];
   selected: Set<string>;
   overrides: Record<string, string>;
+  /**
+   * Whether all confirmable rows in the current view are selected.
+   * Computed by the parent (ReconciliationPage) so it reflects the filtered
+   * subset correctly when a status filter is active.
+   */
+  allConfirmableSelected: boolean;
   getEffectiveChargeId: (match: TransactionMatchResult) => string | null;
   getEffectiveMethod: (fitId: string) => MethodOverride[string];
   onToggleSelected: (fitId: string) => void;
@@ -129,6 +135,7 @@ export function MatchTable({
   matches,
   selected,
   overrides,
+  allConfirmableSelected,
   getEffectiveChargeId,
   getEffectiveMethod,
   onToggleSelected,
@@ -137,12 +144,6 @@ export function MatchTable({
   onChargeOverride,
   onMethodOverride,
 }: MatchTableProps) {
-  const confirmableCount = matches.filter(
-    (m) => getEffectiveChargeId(m) !== null,
-  ).length;
-  const allConfirmableSelected =
-    confirmableCount > 0 && selected.size === confirmableCount;
-
   return (
     <div className="rounded-md border border-neutral-200 bg-white overflow-hidden">
       <div className="overflow-x-auto">
@@ -160,7 +161,7 @@ export function MatchTable({
                     allConfirmableSelected ? onDeselectAll : onSelectAll
                   }
                   className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
-                  aria-label="Selecionar todos os itens confirmáveis"
+                  aria-label="Selecionar todos os itens confirmáveis visíveis"
                   title="Selecionar todos"
                 />
               </th>
@@ -256,7 +257,7 @@ export function MatchTable({
 
                   <td className="px-4 py-3">
                     {match.matchStatus === "matched" &&
-                    !overrides[match.fitId] ? (
+                      !overrides[match.fitId] ? (
                       <div>
                         <p className="text-sm font-medium text-neutral-900">
                           {match.candidates[0]?.memberName}

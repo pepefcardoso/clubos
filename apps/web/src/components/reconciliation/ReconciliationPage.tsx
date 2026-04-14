@@ -10,11 +10,66 @@ import {
   RotateCcw,
   Loader2,
   FileText,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useReconciliation } from "@/hooks/use-reconciliation";
-import { ReconciliationApiError } from "@/lib/api/reconciliation";
+import { useReconciliation, type StatusFilter } from "@/hooks/use-reconciliation";
+import { ReconciliationApiError, type MatchStatus } from "@/lib/api/reconciliation";
 import { MatchTable } from "./MatchTable";
+import { cn } from "@/lib/utils";
+
+type FilterOption = { value: StatusFilter; label: string };
+
+const FILTER_OPTIONS: FilterOption[] = [
+  { value: "all", label: "Todos" },
+  { value: "matched", label: "Correspondência" },
+  { value: "ambiguous", label: "Ambíguo" },
+  { value: "unmatched", label: "Sem correspondência" },
+];
+
+function FilterTabs({
+  value,
+  counts,
+  onChange,
+}: {
+  value: StatusFilter;
+  counts: Record<StatusFilter, number>;
+  onChange: (v: StatusFilter) => void;
+}) {
+  return (
+    <div
+      className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded-md w-fit"
+      role="tablist"
+      aria-label="Filtrar por status de correspondência"
+    >
+      {FILTER_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          role="tab"
+          aria-selected={value === opt.value}
+          onClick={() => onChange(opt.value)}
+          className={cn(
+            "px-3 py-1.5 text-xs font-medium rounded transition-colors whitespace-nowrap",
+            value === opt.value
+              ? "bg-white text-neutral-900 shadow-sm"
+              : "text-neutral-500 hover:text-neutral-700",
+          )}
+        >
+          {opt.label}
+          <span
+            className={cn(
+              "ml-1.5",
+              value === opt.value ? "text-neutral-400" : "text-neutral-400",
+            )}
+          >
+            ({counts[opt.value]})
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function SummaryBar({
   total,
@@ -44,7 +99,7 @@ function SummaryBar({
           correspondência{matched !== 1 ? "s" : ""}
         </span>
       </div>
-      <div className="w-px h-4 bg-neutral-200" />
+      <div className="w-px h-4 bg-neutral-200" aria-hidden="true" />
       <div className="flex items-center gap-1.5 text-sm">
         <AlertTriangle
           size={15}
@@ -56,7 +111,7 @@ function SummaryBar({
           ambígu{ambiguous !== 1 ? "os" : "o"}
         </span>
       </div>
-      <div className="w-px h-4 bg-neutral-200" />
+      <div className="w-px h-4 bg-neutral-200" aria-hidden="true" />
       <div className="flex items-center gap-1.5 text-sm">
         <XCircle size={15} className="text-neutral-400" aria-hidden="true" />
         <span className="font-semibold text-neutral-600">{unmatched}</span>
@@ -64,7 +119,7 @@ function SummaryBar({
       </div>
       {skippedDebits > 0 && (
         <>
-          <div className="w-px h-4 bg-neutral-200" />
+          <div className="w-px h-4 bg-neutral-200" aria-hidden="true" />
           <span className="text-xs text-neutral-400">
             {skippedDebits} débito{skippedDebits !== 1 ? "s" : ""} ignorado
             {skippedDebits !== 1 ? "s" : ""}
@@ -137,7 +192,7 @@ function UploadStep({
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
           }}
-          className={[
+          className={cn(
             "relative flex flex-col items-center justify-center gap-3",
             "rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors cursor-pointer",
             isLoading
@@ -145,7 +200,7 @@ function UploadStep({
               : isDragging
                 ? "border-primary-400 bg-primary-50"
                 : "border-neutral-300 bg-neutral-50 hover:border-primary-400 hover:bg-primary-50",
-          ].join(" ")}
+          )}
           aria-label="Área de upload do arquivo OFX. Clique ou arraste o arquivo."
         >
           <input
@@ -277,6 +332,27 @@ export function ReconciliationPage() {
     });
   };
 
+  const filterCounts: Record<StatusFilter, number> = rec.matchResult
+    ? {
+      all: rec.matchResult.summary.total,
+      matched: rec.matchResult.summary.matched,
+      ambiguous: rec.matchResult.summary.ambiguous,
+      unmatched: rec.matchResult.summary.unmatched,
+    }
+    : { all: 0, matched: 0, ambiguous: 0, unmatched: 0 };
+
+  const visibleConfirmableCount = rec.filteredMatches.filter(
+    (m) => rec.getEffectiveChargeId(m) !== null,
+  ).length;
+
+  const visibleSelectedCount = rec.filteredMatches.filter(
+    (m) => rec.selected.has(m.fitId) && rec.getEffectiveChargeId(m) !== null,
+  ).length;
+
+  const allVisibleConfirmableSelected =
+    visibleConfirmableCount > 0 &&
+    visibleSelectedCount === visibleConfirmableCount;
+
   return (
     <div className="px-6 py-8 max-w-7xl mx-auto">
       <div className="flex items-start justify-between mb-6">
@@ -335,20 +411,59 @@ export function ReconciliationPage() {
               selectedCount={rec.selected.size}
             />
 
-            <MatchTable
-              matches={rec.matchResult.matches}
-              selected={rec.selected}
-              overrides={rec.overrides}
-              getEffectiveChargeId={rec.getEffectiveChargeId}
-              getEffectiveMethod={rec.getEffectiveMethod}
-              onToggleSelected={rec.toggleSelected}
-              onSelectAll={rec.selectAll}
-              onDeselectAll={rec.deselectAll}
-              onChargeOverride={rec.setChargeOverride}
-              onMethodOverride={rec.setMethodOverride}
-            />
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <FilterTabs
+                value={rec.statusFilter}
+                counts={filterCounts}
+                onChange={rec.setStatusFilter}
+              />
 
-            <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+              <Button
+                variant="secondary"
+                onClick={rec.exportCsv}
+                disabled={!rec.matchResult || rec.isConfirming}
+                title="Exportar resultados como CSV"
+              >
+                <Download size={14} aria-hidden="true" />
+                Exportar CSV
+              </Button>
+            </div>
+
+            {rec.filteredMatches.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <XCircle
+                  size={36}
+                  className="text-neutral-300 mb-3"
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-medium text-neutral-500">
+                  Nenhuma transação nesta categoria
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 text-xs text-primary-600 underline hover:text-primary-700 transition-colors"
+                  onClick={() => rec.setStatusFilter("all")}
+                >
+                  Mostrar todos
+                </button>
+              </div>
+            ) : (
+              <MatchTable
+                matches={rec.filteredMatches}
+                selected={rec.selected}
+                overrides={rec.overrides}
+                getEffectiveChargeId={rec.getEffectiveChargeId}
+                getEffectiveMethod={rec.getEffectiveMethod}
+                onToggleSelected={rec.toggleSelected}
+                onSelectAll={rec.selectAll}
+                onDeselectAll={rec.deselectAll}
+                onChargeOverride={rec.setChargeOverride}
+                onMethodOverride={rec.setMethodOverride}
+                allConfirmableSelected={allVisibleConfirmableSelected}
+              />
+            )}
+
+            <div className="flex items-center justify-between gap-4 pt-2 border-t border-neutral-100">
               <Button
                 variant="secondary"
                 onClick={rec.reset}
@@ -358,26 +473,41 @@ export function ReconciliationPage() {
                 Cancelar
               </Button>
 
-              <Button
-                onClick={rec.confirmAll}
-                disabled={rec.selected.size === 0 || rec.isConfirming}
-              >
-                {rec.isConfirming ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2
-                      size={14}
-                      className="animate-spin"
-                      aria-hidden="true"
+              {rec.confirmProgress !== null ? (
+                <div className="flex items-center gap-4 flex-1 max-w-sm">
+                  <div
+                    className="flex-1 bg-neutral-200 rounded-full h-2"
+                    role="progressbar"
+                    aria-valuenow={rec.confirmProgress.done}
+                    aria-valuemin={0}
+                    aria-valuemax={rec.confirmProgress.total}
+                    aria-label="Progresso da confirmação"
+                  >
+                    <div
+                      className="bg-primary-500 h-2 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${rec.confirmProgress.total > 0
+                            ? (rec.confirmProgress.done /
+                              rec.confirmProgress.total) *
+                            100
+                            : 0
+                          }%`,
+                      }}
                     />
-                    Confirmando…
+                  </div>
+                  <span className="text-sm text-neutral-600 whitespace-nowrap tabular-nums">
+                    {rec.confirmProgress.done} / {rec.confirmProgress.total}
                   </span>
-                ) : (
-                  <>
-                    <CheckCircle2 size={14} aria-hidden="true" />
-                    Confirmar selecionados ({rec.selected.size})
-                  </>
-                )}
-              </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={rec.confirmAll}
+                  disabled={rec.selected.size === 0 || rec.isConfirming}
+                >
+                  <CheckCircle2 size={14} aria-hidden="true" />
+                  Confirmar selecionados ({rec.selected.size})
+                </Button>
+              )}
             </div>
           </div>
         )}

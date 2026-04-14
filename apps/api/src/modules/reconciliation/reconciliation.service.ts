@@ -35,6 +35,11 @@ interface RawOpenCharge {
  *
  * A charge that already has a Payment row is excluded from candidates.
  * Pure read — no writes.
+ *
+ * Candidate sort order (all tiebreakers applied in sequence):
+ *   1. Confidence DESC  (high before medium)
+ *   2. dateDeltaDays ASC  (closer date wins)
+ *   3. Status: OVERDUE before PENDING  (prefer urgent charges)
  */
 export async function matchOfxTransactions(
   prisma: PrismaClient,
@@ -119,7 +124,13 @@ export async function matchOfxTransactions(
           if (a.confidence !== b.confidence) {
             return a.confidence === "high" ? -1 : 1;
           }
-          return a.dateDeltaDays - b.dateDeltaDays;
+          if (a.dateDeltaDays !== b.dateDeltaDays) {
+            return a.dateDeltaDays - b.dateDeltaDays;
+          }
+          if (a.status !== b.status) {
+            return a.status === "OVERDUE" ? -1 : 1;
+          }
+          return 0;
         });
 
       const matchStatus: MatchStatus =

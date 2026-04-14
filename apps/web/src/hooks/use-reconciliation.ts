@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -12,10 +12,16 @@ import {
   type MatchResponse,
   type TransactionMatchResult,
   type ConfirmMatchPayload,
+  type MatchStatus,
 } from "@/lib/api/reconciliation";
 import { CHARGES_QUERY_KEY } from "@/hooks/use-charges";
+import { toCsv, downloadCsv } from "@/lib/csv-export";
+import { formatBRL } from "@/lib/format";
 
 export type ReconciliationStep = "upload" | "matching" | "review" | "done";
+
+/** Filter applied to the match table in the review step. */
+export type StatusFilter = MatchStatus | "all";
 
 /**
  * Payment method override per-fitId.
@@ -25,6 +31,18 @@ export type MethodOverride = Record<
   string,
   "PIX" | "CASH" | "BANK_TRANSFER" | "CREDIT_CARD" | "DEBIT_CARD" | "BOLETO"
 >;
+
+/** Progress counter for the sequential batch confirmation loop. */
+export interface ConfirmProgress {
+  done: number;
+  total: number;
+}
+
+const STATUS_LABEL: Record<MatchStatus, string> = {
+  matched: "Correspondência",
+  ambiguous: "Ambíguo",
+  unmatched: "Sem correspondência",
+};
 
 export function useReconciliation() {
   const { getAccessToken } = useAuth();
@@ -54,6 +72,30 @@ export function useReconciliation() {
 
   /** Number of successfully confirmed payments in the done step. */
   const [confirmedCount, setConfirmedCount] = useState(0);
+
+  /**
+   * Active status filter for the review table.
+   * "all" shows every transaction; other values show only matching rows.
+   */
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  /**
+   * Per-item progress counter during batch confirmation.
+   * null when no confirmation is in progress.
+   */
+  const [confirmProgress, setConfirmProgress] =
+    useState<ConfirmProgress | null>(null);
+
+  /**
+   * Derived: matches filtered by the active statusFilter.
+   * Computed without useState to avoid synchronisation issues with `selected`.
+   * The full matchResult.matches remains the source of truth.
+   */
+  const filteredMatches = useMemo<TransactionMatchResult[]>(() => {
+    if (!matchResult) return [];
+    if (statusFilter === "all") return matchResult.matches;
+    return matchResult.matches.filter((m) => m.matchStatus === statusFilter);
+  }, [matchResult, statusFilter]);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -127,15 +169,34 @@ export function useReconciliation() {
     });
   };
 
+  /**
+   * Selects all currently visible (filtered) confirmable matches.
+   * Does not deselect confirmable rows that are hidden by the active filter.
+   */
   const selectAll = () => {
     if (!matchResult) return;
-    const confirmable = matchResult.matches.filter(
+    const confirmableInView = filteredMatches.filter(
       (m) => getEffectiveChargeId(m) !== null,
     );
-    setSelected(new Set(confirmable.map((m) => m.fitId)));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      confirmableInView.forEach((m) => next.add(m.fitId));
+      return next;
+    });
   };
 
-  const deselectAll = () => setSelected(new Set());
+  /**
+   * Deselects all currently visible (filtered) matches.
+   * Does not affect selections outside the current filter view.
+   */
+  const deselectAll = () => {
+    const visibleFitIds = new Set(filteredMatches.map((m) => m.fitId));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      visibleFitIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  };
 
   const getEffectiveChargeId = (
     match: TransactionMatchResult,
@@ -150,12 +211,19 @@ export function useReconciliation() {
     return methodOverrides[fitId] ?? "PIX";
   };
 
+  /**
+   * Confirms all selected+confirmable transactions sequentially.
+   * Updates `confirmProgress` per-item so the UI can render a progress bar.
+   * Sequential (not concurrent) to avoid overwhelming the tenant schema writes.
+   */
   const confirmAll = async (): Promise<void> => {
     if (!matchResult) return;
 
     const toConfirm = matchResult.matches.filter(
       (m) => selected.has(m.fitId) && getEffectiveChargeId(m) !== null,
     );
+
+    setConfirmProgress({ done: 0, total: toConfirm.length });
 
     let count = 0;
     for (const match of toConfirm) {
@@ -167,10 +235,62 @@ export function useReconciliation() {
         method: getEffectiveMethod(match.fitId),
       });
       count++;
+      setConfirmProgress({ done: count, total: toConfirm.length });
     }
 
     setConfirmedCount(count);
+    setConfirmProgress(null);
     setStep("done");
+  };
+
+  /**
+   * Generates and downloads a CSV of all match results (all statuses, not just filtered).
+   * Each row includes: transaction info, match status, linked member/charge, and confirmation flag.
+   *
+   * Uses UTF-8 BOM for Excel pt-BR compatibility.
+   */
+  const exportCsv = (): void => {
+    if (!matchResult) return;
+
+    const rows = matchResult.matches.map((m) => {
+      const chargeId = getEffectiveChargeId(m);
+      const candidate = chargeId
+        ? m.candidates.find((c) => c.chargeId === chargeId)
+        : null;
+
+      return {
+        fitId: m.fitId,
+        postedAt: new Date(m.transaction.postedAt).toLocaleDateString("pt-BR"),
+        description: m.transaction.description,
+        amountBrl: formatBRL(m.transaction.amountCents),
+        status: STATUS_LABEL[m.matchStatus],
+        memberName: candidate?.memberName ?? "",
+        chargeDueDate: candidate?.dueDate
+          ? new Date(candidate.dueDate).toLocaleDateString("pt-BR", {
+              timeZone: "UTC",
+            })
+          : "",
+        chargeStatus: candidate?.status ?? "",
+        confirmed: selected.has(m.fitId) && chargeId !== null ? "Sim" : "Não",
+        method: getEffectiveMethod(m.fitId),
+      };
+    });
+
+    const headers = [
+      { key: "fitId", label: "ID OFX" },
+      { key: "postedAt", label: "Data" },
+      { key: "description", label: "Descrição OFX" },
+      { key: "amountBrl", label: "Valor" },
+      { key: "status", label: "Status" },
+      { key: "memberName", label: "Sócio" },
+      { key: "chargeDueDate", label: "Vencimento da Cobrança" },
+      { key: "chargeStatus", label: "Status da Cobrança" },
+      { key: "confirmed", label: "Confirmado" },
+      { key: "method", label: "Método" },
+    ];
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadCsv(toCsv(rows, headers), `conciliacao-${dateStr}.csv`);
   };
 
   const reset = () => {
@@ -181,6 +301,8 @@ export function useReconciliation() {
     setMethodOverrides({});
     setSelected(new Set());
     setConfirmedCount(0);
+    setStatusFilter("all");
+    setConfirmProgress(null);
   };
 
   return {
@@ -191,6 +313,10 @@ export function useReconciliation() {
     methodOverrides,
     selected,
     confirmedCount,
+    statusFilter,
+    setStatusFilter,
+    filteredMatches,
+    confirmProgress,
     uploadMutation,
     confirmMutation,
     setChargeOverride,
@@ -202,6 +328,7 @@ export function useReconciliation() {
     getEffectiveChargeId,
     getEffectiveMethod,
     confirmAll,
+    exportCsv,
     reset,
     isConfirming: confirmMutation.isPending,
   };

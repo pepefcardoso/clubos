@@ -247,3 +247,43 @@ export const weeklyAthleteReportQueue = new Queue("weekly-athlete-report", {
     },
   },
 });
+
+/**
+ * Queue for monthly financial report PDF generation and email dispatch.
+ *
+ * Fires on the 2nd of every month at 07:00 UTC (04:00 BRT).
+ * Generates a PDF summary of the previous month's revenue, expenses,
+ * balance and delinquency, then emails it to all ADMIN users per club.
+ *
+ * Separate from all operational queues because:
+ *   - Different cadence: monthly, not daily.
+ *   - Non-critical: a failed report is informational only; no financial impact.
+ *   - PDF generation is CPU/memory-intensive — isolation prevents starving
+ *     financial workers during peak-load generation.
+ *
+ * Runs on the 2nd (not the 1st) to ensure all end-of-month payments and
+ * charges from the 1st have settled before the previous month's data is
+ * compiled. This also avoids competing with the charge generation cron
+ * (1st at 08:00 UTC).
+ *
+ * Morning cron schedule context (UTC):
+ *   01st 08:00 — charge generation
+ *   02nd 07:00 — monthly report  ← this queue
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 30s → attempt 2 → EXHAUSTED.
+ *   On exhaustion the report is simply skipped until next month —
+ *   acceptable since this is a non-critical informational job.
+ */
+export const monthlyReportQueue = new Queue("monthly-report", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 50 },
+    removeOnFail: { count: 100 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 30_000,
+    },
+  },
+});

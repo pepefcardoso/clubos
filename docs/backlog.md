@@ -73,7 +73,7 @@
 | ID        | Tarefa Técnica                                                                                                                                                                                                | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-127** | UI de conciliação bancária OFX aprimorada: revisão do algoritmo de correspondência por valor/data (sprint 6) com UI de aprovação em lote, filtros por status (conciliado/pendente) e exportação simplificada. | 1d      | S10    | ✅     |
-| **T-128** | Relatório financeiro mensal PDF (S6): template `react-pdf` com resumo de receitas, despesas, saldo e inadimplência. Job BullMQ mensal (`generate-monthly-report`) que despacha o PDF por e-mail à diretoria.  | 1d      | S10    | ⬜     |
+| **T-128** | Relatório financeiro mensal PDF (S6): template `react-pdf` com resumo de receitas, despesas, saldo e inadimplência. Job BullMQ mensal (`generate-monthly-report`) que despacha o PDF por e-mail à diretoria.  | 1d      | S10    | ✅     |
 
 ---
 
@@ -115,10 +115,6 @@
 ## Plano de Execução Recomendado (Ordem Lógica)
 
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
-
-### Sprint 10 (SAF Compliance Full e Demonstrativos)
-
-**Fase 3: Automação e Relatórios (Paralelizável com a Fase 2)** 6. `T-128` — Job BullMQ Mensal e Geração de Relatório Financeiro PDF
 
 ### Sprint 11 (Relatórios, Controle de Acesso e Quality Assurance)
 

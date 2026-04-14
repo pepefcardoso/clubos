@@ -34,6 +34,10 @@ import { startWeeklyAthleteReportDispatchWorker } from "./weekly-athlete-report/
 import { startWeeklyAthleteReportWorker } from "./weekly-athlete-report/weekly-athlete-report.worker.js";
 import { WEEKLY_ATHLETE_REPORT_JOB_NAMES } from "./weekly-athlete-report/weekly-athlete-report.types.js";
 import { weeklyAthleteReportQueue } from "./queues.js";
+import { startMonthlyReportDispatchWorker } from "./monthly-report/monthly-report-dispatch.worker.js";
+import { startMonthlyReportWorker } from "./monthly-report/monthly-report.worker.js";
+import { MONTHLY_REPORT_JOB_NAMES } from "./monthly-report/monthly-report.types.js";
+import { monthlyReportQueue } from "./queues.js";
 
 /**
  * Cron expression: 1st of every month at 08:00 UTC.
@@ -98,6 +102,14 @@ const LGPD_PURGE_CRON = "0 3 1 * *";
 const WEEKLY_ATHLETE_REPORT_CRON = "0 8 * * 1";
 
 /**
+ * Cron expression: 2nd of every month at 07:00 UTC (04:00 BRT).
+ * Generates and emails the previous month's financial PDF report to all
+ * club ADMIN users. Runs one day after charge generation (1st at 08:00 UTC)
+ * to ensure end-of-month payments are fully settled before reporting.
+ */
+const MONTHLY_REPORT_CRON = "0 7 2 * *";
+
+/**
  * Stable job ID for the charge generation cron entry.
  * BullMQ uses this to upsert (not duplicate) the repeatable job across
  * application restarts.
@@ -147,6 +159,12 @@ const LGPD_PURGE_CRON_ID = "monthly-lgpd-purge-cron";
 const WEEKLY_ATHLETE_REPORT_CRON_ID = "weekly-athlete-report-cron";
 
 /**
+ * Stable job ID for the monthly financial report cron entry.
+ * Prevents duplicate registrations on restart.
+ */
+const MONTHLY_REPORT_CRON_ID = "monthly-financial-report-cron";
+
+/**
  * Module-level reference to started workers.
  * Used by `closeJobs()` to gracefully drain and close all workers.
  */
@@ -193,6 +211,13 @@ const _workers: Worker[] = [];
  *   15. LGPD purge worker (concurrency=3) — hard-deletes PARENTAL_CONSENT_RECORDED
  *       audit_log rows older than 24 months from each club's tenant schema.
  *       Satisfies LGPD Art. 15 / Art. 16 (data erasure after retention period).
+ *   16. Monthly report dispatch worker (concurrency=1) — processes the monthly
+ *       02nd 07:00 UTC cron trigger, fans out one report job per club.
+ *   17. Monthly report worker (concurrency=3) — generates the previous month's
+ *       PDF financial report (revenue, expenses, net result, delinquency) and
+ *       emails it to all club ADMIN users via Resend with PDF attachment.
+ *       Concurrency is 3 (lower than financial workers) because PDF generation
+ *       via PDFKit is CPU/memory-intensive.
  *
  * Cron registration is **skipped in test environments** (`NODE_ENV=test`) to
  * prevent polluting the test Redis instance with repeatable job entries that
@@ -201,11 +226,13 @@ const _workers: Worker[] = [];
  * All `upsertJobScheduler` calls are idempotent across restarts — BullMQ will
  * update the existing repeatable job entry rather than creating a duplicate.
  *
- * Morning cron schedule (UTC):
- *   08:00 — D-0  due-today-notices
- *   09:00 — D-3  billing-reminders
- *   10:00 — D+3  overdue-notices
- *   11:00 — contract-alerts
+ *   Morning cron schedule (UTC):
+ *     01st 08:00 — charge generation
+ *     02nd 07:00 — monthly financial report
+ *     Daily 08:00 — D-0  due-today-notices
+ *     Daily 09:00 — D-3  billing-reminders
+ *     Daily 10:00 — D+3  overdue-notices
+ *     Daily 11:00 — contract-alerts
  *
  * Background cron schedule (UTC):
  *   00:00, 04:00, 08:00, 12:00, 16:00, 20:00 — ACWR aggregate refresh
@@ -229,6 +256,8 @@ export async function registerJobs(): Promise<void> {
   _workers.push(startLgpdPurgeWorker());
   _workers.push(startWeeklyAthleteReportDispatchWorker());
   _workers.push(startWeeklyAthleteReportWorker());
+  _workers.push(startMonthlyReportDispatchWorker());
+  _workers.push(startMonthlyReportWorker());
 
   if (process.env["NODE_ENV"] !== "test") {
     await chargeGenerationQueue.upsertJobScheduler(
@@ -350,6 +379,21 @@ export async function registerJobs(): Promise<void> {
     console.info(
       `[jobs] Weekly athlete report cron registered: "${WEEKLY_ATHLETE_REPORT_CRON}" (UTC)`,
     );
+
+    await monthlyReportQueue.upsertJobScheduler(
+      MONTHLY_REPORT_CRON_ID,
+      { pattern: MONTHLY_REPORT_CRON },
+      {
+        name: MONTHLY_REPORT_JOB_NAMES.DISPATCH_MONTHLY_REPORT,
+        data: {},
+        opts: {
+          attempts: 1,
+        },
+      },
+    );
+    console.info(
+      `[jobs] Monthly financial report cron registered: "${MONTHLY_REPORT_CRON}" (UTC)`,
+    );
   }
 }
 
@@ -372,5 +416,6 @@ export async function closeJobs(): Promise<void> {
   await acwrRefreshQueue.close();
   await lgpdPurgeQueue.close();
   await weeklyAthleteReportQueue.close();
+  await monthlyReportQueue.close();
   console.info("[jobs] All workers and queues closed");
 }

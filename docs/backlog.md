@@ -66,7 +66,7 @@
 | ID        | Tarefa Técnica                                                                                                                                                                                           | Esforço | Sprint | Status |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
 | **T-125** | Demonstrativo de Receitas integrado: query agregada que consolida dados de `charges` (cobranças de sócios), `payments` (pagamentos confirmados) e `expenses` (despesas do P&L) por período selecionável. | 1d      | S10    | ✅     |
-| **T-126** | Painel SAF Full de publicação: UI para upload e publicação de balanços. Cada publicação gera hash SHA-256 do arquivo, salvo em `balance_sheets` (imutável). URL pública por clube configurável.          | 1d      | S10    | ⬜     |
+| **T-126** | Painel SAF Full de publicação: UI para upload e publicação de balanços. Cada publicação gera hash SHA-256 do arquivo, salvo em `balance_sheets` (imutável). URL pública por clube configurável.          | 1d      | S10    | ✅     |
 
 ### US-42 — Conciliação OFX Aprimorada e Relatório Financeiro PDF
 
@@ -118,7 +118,7 @@
 
 ### Sprint 10 (SAF Compliance Full e Demonstrativos)
 
-**Fase 2: Interfaces de Transparência SAF (Depende da Fase 1)** 4. `T-126` — Painel SAF de Publicação e Upload de Balanços 5. `T-123` — Dashboard SAF (Consome os KPIs gerados nas tarefas 124, 125 e 126)
+**Fase 2: Interfaces de Transparência SAF (Depende da Fase 1)** 5. `T-123` — Dashboard SAF (Consome os KPIs gerados nas tarefas 124, 125 e 126)
 
 **Fase 3: Automação e Relatórios (Paralelizável com a Fase 2)** 6. `T-128` — Job BullMQ Mensal e Geração de Relatório Financeiro PDF
 

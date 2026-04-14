@@ -56,6 +56,38 @@ export async function fetchPublicBalanceSheets(
 }
 
 /**
+ * Fetches all published balance sheets for the authenticated club.
+ * Requires a valid access token — uses the protected list endpoint.
+ *
+ * @param clubId      The authenticated club's ID (from JWT)
+ * @param accessToken JWT access token from useAuth()
+ */
+export async function fetchAdminBalanceSheets(
+  clubId: string,
+  accessToken: string,
+): Promise<BalanceSheetsListResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/clubs/${encodeURIComponent(clubId)}/balance-sheets`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new BalanceSheetsApiError(
+      body.message ?? `Erro ao carregar balanços: ${res.status}`,
+      res.status,
+    );
+  }
+
+  return res.json() as Promise<BalanceSheetsListResponse>;
+}
+
+/**
  * Uploads and publishes a PDF balance sheet for the authenticated club.
  * Requires an ADMIN access token.
  *

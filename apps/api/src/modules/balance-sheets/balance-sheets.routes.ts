@@ -3,7 +3,10 @@ import {
   UploadBalanceSheetSchema,
   MAX_PDF_SIZE_BYTES,
 } from "./balance-sheets.schema.js";
-import { publishBalanceSheet } from "./balance-sheets.service.js";
+import {
+  publishBalanceSheet,
+  listBalanceSheetsForClub,
+} from "./balance-sheets.service.js";
 import {
   validatePdfMagicBytes,
   InvalidPdfMagicBytesError,
@@ -13,6 +16,38 @@ import type { AccessTokenPayload } from "../../types/fastify.js";
 export async function balanceSheetAdminRoutes(
   fastify: FastifyInstance,
 ): Promise<void> {
+  /**
+   * GET /api/clubs/:clubId/balance-sheets
+   *
+   * Returns all published balance sheets for the authenticated club, ordered
+   * newest-first.
+   *
+   * Authorization: TREASURER or higher (ADMIN).
+   * The clubId in the path must match the clubId in the JWT — returns 404
+   * otherwise (no cross-tenant data leakage).
+   *
+   * Response: { data: BalanceSheetResponse[], total: number }
+   */
+  fastify.get(
+    "/:clubId/balance-sheets",
+    { preHandler: [fastify.requireRole("TREASURER")] },
+    async (request, reply) => {
+      const { clubId } = request.params as { clubId: string };
+      const { clubId: authClubId } = request.user as AccessTokenPayload;
+
+      if (clubId !== authClubId) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: "Clube não encontrado.",
+        });
+      }
+
+      const result = await listBalanceSheetsForClub(fastify.prisma, clubId);
+      return reply.status(200).send(result);
+    },
+  );
+
   /**
    * POST /api/clubs/:clubId/balance-sheets
    *

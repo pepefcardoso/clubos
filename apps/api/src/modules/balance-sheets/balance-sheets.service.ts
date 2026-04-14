@@ -22,9 +22,6 @@ function computeSha256(buffer: Buffer): string {
 /**
  * Persists a PDF buffer under uploads/balance-sheets/{clubId}/ and returns
  * the public URL.
- *
- * Each upload gets a UUID filename so filenames from different clubs never
- * collide, and there is no way to enumerate other clubs' documents.
  */
 async function savePdfFile(clubId: string, buffer: Buffer): Promise<string> {
   const filename = `${randomUUID()}.pdf`;
@@ -63,17 +60,7 @@ function toResponse(row: {
 
 /**
  * Validates, stores and publishes a PDF balance sheet for a club.
- *
- * Steps:
- *  1. Compute SHA-256 hash of the raw PDF bytes.
- *  2. Write the file to disk under uploads/balance-sheets/{clubId}/.
- *  3. Create the balance_sheets row inside the tenant schema.
- *  4. Write an AuditLog entry.
- *
- * The returned row is immediately queryable by the public listing endpoint.
- * No UPDATE or DELETE is ever issued on this table — append-only by design.
- *
- * @throws Re-throws any filesystem or database errors to the route handler.
+ * Append-only — no UPDATE or DELETE issued on balance_sheets.
  */
 export async function publishBalanceSheet(
   prisma: PrismaClient,
@@ -116,12 +103,7 @@ export async function publishBalanceSheet(
 
 /**
  * Returns all published balance sheets for a club identified by its slug.
- *
- * Resolves the club from the public schema first (slug → clubId), then queries
- * the tenant schema. Returns an empty list (not an error) when the slug is
- * unknown — the public page should render an empty state, not a 404.
- *
- * Results are ordered newest-first (publishedAt DESC).
+ * Public endpoint — returns empty list for unknown slugs.
  */
 export async function listBalanceSheetsByClubSlug(
   prisma: PrismaClient,
@@ -138,12 +120,28 @@ export async function listBalanceSheetsByClubSlug(
 
   return withTenantSchema(prisma, club.id, async (tx) => {
     const [sheets, total] = await Promise.all([
-      tx.balanceSheet.findMany({
-        orderBy: { publishedAt: "desc" },
-      }),
+      tx.balanceSheet.findMany({ orderBy: { publishedAt: "desc" } }),
       tx.balanceSheet.count(),
     ]);
+    return { data: sheets.map(toResponse), total };
+  });
+}
 
+/**
+ * Returns all published balance sheets for an authenticated club.
+ *
+ * Takes `clubId` directly from the JWT — used by the admin panel list endpoint.
+ * Results ordered newest-first (publishedAt DESC).
+ */
+export async function listBalanceSheetsForClub(
+  prisma: PrismaClient,
+  clubId: string,
+): Promise<BalanceSheetsListResponse> {
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    const [sheets, total] = await Promise.all([
+      tx.balanceSheet.findMany({ orderBy: { publishedAt: "desc" } }),
+      tx.balanceSheet.count(),
+    ]);
     return { data: sheets.map(toResponse), total };
   });
 }

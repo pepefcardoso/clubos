@@ -19,6 +19,7 @@ import {
   Receipt,
   ArrowLeftRight,
   ClipboardList,
+  Scale,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ interface NavItem {
   icon: React.ElementType;
   soon?: boolean;
   adminOnly?: boolean;
+  roles?: Array<"ADMIN" | "TREASURER" | "PHYSIO">;
 }
 
 const PRIMARY_NAV: NavItem[] = [
@@ -47,10 +49,22 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/expenses", label: "Despesas", icon: Receipt },
   { label: "Mensagens", href: "/templates", icon: MessageSquare },
   { label: "Contratos", href: "/contracts", icon: ScrollText },
+  {
+    href: "/saf",
+    label: "SAF",
+    icon: Scale,
+    roles: ["ADMIN", "TREASURER"],
+  },
 ];
 
 function NavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  if (item.roles && user?.role && !item.roles.includes(user.role)) {
+    return null;
+  }
+
   const isActive =
     pathname === item.href || pathname.startsWith(item.href + "/");
   const Icon = item.icon;
@@ -136,7 +150,12 @@ function UserMenu({ collapsed }: { collapsed: boolean }) {
     ? user.email.split("@")[0].replace(/[._]/g, " ")
     : "Usuário";
 
-  const roleLabel = user?.role === "ADMIN" ? "Administrador" : "Tesoureiro";
+  const roleLabel =
+    user?.role === "ADMIN"
+      ? "Administrador"
+      : user?.role === "PHYSIO"
+        ? "Fisioterapeuta"
+        : "Tesoureiro";
 
   return (
     <div

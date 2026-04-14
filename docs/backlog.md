@@ -58,7 +58,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                                                                  | Esforço | Sprint | Status |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ------ |
-| **T-123** | Dashboard SAF: página `/saf` com KPIs para acionistas — receita recorrente (MRR), passivos registrados, status de compliance e data da última publicação de balanço. Componente `SafDashboard`. | 1d      | S10    | ⬜     |
+| **T-123** | Dashboard SAF: página `/saf` com KPIs para acionistas — receita recorrente (MRR), passivos registrados, status de compliance e data da última publicação de balanço. Componente `SafDashboard`. | 1d      | S10    | ✅     |
 | **T-124** | Módulo de Passivos Trabalhistas: CRUD de credores (`/api/creditors`) com campos de credor, valor, vencimento e status. Exportação em PDF assinado digitalmente com hash SHA-256 no `audit_log`. | 1d      | S10    | ✅     |
 
 ### US-41 — Demonstrativo de Receitas e Publicação de Balanços
@@ -117,8 +117,6 @@
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
 
 ### Sprint 10 (SAF Compliance Full e Demonstrativos)
-
-**Fase 2: Interfaces de Transparência SAF (Depende da Fase 1)** 5. `T-123` — Dashboard SAF (Consome os KPIs gerados nas tarefas 124, 125 e 126)
 
 **Fase 3: Automação e Relatórios (Paralelizável com a Fase 2)** 6. `T-128` — Job BullMQ Mensal e Geração de Relatório Financeiro PDF
 

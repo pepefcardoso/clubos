@@ -6,11 +6,7 @@ import type { AthleteResponse } from "@/lib/api/athletes";
 import { AthleteStatusBadge } from "./AthleteStatusBadge";
 import { RtpStatusCell } from "./RtpStatusCell";
 import { Button } from "@/components/ui/button";
-import { formatDateISO } from "@/lib/format.js";
-
-function formatCPF(cpf: string): string {
-  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-}
+import { formatCPF, formatDateISO } from "@/lib/format.js";
 
 function SkeletonRows({
   hasActions,

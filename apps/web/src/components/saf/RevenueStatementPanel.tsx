@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useRevenueStatement } from "@/hooks/use-revenue-statement";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatPeriod } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { RevenueStatementMode } from "@/lib/api/revenue-statement";
 
@@ -39,23 +39,7 @@ export function presetToMode(
   }
 }
 
-/**
- * Formats an ISO "YYYY-MM" period string to a pt-BR short label.
- * e.g. "2025-03" → "mar 2025"
- *
- * Exported for unit testing.
- */
-export function formatPeriod(iso: string): string {
-  const parts = iso.split("-");
-  const year = Number(parts[0]);
-  const month = Number(parts[1]);
-  return new Intl.DateTimeFormat("pt-BR", {
-    month: "short",
-    year: "numeric",
-  })
-    .format(new Date(year, month - 1, 1))
-    .replace(".", "");
-}
+
 
 function NetIndicator({ cents }: { cents: number }) {
   if (cents > 0)

@@ -4,14 +4,7 @@ import { CreditCard, QrCode } from "lucide-react";
 import { ChargeStatusBadge } from "./ChargeStatusBadge";
 import { Button } from "@/components/ui/button";
 import type { ChargeListItem, ChargesListResult } from "@/lib/api/charges";
-import { formatDateISO } from "@/lib/format";
-
-function formatBRL(cents: number): string {
-    return new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-    }).format(cents / 100);
-}
+import { formatBRL, formatDateISO } from "@/lib/format";
 
 /**
  * Returns true when the charge has resolvable QR/PIX data worth showing in a modal.

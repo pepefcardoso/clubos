@@ -5,18 +5,7 @@ import type { MemberStatus, PaginatedResponse } from "../../../../../packages/sh
 import type { MemberResponse } from "../../../../api/src/modules/members/members.schema";
 import { MemberStatusBadge } from "./MemberStatusBadge";
 import { Button } from "@/components/ui/button";
-import { formatDateTime } from "@/lib/format.js";
-
-function formatCPF(cpf: string): string {
-    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-}
-
-function formatPhone(phone: string): string {
-    if (phone.length === 11) {
-        return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-    }
-    return phone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-}
+import { formatCPF, formatDateTime, formatPhone } from "@/lib/format.js";
 
 function SkeletonRows({ hasActions }: { hasActions: boolean }) {
     const colCount = hasActions ? 7 : 6;

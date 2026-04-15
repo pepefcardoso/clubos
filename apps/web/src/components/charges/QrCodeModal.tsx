@@ -4,13 +4,7 @@ import { useState } from "react";
 import { X, Copy, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ChargeListItem } from "@/lib/api/charges";
-
-function formatBRL(cents: number): string {
-    return new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-    }).format(cents / 100);
-}
+import { formatBRL } from "@/lib/format";
 
 /**
  * Resolves the correct display strategy from a charge's gatewayMeta.

@@ -11,16 +11,7 @@ import {
     ResponsiveContainer,
 } from "recharts";
 import { useChargesHistory } from "@/hooks/use-dashboard";
-import { formatBRL } from "@/lib/format";
-
-function formatMonthLabel(ym: string): string {
-    const [year, month] = ym.split("-");
-    const date = new Date(Number(year), Number(month) - 1, 1);
-    return date
-        .toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })
-        .replace(". de ", "/")
-        .replace(".", "");
-}
+import { formatBRL, formatMonthLabel } from "@/lib/format";
 
 interface TooltipEntry {
     name: string;

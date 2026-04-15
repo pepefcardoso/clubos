@@ -13,6 +13,7 @@ import {
     ResponsiveContainer,
 } from "recharts";
 import type { AcwrEntry } from "@/lib/api/workload";
+import { formatDateLabel } from "@/lib/format";
 
 interface ChartDataPoint {
     date: string;
@@ -21,13 +22,6 @@ interface ChartDataPoint {
     chronicLoad: number;
     dailyAu: number;
     riskZone: string;
-}
-
-function formatDateLabel(isoDate: string): string {
-    return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-    }).format(new Date(isoDate));
 }
 
 function prepareChartData(history: AcwrEntry[]): ChartDataPoint[] {

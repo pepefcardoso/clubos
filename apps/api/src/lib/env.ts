@@ -218,6 +218,16 @@ export const EnvSchema = z.object({
     .string()
     .min(32, "MEMBER_CARD_SECRET must be at least 32 characters"),
 
+  /**
+   * HMAC-SHA256 key for signing and verifying QR Code access tokens.
+   * Separate from MEMBER_CARD_SECRET and JWT_SECRET to allow independent
+   * rotation. Rotating this key invalidates all outstanding QR codes
+   * (4-hour TTL) without affecting user sessions or member card tokens.
+   */
+  ACCESS_QR_SECRET: z
+    .string()
+    .min(32, "ACCESS_QR_SECRET must be at least 32 characters"),
+
   PORT: z.coerce.number().int().positive().default(3001),
   HOST: z.string().default("0.0.0.0"),
   LOG_LEVEL: z

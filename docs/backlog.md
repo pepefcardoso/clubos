@@ -98,7 +98,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                                                                                                                                     | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
-| **T-131** | Backend de validação de QR Code de acesso: endpoint `/api/events/:id/access/validate` que recebe o payload do QR Code, verifica assinatura HMAC, registra entrada em `field_access_logs` e retorna status de validação. Suporte offline com fila de sincronização. | 1d      | S11    | ⬜     |
+| **T-131** | Backend de validação de QR Code de acesso: endpoint `/api/events/:id/access/validate` que recebe o payload do QR Code, verifica assinatura HMAC, registra entrada em `field_access_logs` e retorna status de validação. Suporte offline com fila de sincronização. | 1d      | S11    | ✅     |
 | **T-132** | UI de portaria mobile-first: câmera do celular escaneia QR Code, exibe resultado visual (verde/vermelho) em < 1s. Funciona offline com fila local (Dexie.js). Log de acessos exportável por evento (`AccessLogExport`).                                            | 1d      | S11    | ⬜     |
 
 ---
@@ -120,7 +120,6 @@
 
 **Fase 1: APIs, Integrações e Geração de Documentos (Bloqueadores)**
 
-1. `T-131` — Backend de Validação de QR Code de Acesso (Motor de regras da portaria)
 2. `T-129` — Geração de PDF do Relatório de Lesão para Seguro (Depende dos dados da Sprint 9)
 
 **Fase 2: UI Operacional e Multi-Tenant (Depende da Fase 1)** 3. `T-132` — UI Portaria Mobile-First (Scanner de câmera e fila offline para o QR Code) 4. `T-130` — Painel Multi-Fisio e Multi-Clube (Consolidação de visualização na UI)

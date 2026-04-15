@@ -22,6 +22,7 @@ import { rtpRoutes } from "./rtp/rtp.routes.js";
 import { injuryProtocolRoutes } from "./injury-protocols/injury-protocols.routes.js";
 import { creditorDisclosureRoutes } from "./creditor-disclosures/creditor-disclosures.routes.js";
 import { revenueStatementRoutes } from "./revenue-statement/revenue-statement.routes.js";
+import { fieldAccessRoutes } from "./field-access/field-access.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -89,4 +90,5 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(revenueStatementRoutes, {
     prefix: "/revenue-statement",
   });
+  await fastify.register(fieldAccessRoutes, { prefix: "/events" });
 }

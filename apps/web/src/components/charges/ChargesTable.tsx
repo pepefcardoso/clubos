@@ -4,16 +4,13 @@ import { CreditCard, QrCode } from "lucide-react";
 import { ChargeStatusBadge } from "./ChargeStatusBadge";
 import { Button } from "@/components/ui/button";
 import type { ChargeListItem, ChargesListResult } from "@/lib/api/charges";
+import { formatDateISO } from "@/lib/format";
 
 function formatBRL(cents: number): string {
     return new Intl.NumberFormat("pt-BR", {
         style: "currency",
         currency: "BRL",
     }).format(cents / 100);
-}
-
-function formatDate(dateStr: string): string {
-    return new Intl.DateTimeFormat("pt-BR").format(new Date(dateStr));
 }
 
 /**
@@ -205,7 +202,7 @@ export function ChargesTable({
                                         {formatBRL(charge.amountCents)}
                                     </td>
                                     <td className="px-4 py-3 text-neutral-700">
-                                        {formatDate(charge.dueDate)}
+                                        {formatDateISO(charge.dueDate)}
                                     </td>
                                     <td className="px-4 py-3">
                                         <ChargeStatusBadge status={charge.status} />

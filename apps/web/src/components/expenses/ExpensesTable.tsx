@@ -3,13 +3,7 @@
 import { Receipt, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_LABELS, type ExpenseResponse, type ExpensesListResult } from "@/lib/api/expenses";
-import { formatBRL } from "@/lib/format";
-
-function formatDate(iso: string): string {
-    // iso is "YYYY-MM-DD" — parse in UTC to avoid timezone day-shift
-    const [year, month, day] = iso.split("-").map(Number) as [number, number, number];
-    return new Intl.DateTimeFormat("pt-BR").format(new Date(Date.UTC(year, month - 1, day)));
-}
+import { formatBRL, formatDateISO } from "@/lib/format";
 
 function SkeletonRows() {
     return (
@@ -160,7 +154,7 @@ export function ExpensesTable({
                                         {CATEGORY_LABELS[expense.category]}
                                     </td>
                                     <td className="px-4 py-3 text-neutral-700">
-                                        {formatDate(expense.date)}
+                                        {formatDateISO(expense.date)}
                                     </td>
                                     <td className="px-4 py-3 text-right font-mono font-semibold text-neutral-900 tabular-nums">
                                         {formatBRL(expense.amountCents)}

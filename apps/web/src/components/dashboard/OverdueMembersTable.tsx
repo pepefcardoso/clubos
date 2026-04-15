@@ -4,15 +4,11 @@ import { useState } from "react";
 import { MessageCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatDateISO } from "@/lib/format";
 import { useOverdueMembers } from "@/hooks/use-dashboard";
 import { useRemindMember } from "@/hooks/use-members";
 import type { ApiError } from "@/lib/api/dashboard";
 import { Spinner } from "../ui/spinner";
-
-function formatDate(iso: string): string {
-    return new Intl.DateTimeFormat("pt-BR").format(new Date(iso));
-}
 
 function DaysPastDueBadge({ days }: { days: number }) {
     const urgent = days >= 7;
@@ -199,7 +195,7 @@ export function OverdueMembersTable() {
                                         </td>
 
                                         <td className="px-4 py-3 text-neutral-600">
-                                            {formatDate(row.dueDate)}
+                                            {formatDateISO(row.dueDate)}
                                         </td>
 
                                         <td className="px-4 py-3">

@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import type { MemberCardResponse } from "@/lib/api/member-card";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { formatDateISO } from "@/lib/format";
 
 const STATUS_LABELS: Record<string, string> = {
     ACTIVE: "Ativo",
@@ -17,10 +18,6 @@ const STATUS_COLORS: Record<string, string> = {
     INACTIVE: "bg-neutral-500 text-white",
     OVERDUE: "bg-danger text-white",
 };
-
-function formatDate(iso: string): string {
-    return new Intl.DateTimeFormat("pt-BR").format(new Date(iso));
-}
 
 interface MemberCardProps {
     data: MemberCardResponse;
@@ -133,10 +130,10 @@ export function MemberCard({ data, verificationBaseUrl }: MemberCardProps) {
                         {data.member.name}
                     </p>
                     <p className="text-primary-200 text-xs mt-2">
-                        Associado desde {formatDate(data.member.joinedAt)}
+                        Associado desde {formatDateISO(data.member.joinedAt)}
                     </p>
                     <p className="text-primary-300 text-[0.625rem] mt-1">
-                        Válida até {formatDate(data.expiresAt)}
+                        Válida até {formatDateISO(data.expiresAt)}
                     </p>
                 </div>
 

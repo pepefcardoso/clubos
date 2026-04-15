@@ -5,6 +5,7 @@ import type { MemberStatus, PaginatedResponse } from "../../../../../packages/sh
 import type { MemberResponse } from "../../../../api/src/modules/members/members.schema";
 import { MemberStatusBadge } from "./MemberStatusBadge";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/format.js";
 
 function formatCPF(cpf: string): string {
     return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
@@ -15,10 +16,6 @@ function formatPhone(phone: string): string {
         return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
     }
     return phone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-}
-
-function formatDate(date: Date | string): string {
-    return new Intl.DateTimeFormat("pt-BR").format(new Date(date));
 }
 
 function SkeletonRows({ hasActions }: { hasActions: boolean }) {
@@ -210,7 +207,7 @@ export function MembersTable({
                                         <MemberStatusBadge status={member.status as MemberStatus} />
                                     </td>
                                     <td className="px-4 py-3 text-neutral-600">
-                                        {formatDate(member.joinedAt)}
+                                        {formatDateTime(member.joinedAt)}
                                     </td>
                                     {hasActions && (
                                         <td className="px-4 py-3">

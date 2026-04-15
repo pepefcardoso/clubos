@@ -6,13 +6,10 @@ import type { AthleteResponse } from "@/lib/api/athletes";
 import { AthleteStatusBadge } from "./AthleteStatusBadge";
 import { RtpStatusCell } from "./RtpStatusCell";
 import { Button } from "@/components/ui/button";
+import { formatDateISO } from "@/lib/format.js";
 
 function formatCPF(cpf: string): string {
   return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-}
-
-function formatDate(date: Date | string): string {
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(date));
 }
 
 function SkeletonRows({
@@ -205,7 +202,7 @@ export function AthletesTable({
                     {formatCPF(athlete.cpf)}
                   </td>
                   <td className="px-4 py-3 font-mono text-neutral-700">
-                    {formatDate(athlete.birthDate)}
+                    {formatDateISO(athlete.birthDate)}
                   </td>
                   <td className="px-4 py-3 text-neutral-600">
                     {athlete.position ?? (

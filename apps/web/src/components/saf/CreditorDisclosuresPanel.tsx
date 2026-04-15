@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatDateISO } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
     STATUS_LABELS,
@@ -432,11 +432,6 @@ function EmptyState() {
     );
 }
 
-function formatDate(iso: string): string {
-    const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
-    return new Intl.DateTimeFormat("pt-BR").format(new Date(Date.UTC(y, m - 1, d)));
-}
-
 export function CreditorDisclosuresPanel() {
     const { user } = useAuth();
     const isAdmin = user?.role === "ADMIN";
@@ -602,7 +597,7 @@ export function CreditorDisclosuresPanel() {
                                             {formatBRL(item.amountCents)}
                                         </td>
                                         <td className="px-4 py-3 text-neutral-700">
-                                            {formatDate(item.dueDate)}
+                                            {formatDateISO(item.dueDate)}
                                         </td>
                                         <td className="px-4 py-3">
                                             <StatusBadge status={item.status} />

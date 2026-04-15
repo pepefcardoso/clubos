@@ -34,3 +34,22 @@ export const intervalLabel: Record<string, string> = {
   quarterly: "Trimestral",
   annual: "Anual",
 };
+
+/**
+ * Formats an ISO date string "YYYY-MM-DD" without timezone shift.
+ * Use for dates stored as date-only values (no time component).
+ */
+export function formatDateISO(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat("pt-BR").format(
+    new Date(Date.UTC(year, month - 1, day))
+  );
+}
+
+/**
+ * Formats a Date object or ISO datetime string for display.
+ * Use for timestamps (createdAt, paidAt, etc.) where timezone is relevant.
+ */
+export function formatDateTime(date: Date | string): string {
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(date));
+}

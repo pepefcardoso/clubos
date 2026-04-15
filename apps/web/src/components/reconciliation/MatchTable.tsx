@@ -6,25 +6,13 @@ import {
   XCircle,
   ChevronDown,
 } from "lucide-react";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatDateISO, formatDateTime } from "@/lib/format";
 import type {
   TransactionMatchResult,
   MatchCandidate,
   MatchStatus,
 } from "@/lib/api/reconciliation";
 import type { MethodOverride } from "@/hooks/use-reconciliation";
-
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(iso));
-}
-
-function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(iso));
-}
 
 const STATUS_CONFIG: Record<
   MatchStatus,
@@ -95,7 +83,7 @@ function CandidateSelect({
         {candidates.map((c) => (
           <option key={c.chargeId} value={c.chargeId}>
             {c.memberName} — {formatBRL(c.amountCents)} — venc.{" "}
-            {formatDate(c.dueDate)} (
+            {formatDateISO(c.dueDate)} (
             {c.dateDeltaDays === 0
               ? "mesmo dia"
               : `${Math.round(c.dateDeltaDays)}d`}
@@ -265,7 +253,7 @@ export function MatchTable({
                         <p className="text-xs text-neutral-400">
                           venc.{" "}
                           {match.candidates[0]
-                            ? formatDate(match.candidates[0].dueDate)
+                            ? formatDateISO(match.candidates[0].dueDate)
                             : "—"}
                           {" · "}
                           <button

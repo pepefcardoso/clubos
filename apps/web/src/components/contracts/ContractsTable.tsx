@@ -6,6 +6,7 @@ import type { ContractResponse, ContractType, ContractStatus } from '@/lib/api/c
 import type { AthleteResponse } from '@/lib/api/athletes';
 import { ContractStatusBadge } from './ContractStatusBadge';
 import { Button } from '@/components/ui/button';
+import { formatDateISO } from '@/lib/format.js';
 
 const TYPE_LABELS: Record<ContractType, string> = {
     PROFESSIONAL: 'Profissional',
@@ -13,13 +14,6 @@ const TYPE_LABELS: Record<ContractType, string> = {
     FORMATIVE: 'Formativo',
     LOAN: 'Empréstimo',
 };
-
-function formatDate(iso: string | null): string {
-    if (!iso) return '—';
-    const datePart = iso.split('T')[0];
-    const [y, m, d] = datePart.split('-').map(Number);
-    return new Intl.DateTimeFormat('pt-BR').format(new Date(y, m - 1, d));
-}
 
 function SkeletonRows({ hasActions }: { hasActions: boolean }) {
     const colCount = hasActions ? 8 : 7;
@@ -202,8 +196,8 @@ export function ContractsTable({
                                     <td className="px-4 py-3">
                                         <ContractStatusBadge status={contract.status as ContractStatus} />
                                     </td>
-                                    <td className="px-4 py-3 text-neutral-600">{formatDate(contract.startDate)}</td>
-                                    <td className="px-4 py-3 text-neutral-600">{formatDate(contract.endDate)}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{formatDateISO(contract.startDate)}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{formatDateISO(contract.endDate ?? '')}</td>
                                     <td className="px-4 py-3">
                                         {contract.bidRegistered ? (
                                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary-50 text-primary-700">

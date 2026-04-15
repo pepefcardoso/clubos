@@ -218,11 +218,16 @@ export function MedicalRecordFormModal({
             onSuccess?.(result);
             onClose();
         } catch (err) {
-            const msg =
-                err instanceof MedicalRecordApiError
-                    ? err.message
-                    : "Erro ao salvar prontuário. Tente novamente.";
-            setFormError(msg);
+            console.error("[MedicalRecordFormModal] save error", err);
+
+            const isKnownClientError =
+                err instanceof MedicalRecordApiError && err.status < 500;
+
+            setFormError(
+                isKnownClientError
+                    ? "Dados inválidos. Verifique os campos e tente novamente."
+                    : "Erro ao salvar prontuário. Tente novamente.",
+            );
         }
     };
 

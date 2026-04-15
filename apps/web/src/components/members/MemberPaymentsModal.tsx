@@ -4,22 +4,8 @@ import { useState } from "react";
 import { X, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMemberPayments } from "@/hooks/use-members";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatDateISO, formatDateTime } from "@/lib/format";
 import type { MemberResponse } from "@/lib/api/members";
-
-function formatDate(iso: string): string {
-    return new Intl.DateTimeFormat("pt-BR").format(new Date(iso));
-}
-
-function formatDateTime(iso: string): string {
-    return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    }).format(new Date(iso));
-}
 
 const METHOD_LABELS: Record<string, string> = {
     PIX: "Pix",
@@ -248,7 +234,7 @@ export function MemberPaymentsModal({
                                                 </td>
 
                                                 <td className="px-4 py-3 text-neutral-600">
-                                                    {formatDate(payment.charge.dueDate)}
+                                                    {formatDateISO(payment.charge.dueDate)}
                                                 </td>
 
                                                 <td className="px-4 py-3 text-neutral-600">

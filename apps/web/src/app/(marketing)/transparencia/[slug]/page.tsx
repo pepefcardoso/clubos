@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { FileText, ShieldCheck, ExternalLink } from "lucide-react";
 import { fetchPublicBalanceSheets } from "@/lib/api/balance-sheets";
+import { formatDateISO } from "@/lib/format";
 
 interface Props {
     params: Promise<{ slug: string }>;
@@ -22,14 +23,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
             type: "website",
         },
     };
-}
-
-function formatDate(iso: string): string {
-    return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-    }).format(new Date(iso));
 }
 
 function EmptyState() {
@@ -124,7 +117,7 @@ export default async function TransparencyPage({ params }: Props) {
                                             <span className="font-medium text-neutral-700">
                                                 {sheet.period}
                                             </span>{" "}
-                                            · Publicado em {formatDate(sheet.publishedAt)}
+                                            · Publicado em {formatDateISO(sheet.publishedAt)}
                                         </p>
                                         <p
                                             className="text-[0.625rem] font-mono text-neutral-400 mt-1.5 truncate"

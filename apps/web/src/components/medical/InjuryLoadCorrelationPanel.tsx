@@ -7,9 +7,7 @@ import { useInjuryCorrelation } from "@/hooks/use-injury-load-correlation";
 import { RiskZoneBadge } from "@/components/training/RiskZoneBadge";
 import type { RiskZone } from "@/lib/api/workload";
 import { formatDateISO } from "@/lib/format";
-
-/** Warn when ACWR data is more than 5 hours old. */
-const STALE_THRESHOLD_MS = 5 * 60 * 60 * 1000;
+import { ACWR_STALE_THRESHOLD_MS } from "@/lib/workload-constants";
 
 const DAY_OPTIONS = [
   { label: "30d", value: 30, ariaLabel: "Últimos 30 dias" },
@@ -123,7 +121,7 @@ export function InjuryLoadCorrelationPanel() {
   const isStale = useMemo(() => {
     if (!acwrDataAsOf || !dataUpdatedAt) return false;
     return (
-      dataUpdatedAt - new Date(acwrDataAsOf).getTime() > STALE_THRESHOLD_MS
+      dataUpdatedAt - new Date(acwrDataAsOf).getTime() > ACWR_STALE_THRESHOLD_MS
     );
   }, [acwrDataAsOf, dataUpdatedAt]);
 

@@ -8,15 +8,13 @@ import { useAttendanceRanking } from "@/hooks/use-attendance-ranking";
 import { RiskZoneBadge } from "./RiskZoneBadge";
 import { AcwrRiskChart } from "./AcwrRiskChart";
 import type { RiskZone } from "@/lib/api/workload";
+import { ACWR_STALE_THRESHOLD_MS } from "@/lib/workload-constants";
 
 const DAY_OPTIONS = [
     { label: "14d", value: 14, ariaLabel: "Últimos 14 dias" },
     { label: "28d", value: 28, ariaLabel: "Últimos 28 dias" },
     { label: "60d", value: 60, ariaLabel: "Últimos 60 dias" },
 ] as const;
-
-/** Show staleness warning when MV was last updated more than 5 hours ago. */
-const STALE_THRESHOLD_MS = 5 * 60 * 60 * 1000;
 
 /**
  * Returns a human-readable interpretation of the ACWR ratio for coaches.
@@ -136,7 +134,7 @@ export function AcwrDashboard() {
         return (
             latest !== null &&
             dataUpdatedAt > 0 &&
-            dataUpdatedAt - new Date(latest.date).getTime() > STALE_THRESHOLD_MS
+            dataUpdatedAt - new Date(latest.date).getTime() > ACWR_STALE_THRESHOLD_MS
         );
     }, [latest, dataUpdatedAt]);
 

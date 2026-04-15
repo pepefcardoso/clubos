@@ -5,9 +5,7 @@ import { AlertTriangle, Clock, Info, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAtRiskAthletes } from "@/hooks/use-injury-load-correlation";
 import { RiskZoneBadge } from "@/components/training/RiskZoneBadge";
-
-/** Warn when ACWR data is more than 5 hours old. */
-const STALE_THRESHOLD_MS = 5 * 60 * 60 * 1000;
+import { ACWR_STALE_THRESHOLD_MS } from "@/lib/workload-constants";
 
 function SkeletonRows() {
   return (
@@ -62,7 +60,7 @@ export function AtRiskAthletesPanel({ minAcwr = 1.3 }: AtRiskAthletesProps) {
   const isStale = useMemo(() => {
     if (!acwrDataAsOf || !dataUpdatedAt) return false;
     return (
-      dataUpdatedAt - new Date(acwrDataAsOf).getTime() > STALE_THRESHOLD_MS
+      dataUpdatedAt - new Date(acwrDataAsOf).getTime() > ACWR_STALE_THRESHOLD_MS
     );
   }, [acwrDataAsOf, dataUpdatedAt]);
 

@@ -5,6 +5,7 @@ import { Trophy, AlertTriangle, Clock, Info, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAttendanceRanking } from "@/hooks/use-attendance-ranking";
 import { RiskZoneBadge } from "./RiskZoneBadge";
+import { ACWR_STALE_THRESHOLD_MS } from "@/lib/workload-constants";
 
 function RankNumber({ rank }: { rank: number }) {
     if (rank === 1) {
@@ -80,8 +81,6 @@ const DAY_OPTIONS = [
     { label: "60d", value: 60, ariaLabel: "Últimos 60 dias" },
 ] as const;
 
-const STALE_THRESHOLD_MS = 5 * 60 * 60 * 1000;
-
 export function AttendanceRankingWidget() {
     const [days, setDays] = useState<number>(30);
 
@@ -90,7 +89,7 @@ export function AttendanceRankingWidget() {
     const isAcwrStale =
         data?.acwrLastRefreshedAt != null &&
         dataUpdatedAt > 0 &&
-        dataUpdatedAt - new Date(data.acwrLastRefreshedAt).getTime() > STALE_THRESHOLD_MS;
+        dataUpdatedAt - new Date(data.acwrLastRefreshedAt).getTime() > ACWR_STALE_THRESHOLD_MS;
 
     const noAcwrData =
         !isLoading && data != null && data.acwrLastRefreshedAt == null;

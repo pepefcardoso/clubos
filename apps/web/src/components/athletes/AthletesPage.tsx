@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -18,17 +18,7 @@ import { MedicalTimelineModal } from "@/components/medical/MedicalTimelineModal"
 import { canAccessClinicalData } from "@/lib/role-utils";
 import { useToasts } from "@/hooks/use-toasts";
 import { ToastContainer } from "../ui/toast-container";
-
-function useDebouncedValue<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return debounced;
-}
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface ModalTarget {
   athleteId: string;

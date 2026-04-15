@@ -131,7 +131,7 @@ export function AthletesTable({
   onTimeline,
   showRtp = false,
 }: AthletesTableProps) {
-  const hasActions = !!onEdit;
+  const hasActions = !!onEdit || !!onMedicalRecord || !!onTimeline;
 
   return (
     <div className="rounded-md border border-neutral-200 bg-white overflow-hidden">
@@ -223,14 +223,16 @@ export function AthletesTable({
                   {hasActions && (
                     <td className="px-4 py-3">
                       <div className="flex justify-end items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => onEdit?.(athlete)}
-                          className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
-                          aria-label={`Editar atleta ${athlete.name}`}
-                        >
-                          <Pencil size={15} aria-hidden="true" />
-                        </button>
+                        {onEdit && (
+                          <button
+                            type="button"
+                            onClick={() => onEdit(athlete)}
+                            className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
+                            aria-label={`Editar atleta ${athlete.name}`}
+                          >
+                            <Pencil size={15} aria-hidden="true" />
+                          </button>
+                        )}
                         {onMedicalRecord && (
                           <Button
                             variant="ghost"

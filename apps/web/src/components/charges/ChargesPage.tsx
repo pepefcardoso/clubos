@@ -1,80 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCharges } from "@/hooks/use-charges";
 import { ChargesFilters } from "./ChargesFilters";
 import { ChargesTable } from "./ChargesTable";
 import { GenerateChargesButton } from "./GenerateChargesButton";
 import { QrCodeModal } from "./QrCodeModal";
-import { cn } from "@/lib/utils";
 import type { ChargeListItem, ChargeStatus } from "@/lib/api/charges";
-
-interface Toast {
-  id: number;
-  type: "success" | "error";
-  message: string;
-}
-
-let toastCounter = 0;
-
-function useToasts() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const push = (type: Toast["type"], message: string) => {
-    const id = ++toastCounter;
-    setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(
-      () => setToasts((prev) => prev.filter((t) => t.id !== id)),
-      type === "success" ? 3000 : 6000,
-    );
-  };
-
-  return {
-    toasts,
-    pushSuccess: (msg: string) => push("success", msg),
-    pushError: (msg: string) => push("error", msg),
-  };
-}
-
-function ToastContainer({ toasts }: { toasts: Toast[] }) {
-  if (toasts.length === 0) return null;
-  return (
-    <div
-      aria-live="polite"
-      aria-atomic="false"
-      data-testid="toast-container"
-      className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2"
-    >
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          role="status"
-          className={cn(
-            "flex items-start gap-3 min-w-[280px] max-w-sm rounded-md border-l-4 bg-white px-4 py-3 shadow-lg",
-            toast.type === "success" ? "border-primary-500" : "border-danger",
-          )}
-        >
-          {toast.type === "success" ? (
-            <CheckCircle
-              size={16}
-              className="text-primary-500 flex-shrink-0 mt-0.5"
-              aria-hidden="true"
-            />
-          ) : (
-            <XCircle
-              size={16}
-              className="text-danger flex-shrink-0 mt-0.5"
-              aria-hidden="true"
-            />
-          )}
-          <p className="text-sm text-neutral-700">{toast.message}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
+import { useToasts } from "@/hooks/use-toasts";
+import { ToastContainer } from "../ui/toast-container";
 
 /** Returns the current month as "YYYY-MM" for the default filter value. */
 function currentYearMonth(): string {

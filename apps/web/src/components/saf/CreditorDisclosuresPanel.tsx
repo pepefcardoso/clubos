@@ -31,70 +31,8 @@ import {
     type CreditorDisclosureItem,
     type CreateCreditorDisclosurePayload,
 } from "@/lib/api/creditor-disclosures";
-
-interface Toast {
-    id: number;
-    type: "success" | "error" | "info";
-    message: string;
-}
-
-let toastCounter = 0;
-
-function useToasts() {
-    const [toasts, setToasts] = useState<Toast[]>([]);
-
-    const push = (type: Toast["type"], message: string) => {
-        const id = ++toastCounter;
-        setToasts((prev) => [...prev, { id, type, message }]);
-        const ttl = type === "success" ? 4000 : type === "info" ? 8000 : 6000;
-        setTimeout(
-            () => setToasts((prev) => prev.filter((t) => t.id !== id)),
-            ttl,
-        );
-    };
-
-    return {
-        toasts,
-        pushSuccess: (m: string) => push("success", m),
-        pushError: (m: string) => push("error", m),
-        pushInfo: (m: string) => push("info", m),
-    };
-}
-
-function ToastContainer({ toasts }: { toasts: Toast[] }) {
-    if (toasts.length === 0) return null;
-    return (
-        <div
-            aria-live="polite"
-            aria-atomic="false"
-            className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2"
-        >
-            {toasts.map((t) => (
-                <div
-                    key={t.id}
-                    role="status"
-                    className={cn(
-                        "flex items-start gap-3 min-w-[300px] max-w-sm rounded-md border-l-4 bg-white px-4 py-3 shadow-lg",
-                        t.type === "success" && "border-green-500",
-                        t.type === "error" && "border-red-500",
-                        t.type === "info" && "border-blue-500",
-                    )}
-                >
-                    {t.type === "success" && (
-                        <CheckCircle size={16} className="text-green-500 mt-0.5 shrink-0" aria-hidden />
-                    )}
-                    {t.type === "error" && (
-                        <XCircle size={16} className="text-red-500 mt-0.5 shrink-0" aria-hidden />
-                    )}
-                    {t.type === "info" && (
-                        <Shield size={16} className="text-blue-500 mt-0.5 shrink-0" aria-hidden />
-                    )}
-                    <p className="text-sm text-neutral-700 break-all">{t.message}</p>
-                </div>
-            ))}
-        </div>
-    );
-}
+import { useToasts } from "@/hooks/use-toasts";
+import { ToastContainer } from "../ui/toast-container";
 
 function Spinner({ className }: { className?: string }) {
     return (

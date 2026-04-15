@@ -2,18 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, CheckCircle, XCircle, Upload } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import type { MemberStatus } from "../../../../../packages/shared-types/src/index.js";
 import { useAuth } from "@/hooks/use-auth";
 import { fetchMembers, type MemberResponse } from "@/lib/api/members";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { MembersFilters } from "./MembersFilters";
 import { MembersTable } from "./MembersTable";
 import { MemberFormModal } from "./MemberFormModal";
 import { CsvImportModal } from "./CsvImportModal";
 import { MemberPaymentsModal } from "./MemberPaymentsModal";
 import { MemberCardModal } from "./MemberCardModal"
+import { useToasts } from "@/hooks/use-toasts.js";
+import { ToastContainer } from "../ui/toast-container.js";
 
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -24,73 +25,6 @@ function useDebouncedValue<T>(value: T, delay: number): T {
   }, [value, delay]);
 
   return debounced;
-}
-
-interface Toast {
-  id: number;
-  type: "success" | "error";
-  message: string;
-}
-
-let toastCounter = 0;
-
-function useToasts() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const push = (type: Toast["type"], message: string) => {
-    const id = ++toastCounter;
-    setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(
-      () => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      },
-      type === "success" ? 3000 : 6000,
-    );
-  };
-
-  return {
-    toasts,
-    pushSuccess: (msg: string) => push("success", msg),
-    pushError: (msg: string) => push("error", msg),
-  };
-}
-
-function ToastContainer({ toasts }: { toasts: Toast[] }) {
-  if (toasts.length === 0) return null;
-
-  return (
-    <div
-      aria-live="polite"
-      aria-atomic="false"
-      className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2"
-    >
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          role="status"
-          className={cn(
-            "flex items-start gap-3 min-w-[280px] max-w-sm rounded-md border-l-4 bg-white px-4 py-3 shadow-lg",
-            toast.type === "success" ? "border-primary-500" : "border-danger",
-          )}
-        >
-          {toast.type === "success" ? (
-            <CheckCircle
-              size={16}
-              className="text-primary-500 flex-shrink-0 mt-0.5"
-              aria-hidden="true"
-            />
-          ) : (
-            <XCircle
-              size={16}
-              className="text-danger flex-shrink-0 mt-0.5"
-              aria-hidden="true"
-            />
-          )}
-          <p className="text-sm text-neutral-700">{toast.message}</p>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 export function MembersPage() {

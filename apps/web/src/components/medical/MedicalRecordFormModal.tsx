@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, ShieldAlert, Lock, Loader2 } from "lucide-react";
+import { X, ShieldAlert, Lock, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { useInjuryProtocols } from "@/hooks/use-injury-protocols";
 import {
     useCreateMedicalRecord,
     useUpdateMedicalRecord,
+    useDownloadMedicalRecordReport,
 } from "@/hooks/use-medical-records";
 import {
     MedicalRecordApiError,
@@ -123,6 +124,9 @@ interface MedicalRecordFormModalProps {
  *   2. Protocolo de Retorno — optional protocol filtered by selected grade
  *   3. Dados Clínicos — clinicalNotes, diagnosis, treatmentDetails (AES-256 encrypted at rest)
  *
+ * Footer (edit mode only):
+ *   "Exportar Laudo" — triggers GET /api/medical-records/:id/report, downloads PDF
+ *
  * Validation: requires occurredAt (10-char date), structure (≥2 chars), and grade.
  * Clinical fields are optional per the API contract.
  */
@@ -162,6 +166,8 @@ export function MedicalRecordFormModal({
 
     const createMutation = useCreateMedicalRecord();
     const updateMutation = useUpdateMedicalRecord();
+    const downloadMutation = useDownloadMedicalRecordReport();
+
     const isSaving = createMutation.isPending || updateMutation.isPending;
 
     const patch = (fields: Partial<FormState>) => {
@@ -229,6 +235,11 @@ export function MedicalRecordFormModal({
                     : "Erro ao salvar prontuário. Tente novamente.",
             );
         }
+    };
+
+    const handleExportPdf = () => {
+        if (!initialRecord || downloadMutation.isPending) return;
+        downloadMutation.mutate(initialRecord.id);
     };
 
     const textareaBase = cn(
@@ -568,13 +579,37 @@ export function MedicalRecordFormModal({
                 </div>
 
                 <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-neutral-200 bg-neutral-50 flex-shrink-0">
-                    {!isValid ? (
-                        <p className="text-xs text-neutral-400" role="note">
-                            Preencha data, estrutura e grau da lesão para salvar.
-                        </p>
-                    ) : (
-                        <span />
-                    )}
+                    <div className="flex items-center gap-2">
+                        {isEditMode && (
+                            <Button
+                                variant="secondary"
+                                onClick={handleExportPdf}
+                                disabled={downloadMutation.isPending || isSaving}
+                                aria-label="Exportar laudo em PDF para seguro ou plano de saúde"
+                            >
+                                {downloadMutation.isPending ? (
+                                    <span className="flex items-center gap-2">
+                                        <Loader2
+                                            size={14}
+                                            className="animate-spin"
+                                            aria-hidden="true"
+                                        />
+                                        Gerando PDF…
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-2">
+                                        <FileText size={14} aria-hidden="true" />
+                                        Exportar Laudo
+                                    </span>
+                                )}
+                            </Button>
+                        )}
+                        {!isValid && !isEditMode && (
+                            <p className="text-xs text-neutral-400" role="note">
+                                Preencha data, estrutura e grau da lesão para salvar.
+                            </p>
+                        )}
+                    </div>
 
                     <div className="flex gap-2 ml-auto">
                         <Button

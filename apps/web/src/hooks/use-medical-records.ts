@@ -8,6 +8,7 @@ import {
   deleteMedicalRecord,
   listMedicalRecords,
   getMedicalRecord,
+  downloadMedicalRecordReport,
   type CreateMedicalRecordPayload,
   type UpdateMedicalRecordPayload,
   type ListMedicalRecordsParams,
@@ -111,6 +112,41 @@ export function useDeleteMedicalRecord() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MEDICAL_RECORDS_QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Returns a mutation that triggers a PDF download for a medical record report.
+ *
+ * Uses an async mutation pattern (not useQuery) because it triggers a
+ * file download rather than rendering data into the UI.
+ *
+ * The PDF is generated server-side (clinical fields decrypted via pgcrypto)
+ * and streamed as a binary response. The browser download is triggered
+ * programmatically via a temporary anchor element + `URL.createObjectURL`.
+ *
+ * Role: ADMIN | PHYSIO only (enforced by the API — same guard as other
+ * FisioBase endpoints).
+ */
+export function useDownloadMedicalRecordReport() {
+  const { getAccessToken } = useAuth();
+
+  return useMutation({
+    mutationFn: async (recordId: string) => {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Não autenticado");
+
+      const blob = await downloadMedicalRecordReport(recordId, token);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `laudo-lesao-${recordId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     },
   });
 }

@@ -227,3 +227,39 @@ export async function deleteMedicalRecord(
     );
   }
 }
+
+/**
+ * Downloads the PDF insurance/health-plan report for a single medical record.
+ *
+ * Returns a Blob — the caller is responsible for triggering the browser
+ * download (e.g. via `URL.createObjectURL`).
+ *
+ * The server decrypts all clinical fields and generates the PDF server-side,
+ * ensuring the LGPD audit trail is written before any data leaves the API.
+ */
+export async function downloadMedicalRecordReport(
+  recordId: string,
+  accessToken: string,
+): Promise<Blob> {
+  const res = await fetch(
+    `${API_BASE}/api/medical-records/${recordId}/report`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "include",
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as {
+      message?: string;
+      error?: string;
+    };
+    throw new MedicalRecordApiError(
+      body.message ?? "Erro ao gerar laudo PDF",
+      res.status,
+      body.error,
+    );
+  }
+
+  return res.blob();
+}

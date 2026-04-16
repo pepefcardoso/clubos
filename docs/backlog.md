@@ -85,7 +85,7 @@
 
 | ID        | Tarefa Técnica                                                                                                                                                                                                                       | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
-| **T-129** | Relatório exportável para seguro/plano de saúde: geração de PDF (`react-pdf`) com histórico de lesão, protocolo aplicado, evolução clínica e assinatura digital do fisioterapeuta. Disponível via `/api/medical-records/:id/report`. | 1d      | S11    | ⬜     |
+| **T-129** | Relatório exportável para seguro/plano de saúde: geração de PDF (`react-pdf`) com histórico de lesão, protocolo aplicado, evolução clínica e assinatura digital do fisioterapeuta. Disponível via `/api/medical-records/:id/report`. | 1d      | S11    | ✅     |
 | **T-130** | Multi-fisio e multi-clube: painel único (`PhysioDashboard`) que consolida atletas de múltiplos clubes vinculados ao mesmo usuário `PHYSIO`. Histórico transferível entre clubes com consentimento registrado no `audit_log`.         | 1d      | S11    | ⬜     |
 
 ---
@@ -117,10 +117,6 @@
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
 
 ### Sprint 11 (Relatórios, Controle de Acesso e Quality Assurance)
-
-**Fase 1: APIs, Integrações e Geração de Documentos (Bloqueadores)**
-
-2. `T-129` — Geração de PDF do Relatório de Lesão para Seguro (Depende dos dados da Sprint 9)
 
 **Fase 2: UI Operacional e Multi-Tenant (Depende da Fase 1)** 3. `T-132` — UI Portaria Mobile-First (Scanner de câmera e fila offline para o QR Code) 4. `T-130` — Painel Multi-Fisio e Multi-Clube (Consolidação de visualização na UI)
 

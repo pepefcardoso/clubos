@@ -385,3 +385,117 @@ describe("useUpdateMedicalRecord", () => {
     expect(mockUseQueryClient).toHaveBeenCalled();
   });
 });
+
+const {
+  mockDownloadMedicalRecordReport,
+} = vi.hoisted(() => ({
+  mockUseMutation: vi.fn(),
+  mockGetAccessToken: vi.fn(),
+  mockDownloadMedicalRecordReport: vi.fn(),
+}));
+
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@tanstack/react-query")>();
+  return {
+    ...original,
+    useMutation: mockUseMutation,
+    useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
+  };
+});
+
+vi.mock("@/hooks/use-auth", () => ({
+  useAuth: () => ({ getAccessToken: mockGetAccessToken }),
+}));
+
+vi.mock("@/lib/api/medical-records", () => ({
+  downloadMedicalRecordReport: mockDownloadMedicalRecordReport,
+  createMedicalRecord: vi.fn(),
+  updateMedicalRecord: vi.fn(),
+  getMedicalRecord: vi.fn(),
+  listMedicalRecords: vi.fn(),
+  deleteMedicalRecord: vi.fn(),
+  MedicalRecordApiError: class MedicalRecordApiError extends Error {
+    constructor(
+      message: string,
+      public status: number,
+    ) {
+      super(message);
+      this.name = "MedicalRecordApiError";
+    }
+  },
+}));
+
+describe("useDownloadMedicalRecordReport", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAccessToken.mockResolvedValue("test-token");
+    mockUseMutation.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  });
+
+  it("calls useMutation and returns its result", async () => {
+    const { useDownloadMedicalRecordReport } = await import(
+      "./use-medical-records.js"
+    );
+    const result = useDownloadMedicalRecordReport();
+    expect(mockUseMutation).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ isPending: false });
+  });
+
+  it("mutationFn calls downloadMedicalRecordReport with recordId and token", async () => {
+    const fakeBlob = new Blob(["fake pdf"], { type: "application/pdf" });
+    mockDownloadMedicalRecordReport.mockResolvedValue(fakeBlob);
+
+    const createObjectURL = vi.fn(() => "blob:http://localhost/fake-url");
+    const revokeObjectURL = vi.fn();
+    const clickFn = vi.fn();
+    const appendChildFn = vi.fn();
+    const removeChildFn = vi.fn();
+
+    global.URL.createObjectURL = createObjectURL;
+    global.URL.revokeObjectURL = revokeObjectURL;
+    vi.spyOn(document.body, "appendChild").mockImplementation(appendChildFn);
+    vi.spyOn(document.body, "removeChild").mockImplementation(removeChildFn);
+    vi.spyOn(document, "createElement").mockReturnValue({
+      href: "",
+      download: "",
+      click: clickFn,
+    } as unknown as HTMLAnchorElement);
+
+    const { useDownloadMedicalRecordReport } = await import(
+      "./use-medical-records.js"
+    );
+    useDownloadMedicalRecordReport();
+
+    const [{ mutationFn }] = mockUseMutation.mock.calls[0] as [
+      { mutationFn: (id: string) => Promise<void> },
+    ];
+
+    await mutationFn("rec_01");
+
+    expect(mockGetAccessToken).toHaveBeenCalledTimes(1);
+    expect(mockDownloadMedicalRecordReport).toHaveBeenCalledWith(
+      "rec_01",
+      "test-token",
+    );
+    expect(createObjectURL).toHaveBeenCalledWith(fakeBlob);
+    expect(clickFn).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:http://localhost/fake-url");
+  });
+
+  it("mutationFn throws when no token is available", async () => {
+    mockGetAccessToken.mockResolvedValue(null);
+
+    const { useDownloadMedicalRecordReport } = await import(
+      "./use-medical-records.js"
+    );
+    useDownloadMedicalRecordReport();
+
+    const [{ mutationFn }] = mockUseMutation.mock.calls[0] as [
+      { mutationFn: (id: string) => Promise<void> },
+    ];
+
+    await expect(mutationFn("rec_01")).rejects.toThrow("Não autenticado");
+    expect(mockDownloadMedicalRecordReport).not.toHaveBeenCalled();
+  });
+});

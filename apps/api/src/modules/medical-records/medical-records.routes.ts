@@ -10,6 +10,7 @@ import {
   updateMedicalRecord,
   deleteMedicalRecord,
   listMedicalRecords,
+  generateMedicalRecordReportPdf,
   MedicalRecordNotFoundError,
   AthleteNotFoundError,
   ProtocolNotFoundError,
@@ -107,6 +108,65 @@ export async function medicalRecordRoutes(
           });
         }
         if (err instanceof ProtocolNotFoundError) {
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
+            message: err.message,
+          });
+        }
+        throw err;
+      }
+    },
+  );
+
+  /**
+   * GET /api/medical-records/:recordId/report
+   * Generates and streams a PDF insurance/health-plan report for a single record.
+   *
+   * The PDF includes: athlete identity (name, DOB, position — no CPF/phone),
+   * injury details, decrypted clinical fields, linked return-to-play protocol,
+   * physiotherapist attribution block, and a SHA-256 integrity hash footer.
+   *
+   * LGPD compliance: writes data_access_log (action: EXPORT_PDF) and
+   * audit_log (MEDICAL_RECORD_ACCESSED) on every successful export.
+   *
+   * The PDF is generated in memory and streamed as a binary response.
+   * It is never written to disk.
+   *
+   * Role guard: ADMIN | PHYSIO only.
+   */
+  fastify.get(
+    "/:recordId/report",
+    { preHandler: [fastify.requireRole("ADMIN", "PHYSIO")] },
+    async (request, reply) => {
+      const { recordId } = request.params as { recordId: string };
+      const { clubId } = request.user as AccessTokenPayload;
+      const userAgent = request.headers["user-agent"];
+
+      try {
+        const pdfBuffer = await generateMedicalRecordReportPdf(
+          fastify.prisma,
+          clubId,
+          recordId,
+          request.actorId,
+          {
+            ipAddress: request.ip,
+            ...(userAgent ? { userAgent } : {}),
+          },
+        );
+
+        const safeFilename = `laudo-lesao-${recordId}.pdf`;
+
+        return reply
+          .status(200)
+          .header("Content-Type", "application/pdf")
+          .header(
+            "Content-Disposition",
+            `attachment; filename="${safeFilename}"`,
+          )
+          .send(pdfBuffer);
+      } catch (err) {
+        if (err instanceof MedicalRecordNotFoundError) {
           return reply.status(404).send({
             statusCode: 404,
             error: "Not Found",

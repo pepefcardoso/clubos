@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
 import type { PrismaClient } from "../../../generated/prisma/index.js";
 import { withTenantSchema } from "../../lib/prisma.js";
 import { NotFoundError } from "../../lib/errors.js";
 import { encryptField, decryptField } from "../../lib/crypto.js";
+import PDFDocument from "pdfkit";
 import type {
   CreateMedicalRecordInput,
   UpdateMedicalRecordInput,
@@ -55,6 +57,8 @@ const DATA_ACCESS_ACTIONS = {
   UPDATE_READ: "UPDATE_READ",
   /** deleteMedicalRecord — metadata read before hard delete (no clinical decrypt) */
   DELETE_ACCESS: "DELETE_ACCESS",
+  /** generateMedicalRecordReportPdf — full clinical decrypt for PDF export */
+  EXPORT_PDF: "EXPORT_PDF",
 } as const;
 
 type RawRecordRow = {
@@ -548,5 +552,411 @@ export async function listMedicalRecords(
       page: params.page,
       limit: params.limit,
     };
+  });
+}
+
+interface LaudoPdfInput {
+  clubName: string;
+  athlete: { name: string; birthDate: Date; position: string | null };
+  record: {
+    id: string;
+    occurredAt: Date;
+    structure: string;
+    grade: string;
+    mechanism: string;
+    createdAt: Date;
+    athleteId: string;
+  };
+  protocol: {
+    name: string;
+    durationDays: number;
+    steps: unknown;
+  } | null;
+  clinicalNotes: string | null;
+  diagnosis: string | null;
+  treatmentDetails: string | null;
+  actorEmail: string;
+  actorRole: string;
+  generatedAt: Date;
+  integrityHash: string;
+}
+
+/** Formats a Date to "DD/MM/YYYY" using UTC to avoid timezone shifts. */
+function formatDatePt(date: Date): string {
+  return date.toLocaleDateString("pt-BR", { timeZone: "UTC" });
+}
+
+/** Formats a Date to "DD/MM/YYYY, HH:mm" using UTC. */
+function formatDateTimePt(date: Date): string {
+  return date.toLocaleString("pt-BR", { timeZone: "UTC" });
+}
+
+function gradeLabel(grade: string): string {
+  const map: Record<string, string> = {
+    GRADE_1: "Grau I — Leve (< 7 dias)",
+    GRADE_2: "Grau II — Moderado (7–28 dias)",
+    GRADE_3: "Grau III — Grave (> 28 dias)",
+    COMPLETE: "Ruptura Completa — Avaliação cirúrgica",
+  };
+  return map[grade] ?? grade;
+}
+
+function mechanismLabel(mechanism: string): string {
+  const map: Record<string, string> = {
+    CONTACT: "Contato",
+    NON_CONTACT: "Sem contato",
+    OVERUSE: "Sobrecarga / overuse",
+    UNKNOWN: "Não identificado",
+  };
+  return map[mechanism] ?? mechanism;
+}
+
+/**
+ * Builds the PDF buffer for the insurance/health-plan injury report.
+ *
+ * Follows the PDFKit streaming pattern established in monthly-report.service.ts.
+ * The PDF is generated entirely in memory — never written to disk.
+ *
+ * Sections:
+ *   1. Header — club name, document title, generation timestamp
+ *   2. Athlete Identification — name, date of birth, position
+ *      NOTE: CPF and phone are intentionally excluded (LGPD minimisation)
+ *   3. Injury Details — date, structure, grade, mechanism
+ *   4. Clinical Data — diagnosis, clinical notes (only when present)
+ *   5. Treatment Details (only when present)
+ *   6. Return-to-Play Protocol — name, duration, steps (only when linked)
+ *   7. Physiotherapist Attribution — actor email, role, generation timestamp
+ *   8. Footer — integrity hash, record ID, LGPD notice
+ */
+function buildLaudoPdf(input: LaudoPdfInput): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const chunks: Buffer[] = [];
+
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const PAGE_WIDTH = 495;
+    const HEADER_BG = "#1a5276";
+    const SECTION_GAP = 0.8;
+
+    doc
+      .fontSize(14)
+      .font("Helvetica-Bold")
+      .fillColor("#000000")
+      .text("LAUDO MÉDICO ESPORTIVO", { align: "center" });
+
+    doc
+      .fontSize(11)
+      .font("Helvetica")
+      .text(input.clubName, { align: "center" });
+
+    doc
+      .fontSize(9)
+      .fillColor("#555555")
+      .text(
+        `Gerado em: ${formatDateTimePt(input.generatedAt)}   |   ID do Registro: ${input.record.id}`,
+        { align: "center" },
+      )
+      .moveDown(1)
+      .fillColor("#000000");
+
+    doc
+      .rect(50, doc.y, PAGE_WIDTH, 2)
+      .fill(HEADER_BG)
+      .fillColor("#000000")
+      .moveDown(0.6);
+
+    doc.fontSize(11).font("Helvetica-Bold").text("IDENTIFICAÇÃO DO ATLETA");
+    doc.moveDown(0.3);
+    doc
+      .fontSize(9)
+      .font("Helvetica")
+      .text(`Nome: ${input.athlete.name}`)
+      .text(`Data de Nascimento: ${formatDatePt(input.athlete.birthDate)}`)
+      .text(`Posição: ${input.athlete.position ?? "Não informada"}`)
+      .moveDown(SECTION_GAP);
+
+    doc.fontSize(11).font("Helvetica-Bold").text("DADOS DA LESÃO");
+    doc.moveDown(0.3);
+    doc
+      .fontSize(9)
+      .font("Helvetica")
+      .text(`Data da Ocorrência: ${formatDatePt(input.record.occurredAt)}`)
+      .text(`Estrutura Anatômica: ${input.record.structure}`)
+      .text(
+        `Grau da Lesão (FIFA Medical 2023): ${gradeLabel(input.record.grade)}`,
+      )
+      .text(`Mecanismo: ${mechanismLabel(input.record.mechanism)}`)
+      .moveDown(SECTION_GAP);
+
+    if (input.diagnosis || input.clinicalNotes) {
+      doc.fontSize(11).font("Helvetica-Bold").text("DADOS CLÍNICOS");
+      doc.moveDown(0.3);
+
+      if (input.diagnosis) {
+        doc.fontSize(9).font("Helvetica-Bold").text("Diagnóstico:");
+        doc
+          .font("Helvetica")
+          .text(input.diagnosis, { width: PAGE_WIDTH })
+          .moveDown(0.4);
+      }
+
+      if (input.clinicalNotes) {
+        doc.fontSize(9).font("Helvetica-Bold").text("Notas Clínicas:");
+        doc
+          .font("Helvetica")
+          .text(input.clinicalNotes, { width: PAGE_WIDTH })
+          .moveDown(0.4);
+      }
+
+      doc.moveDown(SECTION_GAP - 0.4);
+    }
+
+    if (input.treatmentDetails) {
+      doc.fontSize(11).font("Helvetica-Bold").text("PROTOCOLO DE TRATAMENTO");
+      doc.moveDown(0.3);
+      doc
+        .fontSize(9)
+        .font("Helvetica")
+        .text(input.treatmentDetails, { width: PAGE_WIDTH })
+        .moveDown(SECTION_GAP);
+    }
+
+    if (input.protocol) {
+      doc
+        .fontSize(11)
+        .font("Helvetica-Bold")
+        .text("PROTOCOLO DE RETORNO AO JOGO");
+      doc.moveDown(0.3);
+      doc
+        .fontSize(9)
+        .font("Helvetica")
+        .text(`Protocolo: ${input.protocol.name}`)
+        .text(`Duração estimada: ${input.protocol.durationDays} dias`);
+
+      const steps = input.protocol.steps as Array<{
+        day: string;
+        activity: string;
+      }>;
+      if (Array.isArray(steps) && steps.length > 0) {
+        doc.moveDown(0.4);
+        steps.forEach((step, i) => {
+          doc.text(`  ${i + 1}. Dia(s) ${step.day}: ${step.activity}`, {
+            width: PAGE_WIDTH - 20,
+          });
+        });
+      }
+
+      doc.moveDown(SECTION_GAP);
+    }
+
+    doc.fontSize(11).font("Helvetica-Bold").text("RESPONSÁVEL TÉCNICO");
+    doc.moveDown(0.3);
+    doc
+      .fontSize(9)
+      .font("Helvetica")
+      .text(`Profissional: ${input.actorEmail}`)
+      .text(
+        `Função: ${input.actorRole === "PHYSIO" ? "Fisioterapeuta" : "Administrador"}`,
+      )
+      .text(`Data/hora de emissão: ${formatDateTimePt(input.generatedAt)}`)
+      .moveDown(1);
+
+    const sigY = doc.y;
+    doc.moveTo(50, sigY).lineTo(280, sigY).strokeColor("#333333").stroke();
+    doc
+      .fontSize(8)
+      .font("Helvetica")
+      .fillColor("#555555")
+      .text("Assinatura do responsável técnico", 50, sigY + 4);
+    doc.moveDown(2);
+
+    doc
+      .fontSize(7)
+      .fillColor("#888888")
+      .text(
+        `Documento gerado automaticamente pelo ClubOS. ` +
+          `Hash de integridade (SHA-256): ${input.integrityHash.substring(0, 16)}… ` +
+          `| ID do registro: ${input.record.id}`,
+        { align: "center", width: PAGE_WIDTH },
+      )
+      .moveDown(0.3)
+      .text(
+        "Este documento contém dados clínicos protegidos pela LGPD (Lei 13.709/2018). " +
+          "Uso restrito ao destinatário autorizado.",
+        { align: "center", width: PAGE_WIDTH },
+      );
+
+    doc.end();
+  });
+}
+
+/**
+ * Orchestrates the full PDF export pipeline for a single medical record:
+ *
+ *   1. Fetches the record (with athlete + protocol) from the tenant schema.
+ *   2. Fetches the club name and actor email from the public schema
+ *      (root `prisma`, NOT inside `withTenantSchema` — public schema tables).
+ *   3. Decrypts clinical fields inside a tenant transaction (pgcrypto requires
+ *      the correct search_path).
+ *   4. Writes a `data_access_log` entry (action: EXPORT_PDF) and an
+ *      `audit_log` entry (MEDICAL_RECORD_ACCESSED) for LGPD Art. 37.
+ *   5. Computes a SHA-256 integrity hash over immutable record fields,
+ *      suitable for insurance submission tamper-evidence.
+ *   6. Builds and returns the PDF buffer via PDFKit.
+ *
+ * @param prisma      Singleton Prisma client (not a transaction).
+ * @param clubId      Tenant identifier.
+ * @param recordId    Medical record ID within the tenant schema.
+ * @param actorId     ID of the authenticated user requesting the export.
+ * @param requestMeta HTTP request metadata for the audit log.
+ */
+export async function generateMedicalRecordReportPdf(
+  prisma: PrismaClient,
+  clubId: string,
+  recordId: string,
+  actorId: string,
+  requestMeta: RequestMeta = {},
+): Promise<Buffer> {
+  type TenantRecord = {
+    id: string;
+    athleteId: string;
+    protocolId: string | null;
+    occurredAt: Date;
+    structure: string;
+    grade: string;
+    mechanism: string;
+    clinicalNotes: Uint8Array | null;
+    diagnosis: Uint8Array | null;
+    treatmentDetails: Uint8Array | null;
+    createdAt: Date;
+    updatedAt: Date;
+    createdBy: string;
+    athlete: { name: string; birthDate: Date; position: string | null };
+    protocol: {
+      id: string;
+      name: string;
+      durationDays: number;
+      steps: unknown;
+    } | null;
+  };
+
+  const record = await withTenantSchema(
+    prisma,
+    clubId,
+    async (tx): Promise<TenantRecord> => {
+      const row = (await tx.medicalRecord.findUnique({
+        where: { id: recordId },
+        include: {
+          athlete: {
+            select: { name: true, birthDate: true, position: true },
+          },
+          protocol: {
+            select: {
+              id: true,
+              name: true,
+              durationDays: true,
+              steps: true,
+            },
+          },
+        },
+      })) as TenantRecord | null;
+
+      if (!row) throw new MedicalRecordNotFoundError();
+      return row;
+    },
+  );
+
+  const [club, actor] = await Promise.all([
+    prisma.club.findUnique({
+      where: { id: clubId },
+      select: { name: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: actorId },
+      select: { email: true, role: true },
+    }),
+  ]);
+
+  const [clinicalNotes, diagnosis, treatmentDetails] = await withTenantSchema(
+    prisma,
+    clubId,
+    async (tx): Promise<[string | null, string | null, string | null]> =>
+      Promise.all([
+        record.clinicalNotes
+          ? decryptField(tx, record.clinicalNotes)
+          : Promise.resolve(null),
+        record.diagnosis
+          ? decryptField(tx, record.diagnosis)
+          : Promise.resolve(null),
+        record.treatmentDetails
+          ? decryptField(tx, record.treatmentDetails)
+          : Promise.resolve(null),
+      ]),
+  );
+
+  const fieldsRead: string[] = [];
+  if (record.clinicalNotes) fieldsRead.push("clinicalNotes");
+  if (record.diagnosis) fieldsRead.push("diagnosis");
+  if (record.treatmentDetails) fieldsRead.push("treatmentDetails");
+
+  await withTenantSchema(prisma, clubId, async (tx) => {
+    await tx.dataAccessLog.create({
+      data: {
+        actorId,
+        entityId: recordId,
+        entityType: "MedicalRecord",
+        action: DATA_ACCESS_ACTIONS.EXPORT_PDF,
+        fieldsRead,
+        ipAddress: requestMeta.ipAddress ?? null,
+        userAgent: requestMeta.userAgent ?? null,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId,
+        action: "MEDICAL_RECORD_ACCESSED",
+        entityId: recordId,
+        entityType: "MedicalRecord",
+        metadata: { fieldsRead, exportFormat: "pdf" },
+      },
+    });
+  });
+
+  const integrityHash = createHash("sha256")
+    .update(
+      [
+        record.athleteId,
+        record.occurredAt.toISOString(),
+        record.structure,
+        record.grade,
+        record.createdAt.toISOString(),
+      ].join("|"),
+    )
+    .digest("hex");
+
+  return buildLaudoPdf({
+    clubName: club?.name ?? "Clube",
+    athlete: record.athlete,
+    record: {
+      id: record.id,
+      occurredAt: record.occurredAt,
+      structure: record.structure,
+      grade: record.grade,
+      mechanism: record.mechanism,
+      createdAt: record.createdAt,
+      athleteId: record.athleteId,
+    },
+    protocol: record.protocol ?? null,
+    clinicalNotes,
+    diagnosis,
+    treatmentDetails,
+    actorEmail: actor?.email ?? actorId,
+    actorRole: actor?.role ?? "PHYSIO",
+    generatedAt: new Date(),
+    integrityHash,
   });
 }

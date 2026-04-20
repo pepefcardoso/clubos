@@ -1,6 +1,7 @@
 export type AthleteStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
 export type SessionType = "MATCH" | "TRAINING" | "GYM" | "RECOVERY" | "OTHER";
 export type SyncStatus = "pending" | "syncing" | "synced" | "error";
+export type FieldAccessSyncStatus = "pending" | "syncing" | "synced" | "error";
 
 export type ExerciseCategory =
   | "STRENGTH"
@@ -105,4 +106,40 @@ export interface CachedExercise {
 export interface MetaEntry {
   key: string;
   value: unknown;
+}
+
+/**
+ * A QR Code scan queued for server sync.
+ *
+ * No PII — `token` is the opaque signed JWT, not any decoded personal data.
+ * `localValid` is an optimistic client-side assessment for instant UI feedback;
+ * the server result (via `serverId`) is authoritative.
+ */
+export interface FieldAccessQueueEntry {
+  /** Client-generated UUID — doubles as idempotencyKey on the server */
+  localId: string;
+  /** Tenant isolation */
+  clubId: string;
+  /** eventId from the route param; 'open' for open-access (no specific event) */
+  eventId: string;
+  /** Raw signed QR Code token string */
+  token: string;
+  /** ISO 8601 — client-side scan timestamp, preserved for offline scans */
+  scannedAt: string;
+  syncStatus: FieldAccessSyncStatus;
+  /** Last sync error message — null when syncStatus is not 'error' */
+  syncError: string | null;
+  /**
+   * Optimistic local validity assessment.
+   * null  → not yet assessed (should not normally persist)
+   * true  → locally assessed as valid
+   * false → locally assessed as invalid (expired, malformed, wrong event)
+   */
+  localValid: boolean | null;
+  /** field_access_logs.id returned by the server after successful sync */
+  serverId: string | null;
+  /** Date.now() at creation */
+  createdAt: number;
+  /** Date.now() at last status transition */
+  updatedAt: number;
 }

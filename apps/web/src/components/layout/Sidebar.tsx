@@ -20,6 +20,7 @@ import {
   ArrowLeftRight,
   ClipboardList,
   Scale,
+  ScanLine
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,12 @@ const PRIMARY_NAV: NavItem[] = [
   { label: "Sócios", href: "/members", icon: Users },
   { label: "Atletas", href: "/athletes", icon: Users2 },
   { href: "/training", label: "Chamada", icon: ClipboardList },
+  {
+    href: "/access",
+    label: "Portaria",
+    icon: ScanLine,
+    roles: ["ADMIN", "TREASURER"],
+  },
   { label: "Planos", href: "/plans", icon: LayoutList },
   { label: "Cobranças", href: "/charges", icon: CreditCard },
   {

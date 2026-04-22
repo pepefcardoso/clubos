@@ -10,9 +10,9 @@
 
 | Sprint                    | Foco Principal                                             | Tarefas       | Esforço | Status      | Critérios de "Pronto" (Done)                                                                                             |
 | ------------------------- | ---------------------------------------------------------- | ------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **Sprint 9 (Sem 15–16)**  | v2.0 — FisioBase Core (Prontuário + RTP + Protocolos)      | T-114 a T-122 | ~9d dev | ⚠️ Pendente | Role PHYSIO ativo; prontuário criado e criptografado; status RTP visível por role; biblioteca de protocolos navegável.   |
-| **Sprint 10 (Sem 17–18)** | v2.0 — SAF Compliance Full + Demonstrativo de Receitas     | T-123 a T-128 | ~6d dev | ⬜ Pendente | Dashboard SAF com KPIs; passivos trabalhistas exportáveis em PDF; demonstrativo integrado a sócios + cobranças.          |
-| **Sprint 11 (Sem 19–20)** | v2.0 — Relatórios, Controle de Acesso QR e Compliance LGPD | T-129 a T-133 | ~5d dev | ⬜ Pendente | Relatório financeiro PDF gerado via job mensal; QR Code de portaria funcional offline; audit log de dados médicos ativo. |
+| **Sprint 9 (Sem 15–16)**  | v2.0 — FisioBase Core (Prontuário + RTP + Protocolos)      | T-114 a T-122 | ~9d dev | ✅ Pendente | Role PHYSIO ativo; prontuário criado e criptografado; status RTP visível por role; biblioteca de protocolos navegável.   |
+| **Sprint 10 (Sem 17–18)** | v2.0 — SAF Compliance Full + Demonstrativo de Receitas     | T-123 a T-128 | ~6d dev | ✅ Pendente | Dashboard SAF com KPIs; passivos trabalhistas exportáveis em PDF; demonstrativo integrado a sócios + cobranças.          |
+| **Sprint 11 (Sem 19–20)** | v2.0 — Relatórios, Controle de Acesso QR e Compliance LGPD | T-129 a T-133 | ~5d dev | ✅ Pendente | Relatório financeiro PDF gerado via job mensal; QR Code de portaria funcional offline; audit log de dados médicos ativo. |
 
 ## Épico 20 — FisioBase Core (Prontuário Esportivo e RTP)
 
@@ -110,12 +110,4 @@
 | ID        | Tarefa Técnica                                                                                                                                                                                                                                   | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
 | **T-134** | Provisionamento DDL tenant v2.0: atualizar `provisionTenantSchema` com novas tabelas `medical_records`, `injury_protocols`, `return_to_play`, `balance_sheets`, `creditor_disclosures`, `data_access_log`, `field_access_logs`. DDL idempotente. | 0.5d    | S9     | ✅     |
-| **T-135** | Testes de integração E2E para fluxo de prontuário: criação → RTP → correlação ACWR. Cobertura mínima de 80% nos endpoints novos do FisioBase.                                                                                                    | 1d      | S11    | ⬜     |
-
-## Plano de Execução Recomendado (Ordem Lógica)
-
-> A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
-
-### Sprint 11 (Relatórios, Controle de Acesso e Quality Assurance)
-
-**Fase 3: Homologação e Qualidade (Finalização da v2.0)** 5. `T-135` — Testes E2E de Integração para o Fluxo de Prontuário (Valida de ponta a ponta a Sprint 9 antes do deploy final)
+| **T-135** | Testes de integração E2E para fluxo de prontuário: criação → RTP → correlação ACWR. Cobertura mínima de 80% nos endpoints novos do FisioBase.                                                                                                    | 1d      | S11    | ✅     |

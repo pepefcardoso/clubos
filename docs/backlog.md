@@ -86,7 +86,7 @@
 | ID        | Tarefa Técnica                                                                                                                                                                                                                       | Esforço | Sprint | Status |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------ | ------ |
 | **T-129** | Relatório exportável para seguro/plano de saúde: geração de PDF (`react-pdf`) com histórico de lesão, protocolo aplicado, evolução clínica e assinatura digital do fisioterapeuta. Disponível via `/api/medical-records/:id/report`. | 1d      | S11    | ✅     |
-| **T-130** | Multi-fisio e multi-clube: painel único (`PhysioDashboard`) que consolida atletas de múltiplos clubes vinculados ao mesmo usuário `PHYSIO`. Histórico transferível entre clubes com consentimento registrado no `audit_log`.         | 1d      | S11    | ⬜     |
+| **T-130** | Multi-fisio e multi-clube: painel único (`PhysioDashboard`) que consolida atletas de múltiplos clubes vinculados ao mesmo usuário `PHYSIO`. Histórico transferível entre clubes com consentimento registrado no `audit_log`.         | 1d      | S11    | ✅     |
 
 ---
 
@@ -117,7 +117,5 @@
 > A lista abaixo ordena a execução por **dependências arquiteturais** (Infraestrutura > Banco > Lógica > UI Isolada) dentro de cada sprint, mitigando riscos de bloqueios.
 
 ### Sprint 11 (Relatórios, Controle de Acesso e Quality Assurance)
-
-**Fase 2: UI Operacional e Multi-Tenant (Depende da Fase 1)** 4. `T-130` — Painel Multi-Fisio e Multi-Clube (Consolidação de visualização na UI)
 
 **Fase 3: Homologação e Qualidade (Finalização da v2.0)** 5. `T-135` — Testes E2E de Integração para o Fluxo de Prontuário (Valida de ponta a ponta a Sprint 9 antes do deploy final)

@@ -216,6 +216,8 @@ enum AuditAction {
   CREDITOR_DISCLOSURE_CREATED
   CREDITOR_DISCLOSURE_UPDATED
   FIELD_ACCESS_LOGGED
+  MEDICAL_RECORD_TRANSFER_OUT
+  MEDICAL_RECORD_TRANSFER_IN
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
@@ -234,7 +236,8 @@ model Club {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  users User[]
+  users              User[]
+  physioClubAccesses PhysioClubAccess[]
 
   @@map("clubs")
 }
@@ -251,8 +254,9 @@ model User {
 
   club Club @relation(fields: [clubId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  physioClubAccesses PhysioClubAccess[]
 
   @@index([clubId])
   @@map("users")
@@ -780,4 +784,21 @@ model FieldAccessLog {
   createdAt       DateTime @default(now())
 
   @@map("field_access_logs")
+}
+
+model PhysioClubAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  clubId    String
+  isActive  Boolean  @default(true)
+  grantedAt DateTime @default(now())
+  grantedBy String
+
+  user User @relation(fields: [userId], references: [id])
+  club Club @relation(fields: [clubId], references: [id])
+
+  @@unique([userId, clubId])
+  @@index([userId])
+  @@index([clubId])
+  @@map("physio_club_access")
 }

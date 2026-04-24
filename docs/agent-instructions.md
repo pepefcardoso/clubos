@@ -71,7 +71,7 @@ clubos/
 ## 2. ABSOLUTE BLOCKERS
 
 > Any code violating a rule below MUST NOT be generated, committed, or approved.
-> Severity: 🔴 = merge-blocking | ⚫ = security incident risk
+> 🔴 = merge-blocking | ⚫ = security incident risk
 
 ### 2.1 TypeScript
 
@@ -275,7 +275,7 @@ const gateway = GatewayRegistry.get(params.gateway);
 
 ```typescript
 // Store: pgp_sym_encrypt(value, ENCRYPTION_KEY) as BYTEA
-// Read: pgp_sym_decrypt(column, ENCRYPTION_KEY)
+// Read:  pgp_sym_decrypt(column, ENCRYPTION_KEY)
 // Uniqueness: application-layer via findMemberByCpf() — NO DB UNIQUE constraint
 // Key rotation: ENCRYPTION_KEY_V1…Vn; ENCRYPTION_KEY_VERSION points to current
 ```
@@ -313,10 +313,10 @@ branches:
 commit_format: "<type>(<scope>): <description>"
   types: feat | fix | docs | style | refactor | test | chore
 
-ci_pipeline: lint (zero warnings) → tsc --noEmit → vitest run → build
-financial_gate: PR annotated if touching charges/, payments/, webhooks/, jobs/
-coverage_threshold: ≥80% on financial modules (charges, payments, webhooks, jobs)
-approvals_required: ≥2 on any PR touching financial modules
+ci_pipeline:          lint (zero warnings) → tsc --noEmit → vitest run → build
+financial_gate:       PR annotated if touching charges/, payments/, webhooks/, jobs/
+coverage_threshold:   ≥80% on financial modules (charges, payments, webhooks, jobs)
+approvals_required:   ≥2 on any PR touching financial modules
 ```
 
 ---
@@ -415,13 +415,13 @@ security_headers_prod:
 ### Tenant Schema: `clube_{id}`
 
 ```
-Financial (v1.0 ✅):   members, plans, member_plans, charges, payments, expenses, audit_log
+Financial (v1.0 ✅):    members, plans, member_plans, charges, payments, expenses, audit_log
 Communication (v1.0 ✅): messages, message_templates
-Sports (v1.0–v1.5 ✅): athletes, contracts, training_sessions, attendance_logs, workload_metrics
+Sports (v1.0–v1.5 ✅):  athletes, contracts, training_sessions, attendance_logs, workload_metrics
 Financial Ext (v1.5 ✅): bank_reconciliations, consent_records
-Medical (v2.0 🟡):     medical_records*, injury_protocols, return_to_play, data_access_log*
-Compliance (v2.0 🟡):  balance_sheets*, creditor_disclosures
-Operations (v2.0 🟡):  field_access_logs
+Medical (v2.0 🟡):      medical_records*, injury_protocols, return_to_play, data_access_log*
+Compliance (v2.0 🟡):   balance_sheets*, creditor_disclosures
+Operations (v2.0 🟡):   field_access_logs
 # * = AES-256 encrypted fields or immutable table
 ```
 
@@ -478,7 +478,7 @@ cpf_phone:       BYTEA pgp_sym_encrypt — uniqueness at application layer only
 
 ```
 v2.5 "A Arquibancada": ArenaPass (Weeks 21–28) — T-136 to T-160
-v3.0 "A Vitrine":     ScoutLink  (Weeks 29–40) — T-161 to T-184
+v3.0 "A Vitrine":      ScoutLink  (Weeks 29–40) — T-161 to T-184
 ```
 
 ---
@@ -494,7 +494,7 @@ success:  '#2d7d2d'  // same as primary-500
 neutral:  { 200: '#e8e6e0', 500: '#78746a', 700: '#3d3a33' }
 
 // Typography:
-font-sans: Inter    // all UI text (default — do not declare explicitly)
+font-sans: Inter           // all UI text (default — do not declare explicitly)
 font-mono: JetBrains Mono  // monetary values, CPF, technical IDs
 
 // Spacing: Tailwind 4px scale only. No arbitrary values.
@@ -524,10 +524,10 @@ font-mono: JetBrains Mono  // monetary values, CPF, technical IDs
 ## 13. OFFLINE-FIRST RULES (PWA)
 
 ```yaml
-storage: Dexie.js (IndexedDB) for: attendance_logs, workload_metrics, field_access_logs
-sync:    Background Sync API → POST /api/... on reconnect, retry 3x exponential
+storage:  Dexie.js (IndexedDB) for: attendance_logs, workload_metrics, field_access_logs
+sync:     Background Sync API → POST /api/... on reconnect, retry 3x exponential
 conflict: timestamp + last-write-wins
-dedup:   ticket/attendance IDs prevent duplicate sync submissions
+dedup:    ticket/attendance IDs prevent duplicate sync submissions
 tables_with_offline: training presence, RPE, QR gate validation (v2.0), game checklist (v2.5)
 ```
 
@@ -549,29 +549,3 @@ ALLOWED:
   - third-party quirks with reference URL
   - JSDoc: ONLY in packages/shared-types/ and PaymentGateway interface
 ```
-
----
-
-## 15. QUICK REFERENCE — PROHIBITED → CORRECT
-
-| PROHIBITED                                           | CORRECT                                          |
-| ---------------------------------------------------- | ------------------------------------------------ |
-| `any` in TypeScript                                  | Correct type or `unknown` + type guard           |
-| `float` for money                                    | Integer cents                                    |
-| Frontend DB access                                   | All ops via API                                  |
-| Cross-schema tenant queries                          | Single authenticated tenant schema only          |
-| Synchronous webhook processing                       | HTTP 200 + BullMQ enqueue                        |
-| `import AsaasGateway` outside gateways/              | `GatewayRegistry.get()` or `.forMethod()`        |
-| Provider field in DB schema                          | `gatewayMeta` JSONB on Charge                    |
-| Deleting confirmed payment                           | Cancel with reason + audit entry                 |
-| `request.body` direct to Prisma                      | `Schema.parse(request.body)`                     |
-| Original filename in upload path                     | `randomUUID()` + magic bytes validated extension |
-| PII in BullMQ payload                                | IDs only; fetch PII inside worker                |
-| ACCESS_TOKEN in localStorage                         | In-memory AuthProvider                           |
-| Monetary display without `formatBRL()` + `font-mono` | Always both                                      |
-| ISO date in UI                                       | `Intl.DateTimeFormat('pt-BR')`                   |
-| Committing `.env`                                    | `.env.example` only                              |
-| `sslmode=require`                                    | `sslmode=verify-full&sslrootcert=<path>`         |
-| `redis://` in production                             | `rediss://` (TLS enforced)                       |
-| medical_records read without data_access_log entry   | Always insert audit entry before returning data  |
-| clinicalNotes exposed to COACH                       | Project only `{ status }` enum for COACH         |

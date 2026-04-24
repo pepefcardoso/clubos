@@ -1,4 +1,7 @@
-# ClubOS v1.0 — Agent Skills Manifest
+# ClubOS v1.0 — Agent Skills: Architecture
+
+> Security invariants (auth, tokens, RBAC, webhooks, data protection, HTTP headers) live in
+> `security-skills.md`. This file covers architecture, code style, payments, and async jobs only.
 
 ---
 
@@ -73,8 +76,8 @@ Valid types: feat | fix | docs | style | refactor | test | chore
 
 ### ALLOWED — Permitted Comment Types
 
-1. **Legal header** — License/copyright at file top. Short; reference external doc.
-2. **Intent comment (Why, never What)** — Non-obvious business logic, legal constraints, or deliberate trade-offs. Forbidden if the code's mechanics already communicate clearly.
+1. **Legal header** — License/copyright at file top.
+2. **Intent comment (Why, never What)** — Non-obvious business logic, legal constraints, or deliberate trade-offs.
 3. **Warning of severe consequences** — Billable external calls, irreversible ops, duplicate-billing risk.
 4. **Clarification of non-obvious third-party behaviour** — Must include reference URL.
 5. **JSDoc** — **Restricted scope only**: exported functions in `packages/shared-types/` and methods on the `PaymentGateway` interface. Forbidden everywhere else.
@@ -109,7 +112,7 @@ Valid types: feat | fix | docs | style | refactor | test | chore
 
 - Strategy: `schema-per-tenant` in PostgreSQL. Each club uses schema `clube_{id}`.
 - Schema `public` contains only the master registry of clubs and global users.
-- **SECURITY_BLOCKER:** Every authenticated request MUST extract `club_id` from the JWT and call `withTenantSchema` before any query.
+- **SECURITY_BLOCKER:** Every authenticated request MUST extract `club_id` from the JWT and call `withTenantSchema` before any query. See `security-skills.md: MULTI_TENANCY_ISOLATION`.
 - **SECURITY_BLOCKER:** Cross-schema JOINs between different club schemas are strictly FORBIDDEN.
 - **SECURITY_BLOCKER:** Returning one tenant's data in another tenant's authenticated request is strictly FORBIDDEN.
 
@@ -145,7 +148,7 @@ PaymentGateway          ← interface (sole entry point)
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | Importing `AsaasGateway` (or any concrete gateway) outside `modules/payments/gateways/` | Use `GatewayRegistry.get()` or `GatewayRegistry.forMethod()` |
 | Adding provider-specific fields to the DB schema                                        | Use `gatewayMeta` (JSONB) on the `Charge` entity             |
-| Processing a webhook synchronously                                                      | Respond HTTP 200 immediately; enqueue to BullMQ              |
+| Processing a webhook synchronously                                                      | See `security-skills.md: WEBHOOK_SECURITY`                   |
 
 ### MUST Requirements for New Gateways
 
@@ -156,13 +159,6 @@ PaymentGateway          ← interface (sole entry point)
 
 - `ChargeService` detects offline method → creates `Charge` with `gatewayName = null`, `externalId = null`.
 - Payment created manually by treasurer via dedicated endpoint. No gateway involved.
-
-### Webhook Rules
-
-- MUST validate HMAC-SHA256 signature via `PaymentGateway.parseWebhook()` before any processing.
-- MUST reject with **HTTP 401** on invalid signature.
-- MUST respond **HTTP 200 immediately** and process logic asynchronously via BullMQ.
-- MUST check for existing `gateway_txid` before creating a `payment` (idempotency).
 
 ---
 
@@ -190,34 +186,7 @@ PaymentGateway          ← interface (sole entry point)
 
 ### Data Protection
 
-- Member CPF and phone MUST be encrypted at rest with **pgcrypto AES-256**.
-- Encryption keys MUST be stored as environment variables — never in the database.
-
----
-
-## SECURITY
-
-### Authentication & Tokens
-
-- Access token JWT: **15-minute** expiry.
-- Refresh token: **7-day** expiry, stored in **httpOnly cookie** (MUST NOT be in `localStorage`).
-- Refresh token rotation: previous token invalidated immediately via Redis on every use.
-- RBAC roles: `ADMIN` and `TREASURER`. Guards applied at route level in Fastify.
-
-### TREASURER Role Prohibitions
-
-- MUST NOT delete members.
-- MUST NOT modify plans.
-- MUST NOT access club configuration settings.
-
-### HTTP Security
-
-- HTTPS MUST be enforced in all environments except local development.
-- HSTS MUST be enabled in production.
-- CSP MUST be configured in Next.js.
-- **Rate limit: 100 req/min per IP** via `@fastify/rate-limit` + Redis.
-- Secrets/API keys MUST NOT appear in source code — use environment variables.
-- `.env` MUST NOT be committed. `.env.example` MUST be kept current.
+- Member CPF and phone MUST be encrypted at rest. See `security-skills.md: DATA_PROTECTION`.
 
 ---
 
@@ -229,6 +198,7 @@ PaymentGateway          ← interface (sole entry point)
 - **MAX concurrency: 5** for charge jobs (avoids overloading the active gateway).
 - **WhatsApp rate limit: 30 messages/min per club** via Redis sliding window.
 - Every job MUST record its result (success / failure / retry) in `messages` or `audit_log`.
+- Job payload rules (PII, ID-only policy): see `security-skills.md: ASYNC_JOBS_SECURITY`.
 
 ### Charge Failure Retry Policy
 
@@ -253,7 +223,9 @@ PaymentGateway          ← interface (sole entry point)
 
 ---
 
-## MASTER PROHIBITION TABLE
+## ARCH-ONLY PROHIBITION TABLE
+
+> Security prohibitions live in `security-skills.md: PROHIBITED_PATTERNS`.
 
 | FORBIDDEN                                                       | CORRECT ALTERNATIVE                                   |
 | --------------------------------------------------------------- | ----------------------------------------------------- |
@@ -263,8 +235,6 @@ PaymentGateway          ← interface (sole entry point)
 | `float` for monetary values                                     | Integer cents                                         |
 | Frontend accessing DB directly                                  | All operations via API                                |
 | Cross-schema tenant queries                                     | Operate only within the authenticated tenant's schema |
-| Synchronous webhook processing                                  | Respond 200 immediately; enqueue to BullMQ            |
-| API key or secret in source code                                | Environment variables                                 |
 | Importing concrete gateway outside `modules/payments/gateways/` | `GatewayRegistry.get()` or `.forMethod()`             |
 | Provider-specific field in DB schema                            | `gatewayMeta` (JSONB) on `Charge`                     |
 | Deleting a confirmed payment                                    | Cancel with recorded reason                           |

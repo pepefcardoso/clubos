@@ -1,8 +1,8 @@
-# CLUBOS v1.0 — AGENT SKILLS: SECURITY
+# ClubOS v1.0 — Agent Skills: Security
 
-<!-- Source: security-guidelines.md -->
-<!-- Injected into system prompt of code-writing / code-review agent. -->
-<!-- Language: RFC-style. No prose justification. Machine-optimized. -->
+> Machine-optimized. RFC-style. No prose justification.
+> Architecture invariants (layer separation, payment abstraction, financial rules) live in
+> `architecture-skills.md`. This file covers auth, authz, data protection, and transport only.
 
 ---
 
@@ -86,7 +86,7 @@ await assertMemberBelongsToClub(prisma, request.params.memberId, clubId);
 "GET /api/members/:id/payments": { ADMIN: allow, TREASURER: allow }
 ```
 
-> MUST have one unit test per row in CI verifying exact HTTP status code.
+> MUST have one unit test per row verifying the exact HTTP status code.
 
 ---
 
@@ -95,33 +95,24 @@ await assertMemberBelongsToClub(prisma, request.params.memberId, clubId);
 ### SSL — PostgreSQL — L-14 `[BLOCKER]`
 
 ```yaml
-ALLOWED sslmode values:
-  - verify-full # requires sslrootcert
-  - verify-ca
-
-MUST NOT use:
-  - require # no certificate validation
-  - prefer # encryption not guaranteed
-  - allow # encryption not guaranteed
-  - disable # no encryption
-  - (absent) # driver behavior undefined
+ALLOWED: verify-full (requires sslrootcert) | verify-ca
+MUST NOT: require | prefer | allow | disable | (absent)
 ```
 
-- Startup validator in `src/lib/env.ts` MUST reject process if `sslmode=verify-full` is set without `sslrootcert`.
-
 ```
-# Preferred form:
-DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=verify-full&sslrootcert=/path/to/ca-bundle.pem"
-
-# Accepted alternative:
+# Preferred:
+DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=verify-full&sslrootcert=/path/to/ca.pem"
+# Accepted:
 DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=verify-ca"
 ```
+
+Startup validator in `src/lib/env.ts` MUST reject process if `sslmode=verify-full` is set without `sslrootcert`.
 
 ### Redis — TLS & Auth — L-08 `[BLOCKER]`
 
 ```
 REDIS_URL="rediss://:STRONG_PASSWORD@host:6380"
-# rediss:// enforces TLS. redis:// is MUST NOT in non-local environments.
+# rediss:// enforces TLS. redis:// MUST NOT be used in non-local environments.
 ```
 
 - MUST configure `lazyConnect: true` on ioredis.
@@ -129,8 +120,7 @@ REDIS_URL="rediss://:STRONG_PASSWORD@host:6380"
 
 ### Environment Variable Validation — L-09 `[BLOCKER]`
 
-- `validateEnv()` MUST be the **first line** of the application bootstrap.
-- Schema (Zod, `lib/env.ts`) MUST validate all of the following:
+`validateEnv()` MUST be the **first line** of application bootstrap.
 
 ```yaml
 required_env_vars:
@@ -209,7 +199,7 @@ step_5: check idempotency by gateway_txid in DB before creating Payment row
 ```
 
 - Webhook routes MUST be excluded from JWT middleware (see `PUBLIC_ROUTES`).
-- MUST NOT process webhook logic synchronously — always offload to BullMQ.
+- MUST NOT process webhook logic synchronously.
 
 ---
 
@@ -248,9 +238,9 @@ test_cross_tenant_search:
 ### Safe Filename Generation `[BLOCKER]`
 
 ```typescript
-// MUST NOT use the original filename from the upload (path traversal risk).
+// MUST NOT use the original filename (path traversal risk).
 const safeFilename = `${clubId}-${randomUUID()}.webp`;
-// MUST resolve final path and verify it starts within the expected uploads directory.
+// MUST verify final path starts within the expected uploads directory.
 ```
 
 ---
@@ -261,9 +251,9 @@ const safeFilename = `${clubId}-${randomUUID()}.webp`;
 
 ```yaml
 job_payloads:
-  MUST contain: IDs only
+  MUST contain:     IDs only
   MUST NOT contain: CPF | phone | full name | any PII
-  reason: payloads are exposed in Redis logs
+  reason:           payloads are exposed in Redis logs
 
 job_id_pattern: "generate-{clubId}-{YYYY-MM}" | "d3-{clubId}-{date}"
   reason: stable IDs guarantee deduplication on crash/restart
@@ -282,12 +272,11 @@ idempotency: MUST — reprocessing the same job MUST NOT create duplicate charge
 
 - `pnpm audit --audit-level=high` MUST run at workspace root in CI.
 - MUST fail on HIGH or CRITICAL severity.
-- Exceptions MUST be documented in `.audit-exceptions.json` + `pnpm.auditConfig.ignoreCves` in `package.json`, committed with written justification and ticket reference.
+- Exceptions MUST be documented in `.audit-exceptions.json` + `pnpm.auditConfig.ignoreCves`, committed with written justification and ticket reference.
 
 ### Secret Generation & Rotation
 
 ```bash
-# Generation:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
@@ -296,10 +285,9 @@ rotation_schedule:
   JWT_SECRET: every 6 months
   JWT_REFRESH_SECRET: every 6 months
   ASAAS_WEBHOOK_SECRET: every 6 months
-  on_suspected_compromise: immediate rotation
+  on_suspected_compromise: immediate
 
-env_isolation:
-  MUST NOT share any secret across dev / staging / prod environments
+env_isolation: MUST NOT share any secret across dev / staging / prod
   MUST NOT hardcode secrets in YAML, source code, or CI config files
 ```
 
@@ -310,7 +298,7 @@ X-Frame-Options: DENY
 X-Content-Type-Options: nosniff
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: present
-Strict-Transport-Security: max-age=63072000 # HSTS
+Strict-Transport-Security: max-age=63072000
 CSP: restrictive, configured in Next.js
 MUST remove: X-Powered-By | Server
 ```
@@ -318,7 +306,7 @@ MUST remove: X-Powered-By | Server
 ### Sentry — Safe Configuration
 
 ```yaml
-tracesSampleRate: 0.1 # in production
+tracesSampleRate: 0.1
 beforeSend:
   MUST strip: refresh_token (cookies) | password (body) | cpf (body)
 ignore_errors:
@@ -327,52 +315,4 @@ ignore_errors:
   - NotFoundError
   - ValidationError
   - TooManyRequestsError
-```
-
----
-
-## SKILL: PROHIBITED_PATTERNS
-
-> Code that violates any `[BLOCKER]` item below MUST NOT be generated or approved in review.
-
-```yaml
-blocker_violations:
-  - pattern: "explicit `any` in financial modules"
-    correct: "define exact type or use `unknown` with type guard"
-
-  - pattern: "origin: '*' with httpOnly cookies"
-    correct: "explicit origins list"
-
-  - pattern: "error.stack exposed in 5xx response (production)"
-    correct: "generic message: 'Ocorreu um erro inesperado. Nossa equipe foi notificada.'"
-
-  - pattern: "request.body passed directly to Prisma without Zod"
-    correct: "Schema.parse(request.body)"
-
-  - pattern: "original upload filename used in filesystem path"
-    correct: "randomUUID() + validated extension"
-
-  - pattern: "Content-Type header trusted for file type validation"
-    correct: "magic bytes check via file-type library"
-
-  - pattern: "PII (CPF, phone, name) in BullMQ job payload"
-    correct: "IDs only; fetch PII inside the worker"
-
-  - pattern: "ACCESS_TOKEN in localStorage or sessionStorage"
-    correct: "in-memory AuthProvider"
-
-  - pattern: "CPF, phone, or tokens logged in plaintext"
-    correct: "pino-redact with sensitive fields configured"
-
-  - pattern: "same JWT_SECRET across staging and production"
-    correct: "unique secrets per environment"
-
-  - pattern: "HIGH/CRITICAL open in pnpm audit"
-    correct: "fix, override, or document exception with justification + ticket"
-
-  - pattern: "@ts-ignore without explanatory comment"
-    correct: "fix the type or document the reason"
-
-  - pattern: "sslmode=require in production DATABASE_URL"
-    correct: "sslmode=verify-full&sslrootcert=<path> or sslmode=verify-ca"
 ```

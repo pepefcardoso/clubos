@@ -1,11 +1,20 @@
-# Escopo MoSCoW — ClubOS v2.0 "O Vestiário"
+Aqui está o documento **Escopo MoSCoW** atualizado para as versões **v2.5 ("A Arquibancada")** e **v3.0 ("A Vitrine")**, consolidando os dados do `backlog.md` e do `roadmap.md`.
 
-> **Janela do módulo:** ~6 semanas de desenvolvimento (Semanas 15–20).
-> **Critério de corte:** tudo que não for necessário para validar a hipótese principal da v2.0 fica para a v2.5.
+```markdown
+# Escopo MoSCoW — ClubOS v2.5 & v3.0
+
+> **Janela do módulo:** ~20 semanas de desenvolvimento (Semanas 21–40).
+> **Status:** Planejamento ativo para v2.5 e v3.0.
+> **Critério de corte:** Itens que não validam a monetização direta da bilheteria (v2.5) ou o marketplace de scouts (v3.0) serão postergados.
 >
-> **Hipótese principal:** o FisioBase reduz a recidiva de lesão em ≥ 1 clube documentado nos primeiros 60 dias e pelo menos 3 SAFs entram em conformidade com a Lei 14.193/2021 via painel do ClubOS.
->
-> **Versões anteriores:** v1.0 (O Cofre do Clube) e v1.5 (O Campo) concluídas com 100% dos itens MUST entregues.
+> **Versões anteriores:** 100% dos itens MUST entregues. FisioBase e SAF Compliance (v2.0) operacionais.
+
+---
+
+## Hipóteses de Validação
+
+- **v2.5 (ArenaPass):** O clube aumenta a receita por jogo em ≥ 40% vs. caixinha manual e converte o primeiro torcedor em sócio via funil digital.
+- **v3.0 (ScoutLink):** Primeiro contato formal scout–clube mediado pela plataforma; ≥ 3 scouts ativos; zero incidentes de contato direto com atletas menores (LGPD).
 
 ---
 
@@ -15,79 +24,81 @@
 
 ---
 
-## MUST HAVE — Sem isso, não há produto vendável na v2.0
+## MUST HAVE — v2.5 "A Arquibancada" (ArenaPass)
 
-| #   | Feature                                                              | Critério de Aceite                                                             | Complexidade | API | Web |
-| --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------ | --- | --- |
-| M15 | Ativação do role PHYSIO (RBAC + guards + JWT)                        | Fisioterapeuta acessa prontuário; treinador não acessa dados clínicos          | Baixa · 0.5d | ⬜  | ⬜  |
-| M16 | Schema + CRUD de prontuário esportivo (criptografado AES-256)        | Lesão registrada, histórico consultável, dados clínicos nunca expostos a COACH | Alta · 2d    | ⬜  | ⬜  |
-| M17 | Status de Retorno ao Jogo (RTP) por atleta com isolamento de roles   | COACH vê semáforo; PHYSIO vê status + notas clínicas; sem bypass possível      | Média · 1d   | ⬜  | ⬜  |
-| M18 | Biblioteca de protocolos de retorno (20 protocolos FIFA Medical)     | Fisio atribui protocolo em < 30s; histórico de aplicação registrado            | Média · 1d   | ⬜  | ⬜  |
-| M19 | Correlação carga × lesão (BaseForte + FisioBase)                     | Dashboard mostra atletas com ACWR > 1.3 e histórico de lesão no mesmo período  | Alta · 1d    | ⬜  | ⬜  |
-| M20 | Audit log de acesso a dados médicos (LGPD)                           | Qualquer leitura de prontuário gera entrada em `data_access_log`               | Baixa · 0.5d | ⬜  | —   |
-| M21 | Dashboard SAF com KPIs para acionistas                               | Receita, passivos e compliance visíveis em uma tela; exportável                | Média · 1d   | ⬜  | ⬜  |
-| M22 | Módulo de Passivos Trabalhistas (CRUD + PDF assinado + hash SHA-256) | Credor cadastrado e PDF publicado em < 5 min; hash imutável no audit_log       | Média · 1d   | ⬜  | ⬜  |
-| M23 | Demonstrativo de Receitas integrado (sócios + cobranças + despesas)  | Query consolida todas as fontes; saldo real visível ao tesoureiro por período  | Média · 1d   | ⬜  | ⬜  |
-| M24 | Publicação de balanços com hash SHA-256 e URL pública                | Balanço publicado e imutável; URL por clube compartilhável                     | Média · 1d   | ⬜  | ⬜  |
-| M25 | Provisionamento DDL tenant v2.0 (novas tabelas idempotentes)         | `provisionTenantSchema` atualizado; sem migração manual em clubes existentes   | Média · 0.5d | ⬜  | —   |
+| #   | Feature                                   | Critério de Aceite                                                                          | Esforço | API | Web |
+| --- | ----------------------------------------- | ------------------------------------------------------------------------------------------- | ------- | --- | --- |
+| M26 | Infraestrutura e Configuração de Eventos  | Schema provisionado; CRUD de eventos com setores e preços em cents; DDL idempotente.        | 3d      | ⬜  | ⬜  |
+| M27 | Venda de Ingressos via PIX e Entrega      | Geração de cobrança via Registry; entrega de QR Code SHA-256; página pública de compra.     | 3d      | ⬜  | ⬜  |
+| M28 | Validação de Portaria Offline-First       | Backend com HMAC e Redis SET NX; UI mobile com scanner e sync via Dexie.js.                 | 2d      | ⬜  | ⬜  |
+| M29 | Relatório de Bilheteria e CRM de Torcedor | Receita total (cents); funil torcedor→sócio disparado via BullMQ; exportação CSV segura.    | 3d      | ⬜  | ⬜  |
+| M30 | PDV Mobile (mPOS) para Bilheteria         | Catálogo de produtos; integração SDK Stone/SumUp com fallback PIX; registro em `pos_sales`. | 2.5d    | ⬜  | ⬜  |
 
-**Total estimado MUST v2.0:** ~10,5 dias de desenvolvimento
+**Total estimado MUST v2.5:** ~13.5 dias de desenvolvimento.
+
+---
+
+## MUST HAVE — v3.0 "A Vitrine" (ScoutLink)
+
+| #   | Feature                               | Critério de Aceite                                                                                         | Esforço | API | Web |
+| --- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------- | --- | --- |
+| M31 | Infra Cross-Tenant e Auth Scout       | Schema `public` imutável; Role `SCOUT` no JWT; Verificação de dados longitudinais mínimos para publicação. | 2.5d    | ⬜  | ⬜  |
+| M32 | Showcase de Atleta Verificado         | Snapshot ACWR/RTP agregado; assinatura SHA-256; UI de gestão de visibilidade.                              | 2d      | ⬜  | ⬜  |
+| M33 | Busca Filtrada e Perfil Público       | Filtros técnicos; freemium enforced na API; gráfico ACWR Recharts; bloqueio de dados clínicos.             | 3d      | ⬜  | ⬜  |
+| M34 | Solicitação de Contato Mediada (LGPD) | Hard stop para menores sem consentimento (403); log de comunicação imutável via trigger.                   | 2.5d    | ⬜  | ⬜  |
+| M35 | Inbox Mediada e Consentimento         | Thread de mensagens sem expor PII direto; fluxo de aceite parental com hash e IP.                          | 3d      | ⬜  | ⬜  |
+
+**Total estimado MUST v3.0:** ~13 dias de desenvolvimento.
 
 ---
 
 ## SHOULD HAVE — Alta prioridade; entra na sprint seguinte ao MUST
 
-| #   | Feature                                                              | Justificativa de Negócio                                                        | API | Web |
-| --- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --- | --- |
-| S12 | Relatório exportável para seguro/plano de saúde (PDF estruturado)    | Reembolso via plano valida a plataforma como ferramenta profissional do fisio   | ⬜  | ⬜  |
-| S13 | Multi-fisio e multi-clube (painel único por profissional)            | Fisioterapeuta que atende mais de um clube paga uma única assinatura            | ⬜  | ⬜  |
-| S14 | Relatório financeiro mensal PDF (S6 — pendente desde v1.0)           | Prestação de contas para diretoria; solicitado nos pilotos da v1.0              | ⬜  | ⬜  |
-| S15 | Conciliação OFX aprimorada (aprovação em lote + exportação contábil) | Tesoureiro encerra mês em < 30 min; reduz honorários contábeis                  | ⬜  | ⬜  |
-| S16 | Controle de acesso QR Code dinâmico de portaria (S11 — v1.0)         | Elimina CAPEX de catraca; log de acesso rastreável por evento                   | ⬜  | ⬜  |
-| S17 | Testes E2E do fluxo FisioBase (cobertura ≥ 80%)                      | Dados clínicos exigem qualidade superior; regressões custam confiança do médico | ⬜  | —   |
+| #   | Feature                              | Justificativa de Negócio                                                        | API | Web |
+| --- | ------------------------------------ | ------------------------------------------------------------------------------- | --- | --- |
+| S18 | Patrocínio Programático (v2.5)       | Monetização imediata via logos de parceiros no ticket e página de compra.       | ⬜  | ⬜  |
+| S19 | Checklist e Logística de Jogo (v2.5) | Job automático 48h antes; UI offline para staff gerenciar operações de campo.   | ⬜  | ⬜  |
+| S20 | Upload e Gestão de Vídeos (v3.0)     | Prova visual para scouts via Cloudflare R2; validação rigorosa via magic bytes. | ⬜  | ⬜  |
+| S21 | Curadoria Mensal para Scouts (v3.0)  | Job BullMQ gera PDF premium para scouts ativos baseado em buscas salvas.        | ⬜  | ⬜  |
+| S22 | Billing de Scout e Freemium (v3.0)   | Cobrança recorrente R$ 299/mês; projeção condicional de dados por tier.         | ⬜  | ⬜  |
 
 ---
 
-## COULD HAVE — Desejável; entra na v2.5 ou posterior
+## COULD HAVE — Desejável; entra em v3.5 ou posterior
 
-| #   | Feature                                                              | Quando Entra                                                          |
-| --- | -------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| C15 | Histórico de lesão transferível entre clubes (consentimento digital) | v2.0 full ou v2.5 — depende de volume de usuários PHYSIO ativos       |
-| C16 | Portal do atleta (auto-consulta de prontuário)                       | v2.5 — requer autenticação do atleta (novo tipo de usuário)           |
-| C17 | Integração com plano de saúde via API (TISS)                         | v3.0 — complexidade regulatória fora do escopo atual                  |
-| C18 | IA generativa para sugestão de protocolo por tipo de lesão           | v3.0+ — ROI incerto sem volume de prontuários validado                |
-| C19 | PDV mobile (mPOS) para lanchonete/merchandising                      | v2.5 (ArenaPass full) — Stone ou SumUp; depende de bilheteria estável |
-| C20 | Portal de votações internas (AGO/AGE)                                | v2.5 — módulo de engajamento pós-financeiro                           |
+| #   | Feature                                | Quando Entra                                                          |
+| --- | -------------------------------------- | --------------------------------------------------------------------- |
+| C21 | Transferência de Histórico de Showcase | v3.0+ — Requer consentimento digital para portabilidade entre clubes. |
+| C22 | Rate Limiting por Evento Popular       | v2.5+ — Prevenção de sobrecarga em aberturas de grandes bilheterias.  |
+| C23 | IA para Sugestão de Preço de Setor     | v4.0 — Baseado em histórico de demanda e ocupação (ArenaPass).        |
 
 ---
 
-## WON'T HAVE — Explicitamente fora do escopo da v2.0
+## WON'T HAVE — Explicitamente fora do escopo (v2.5/v3.0)
 
-| #   | O que NÃO entra                | Por quê                                                          |
-| --- | ------------------------------ | ---------------------------------------------------------------- |
-| W8  | Previsão de lesões por ML      | Requer mínimo 2 temporadas de dados por atleta; sem volume ainda |
-| W9  | Teleconsulta médica integrada  | Regulação CFM/ANS fora do escopo do produto                      |
-| W10 | ArenaPass (Bilheteria)         | Módulo da v2.5 — esse é o foco após validar FisioBase            |
-| W11 | ScoutLink                      | Módulo da v3.0 — requer 6 meses de dados BaseForte + FisioBase   |
-| W12 | Multi-idioma (espanhol/inglês) | v4.0 — expansão internacional                                    |
+| #   | O que NÃO entra                          | Por quê                                                                      |
+| --- | ---------------------------------------- | ---------------------------------------------------------------------------- |
+| W13 | CampeonatOS (Gestão de Ligas)            | Foco da versão v3.5; requer maturação da base de clubes.                     |
+| W14 | Contato direto via WhatsApp Scout-Atleta | Risco crítico de LGPD e desintermediação; comunicação deve ser 100% mediada. |
+| W15 | Integração TISS para Planos de Saúde     | Complexidade regulatória fora do foco esportivo/analítico atual.             |
 
 ---
 
 ## Resumo Visual
-
 ```
+
            API (apps/api)                          Web (apps/web)
-MUST v2.0  ░░░░░░░░░░░░░░░░░░░░  Iniciando        ░░░░░░░░░░░░░░░░░░░░  Iniciando
-           M15 a M25 ⬜                             M15 a M24 ⬜
 
-SHOULD     ░░░░░░░░░░░░░░░░░░░░  v2.0+            ░░░░░░░░░░░░░░░░░░░░  v2.0+
-           S12–S17 ⬜                               S12–S16 ⬜
+MUST v2.5 ░░░░░░░░░░░░░░░░░░░░ Planejado ░░░░░░░░░░░░░░░░░░░░ Planejado
+M26 a M30 ⬜ M26 a M30 ⬜
 
-COULD      ░░░░░░░░░░░░░░░░░░░░  v2.5+            v2.5+
-WON'T      ✗                     fora do escopo   fora do escopo
+MUST v3.0 ░░░░░░░░░░░░░░░░░░░░ Planejado ░░░░░░░░░░░░░░░░░░░░ Planejado
+M31 a M35 ⬜ M31 a M35 ⬜
+
+SHOULD ░░░░░░░░░░░░░░░░░░░░ v2.5/3.0+ ░░░░░░░░░░░░░░░░░░░░ v2.5/3.0+
+S18–S22 ⬜ S18–S22 ⬜
+
 ```
-
----
 
 ## Referência — Versões Anteriores (Concluídas)
 
@@ -145,3 +156,8 @@ WON'T      ✗                     fora do escopo   fora do escopo
 |     | Formulário de Peneiras (rota pública `(marketing)`)                | ✅  | ✅  |
 |     | Aceite Parental Digital (IP + Timestamp + SHA-256)                 | ✅  | ✅  |
 |     | Job de Expurgo LGPD (hard delete > 24 meses)                       | ✅  | —   |
+
+### v2.0 "O Vestiário" — MUST (100% ✅)
+* **FisioBase:** Role PHYSIO, Prontuário AES-256, Status RTP, Correlação Carga × Lesão.
+* **SAF Compliance:** Dashboard acionistas, Passivos Trabalhistas, Balanços SHA-256 imutáveis.
+```

@@ -35,8 +35,8 @@ A lógica central do roadmap: **primeiro organize o dinheiro, depois discipline 
 | ------ | ---------------- | -------------------------------------------------------- | ---------- | ----------------------------------------------- | --------------- | --------------- |
 | v1.0   | O Cofre do Clube | ClubOS (Financeiro + Sócios + Compliance Base)           | Sem. 1–6   | 10 clubes pagantes; inadimplência ↓25%          | ✅ Concluído    | ✅ Concluído    |
 | v1.5   | O Campo          | TreinoOS + BaseForte + Peneiras LGPD                     | Sem. 7–14  | 60% dos clubes v1.0 ativam módulo de treino     | ✅ Concluído    | ✅ Concluído    |
-| v2.0   | O Vestiário      | FisioBase + SAF Compliance Full + Conciliação Financeira | Sem. 15–20 | Recidiva ↓ em 3+ clubes; 3 SAFs em compliance   | 🟡 Em andamento | 🟡 Em andamento |
-| v2.5   | A Arquibancada   | ArenaPass (Bilheteria Digital)                           | Sem. 21–28 | Clube aumenta receita/jogo em 40%+              | ⬜ Não iniciado | ⬜ Não iniciado |
+| v2.0   | O Vestiário      | FisioBase + SAF Compliance Full + Conciliação Financeira | Sem. 15–20 | Recidiva ↓ em 3+ clubes; 3 SAFs em compliance   | ✅ Concluído    | ✅ Concluído |
+| v2.5   | A Arquibancada   | ArenaPass (Bilheteria Digital)                           | Sem. 21–28 | Clube aumenta receita/jogo em 40%+              | 🟡 Em andamento | 🟡 Em andamento |
 | v3.0   | A Vitrine        | ScoutLink (Marketplace de Talentos)                      | Mês 8–10   | 1º contato scout–escola mediado pela plataforma | ⬜ Não iniciado | ⬜ Não iniciado |
 | v3.5   | A Liga           | CampeonatOS (Gestão de Campeonatos)                      | Mês 11–13  | 1 campeonato completo gerenciado end-to-end     | ⬜ Não iniciado | ⬜ Não iniciado |
 
@@ -48,7 +48,7 @@ Semanas 1──────6 7────────14 15──────20 
 ┌────────┐ ┌─────────┐ ┌─────────┐ ┌──────┐ ┌────┐ ┌─────┐
 Versão │ v1.0 │ │ v1.5 │ │ v2.0 │ │ v2.5 │ │v3.0│ │v3.5 │
 │ Cofre │ │ Campo │ │Vestiário│ │Arena │ │Vitrine│ │Liga │
-│  ✅   │ │  ✅   │ │  🟡   │ │  ⬜  │ │ ⬜  │ │ ⬜  │
+│  ✅   │ │  ✅   │ │  ✅   │ │  🟡  │ │ ⬜  │ │ ⬜  │
 └────────┘ └─────────┘ └─────────┘ └──────┘ └────┘ └─────┘
 Módulos ClubOS TreinoOS FisioBase ArenaPass Scout Campeonato
 Finanças BaseForte SAF Full Bilheteria Link OS
@@ -149,7 +149,7 @@ Transformar o ClubOS de "ferramenta do tesoureiro" para "plataforma do clube int
 
 ---
 
-## Versão 2.0 — "O Vestiário" 🟡
+## Versão 2.0 — "O Vestiário" ✅
 
 **Período:** Semanas 15–20 | **Módulos:** FisioBase + SAF Compliance Full + Conciliação Financeira
 
@@ -187,7 +187,7 @@ Sem dados de carga ACWR do TreinoOS, o FisioBase é apenas um prontuário digita
 - S11 ✅ (→ S16): Controle de acesso QR Code dinâmico — validação por câmera do celular, offline-first com Dexie.js, log de acesso por evento exportável
 - Conciliação OFX aprimorada: aprovação em lote + filtros por status + exportação contábil simplificada
 
-### Critério de Go/No-Go v2.0
+### Critério de Go/No-Go v2.0 ✅ Atingido
 
 - Redução de recidiva de lesão documentada em ≥ 3 clubes
 - Fisioterapeuta usa o sistema por 4 semanas consecutivas sem lembrete
@@ -196,7 +196,7 @@ Sem dados de carga ACWR do TreinoOS, o FisioBase é apenas um prontuário digita
 
 ---
 
-## Versão 2.5 — "A Arquibancada" ⬜
+## Versão 2.5 — "A Arquibancada" 🟡
 
 **Período:** Semanas 21–28 | **Módulo:** ArenaPass (Bilheteria Digital)
 
@@ -307,9 +307,9 @@ Ativar o efeito de rede. Quando a maioria dos clubes de uma liga já está no Cl
 | v1.0   | ClubOS               | Assinatura SaaS mensal + taxa PIX 1,2%     | R$ 149–299/clube/mês                     | ✅ Ativo    |
 | v1.5   | TreinoOS + BaseForte | Add-on por treinador ou por escola         | R$ 49/treinador ou R$ 199–499/escola/mês | ✅ Ativo    |
 | v1.5   | BaseForte B2C        | Relatório semanal para pais                | R$ 19/atleta/mês (pai paga)              | ✅ Ativo    |
-| v2.0   | FisioBase            | Assinatura por fisioterapeuta ou por clube | R$ 79–149/fisio ou R$ 199/clube/mês      | 🟡 Em breve |
-| v2.0   | SAF Compliance       | Add-on para SAFs                           | R$ 299/clube/mês                         | 🟡 Em breve |
-| v2.5   | ArenaPass            | Pay-per-ingresso + assinatura              | R$ 1,50/ingresso ou R$ 99/mês            | ⬜          |
+| v2.0   | FisioBase            | Assinatura por fisioterapeuta ou por clube | R$ 79–149/fisio ou R$ 199/clube/mês      | ✅ Ativo    |
+| v2.0   | SAF Compliance       | Add-on para SAFs                           | R$ 299/clube/mês                         | ✅ Ativo    |
+| v2.5   | ArenaPass            | Pay-per-ingresso + assinatura              | R$ 1,50/ingresso ou R$ 99/mês            | 🟡 Em breve |
 | v3.0   | ScoutLink            | Assinatura scout + freemium escola         | R$ 299/scout/mês                         | ⬜          |
 | v3.5   | CampeonatOS          | Por campeonato ou assinatura liga          | R$ 299–699/evento ou R$ 299/liga/mês     | ⬜          |
 
@@ -324,8 +324,8 @@ Ativar o efeito de rede. Quando a maioria dos clubes de uma liga já está no Cl
 | ClubOS      | Cobrança PIX gerada para 100% dos sócios ativos no mês        | Inadimplência ↓25% vs. pré-adoção               | ✅     |
 | TreinoOS    | ≥ 2 sessões planejadas/semana por treinador ativo             | 60% dos clubes v1.0 com módulo ativo            | ✅     |
 | BaseForte   | ≥ 80% dos atletas com carga ACWR calculada e atualizada       | ≥ 5 pais pagando relatório premium              | ✅     |
-| FisioBase   | ≥ 80% dos atletas afastados com protocolo de retorno definido | Redução de recidiva documentada em 3+ clubes    | 🟡     |
-| ArenaPass   | 100% dos ingressos do jogo vendidos digitalmente              | Receita por jogo ≥ 40% acima da caixinha manual | ⬜     |
+| FisioBase   | ≥ 80% dos atletas afastados com protocolo de retorno definido | Redução de recidiva documentada em 3+ clubes    | ✅     |
+| ArenaPass   | 100% dos ingressos do jogo vendidos digitalmente              | Receita por jogo ≥ 40% acima da caixinha manual | 🟡     |
 | ScoutLink   | ≥ 3 scouts com buscas ativas semanalmente                     | ≥ 1 contato formal scout–escola/mês             | ⬜     |
 | CampeonatOS | Organizador usa plataforma para ≥ 90% das ações de logística  | 1 campeonato completo + 1 patrocinador ativo    | ⬜     |
 

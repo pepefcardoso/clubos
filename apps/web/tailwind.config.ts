@@ -117,6 +117,12 @@ const config: Config = {
         md: "0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07)",
         lg: "0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.07)",
       },
+
+      transitionDelay: {
+        "400": "400ms",
+        "800": "800ms",
+        "900": "900ms",
+      },
     },
   },
   plugins: [tailwindcssAnimate],

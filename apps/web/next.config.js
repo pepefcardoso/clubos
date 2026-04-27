@@ -124,7 +124,7 @@ function buildCsp(isProduction) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    `connect-src 'self' ${apiUrl}`,
+    `connect-src 'self' ${apiUrl} *.sentry.io`,
     "worker-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
@@ -137,6 +137,9 @@ module.exports = withSentryConfig(withSerwist(SERWIST_CONFIG)(nextConfig), {
   silent: true,
   org: process.env.SENTRY_ORG ?? "clubos",
   project: process.env.SENTRY_PROJECT ?? "clubos-web",
+  
+  tunnelRoute: "/monitoring", 
+  
   hideSourceMaps: true,
   telemetry: false,
   dryRun: !process.env.SENTRY_AUTH_TOKEN,

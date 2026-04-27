@@ -31,8 +31,8 @@ export function SocialProofBar() {
 
   const DELAY_CLASSES = [
     "delay-700",
-    "delay-[800ms]",
-    "delay-[900ms]",
+    "delay-800",
+    "delay-900",
   ] as const;
 
   return (

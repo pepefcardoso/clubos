@@ -32,7 +32,7 @@ const DELAY_CLASSES = [
   "delay-100",
   "delay-200",
   "delay-300",
-  "[400ms]",
+  "delay-400",
   "delay-500",
   "delay-500",
 ] as const;

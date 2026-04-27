@@ -125,7 +125,7 @@ const TENANT_ENUMS_DDL = `
       'SALARY', 'FIELD_MAINTENANCE', 'EQUIPMENT', 'TRAVEL', 'ADMINISTRATIVE', 'OTHER'
     );
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
- 
+
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXPENSE_CREATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXPENSE_UPDATED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EXPENSE_DELETED';
@@ -183,36 +183,23 @@ const TENANT_ENUMS_DDL = `
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'FIELD_ACCESS_LOGGED';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'MEDICAL_RECORD_TRANSFER_OUT';
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'MEDICAL_RECORD_TRANSFER_IN';
+
+  -- v2.5 ArenaPass enum types
+  DO $$ BEGIN
+    CREATE TYPE "EventStatus" AS ENUM (
+      'SCHEDULED', 'LIVE', 'COMPLETED', 'CANCELLED'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  DO $$ BEGIN
+    CREATE TYPE "TicketStatus" AS ENUM (
+      'PENDING', 'PAID', 'CANCELLED', 'CHECKED_IN'
+    );
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 `;
 
 /**
  * All tenant tables in dependency order (v1.0 / v1.5 + v2.0 technical_evaluations).
- *
- * Critical notes:
- * - members.cpf and members.phone are BYTEA (not TEXT) — encrypted via pgcrypto.
- * - members.cpf has NO unique constraint — enforced at app layer via findMemberByCpf().
- * - athletes.cpf is BYTEA — encrypted via pgcrypto.
- * - athletes.cpf has NO unique constraint — enforced at app layer via findAthleteByCpf().
- * - athletes.position is TEXT (nullable) to support multiple sport modalities.
- * - charges.gatewayMeta is JSONB to store provider-specific data without schema changes.
- * - audit_log.memberId is nullable (actions may not be tied to a specific member).
- * - Athlete audit entries use entityId / entityType = "Athlete" — no athleteId FK.
- * - contracts.endDate is nullable — open-ended contracts are valid.
- * - contracts.bidRegistered defaults to false — explicit opt-in after CBF/FPF registration.
- * - contracts have NO unique constraint on athleteId — historical records accumulate;
- *   at-most-one ACTIVE contract per athlete is enforced at the service layer.
- * - Contract audit entries use entityId / entityType = "Contract" — no dedicated FK.
- * - Contracts are never deleted — only transitioned to TERMINATED (immutability).
- * - workload_metrics.trainingSessionId is nullable TEXT — FK to training_sessions is
- * - workload_metrics.rpe stores Foster RPE 1–10 (FIFA standard); range enforced by Zod.
- * - workload_metrics derived load (AU = rpe × durationMinutes) is NOT stored here —
- *   it is computed in the MATERIALIZED VIEW.
- * - exercises.isActive uses soft-delete to preserve session_exercises references.
- * - training_sessions.isCompleted = true makes the session immutable (no DELETE allowed).
- * - session_exercises.order is advisory (UI-managed); NOT enforced unique.
- * - technical_evaluations.microcycle uses ISO week format YYYY-Www.
- * - technical_evaluations UNIQUE on (athleteId, microcycle) — one evaluation per athlete per week.
- * - technical_evaluations.actorId stores the ADMIN/COACH who submitted the evaluation.
  */
 const TENANT_TABLES_DDL = `
   -- plans (no FK dependencies)
@@ -375,7 +362,7 @@ const TENANT_TABLES_DDL = `
     "idempotencyKey"    TEXT,
     "createdAt"         TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt"         TIMESTAMP(3)  NOT NULL,
- 
+
     CONSTRAINT "workload_metrics_pkey" PRIMARY KEY ("id")
   );
 
@@ -464,9 +451,6 @@ const TENANT_TABLES_DDL = `
   );
 
   -- integration_tokens (FK → athletes)
-  -- Allows external devices (Apple Watch, Google Fit companion apps) to push
-  -- workload data without a browser session. Token shown once, stored hashed.
-  -- isActive = false means revoked; rows are never hard-deleted (audit trail).
   CREATE TABLE IF NOT EXISTS "integration_tokens" (
     "id"          TEXT         NOT NULL,
     "athleteId"   TEXT         NOT NULL,
@@ -782,29 +766,8 @@ const TENANT_MATERIALIZED_VIEW_INDEXES_DDL = `
     ON "acwr_aggregates" ("athleteId");
 `;
 
-/**
- * Design notes:
- * - injury_protocols: reference/seed table — no FK to athletes. Club-level templates.
- * - medical_records.clinicalNotes / diagnosis / treatmentDetails: BYTEA (AES-256 via
- *   pgcrypto). Fields needed for analytics (structure, grade, mechanism) stay as TEXT/enum
- *   so they can be queried without decryption (see design-docs.md § Correlação carga × lesão).
- * - medical_records.occurredAt uses BRIN index — consistent with workload_metrics.date pattern.
- *   Medical records are append-only per athlete (injuries don't get backdated).
- * - return_to_play: UNIQUE on athleteId — only one active RTP record per athlete.
- *   History is tracked via medical_records. Status transitions only (no hard delete).
- * - data_access_log: intentionally NO FK to medical_records. The clinical record may be
- *   purged (LGPD) while access logs must be retained for audit. Mirrors audit_log pattern.
- * - creditor_disclosures: append-only (Lei 14.193/2021). No DELETE permitted at the
- *   application layer. Status transitions only (PENDING → SETTLED | DISPUTED).
- * - field_access_logs: no FK to members (ticket holder may not be a registered member)
- *   and no FK to events (events table arrives in v2.5). idempotencyKey supports
- *   offline Background Sync deduplication — same pattern as workload_metrics.
- */
 const TENANT_V2_TABLES_DDL = `
   -- injury_protocols (no FK dependencies — reference/seed table)
-  -- Seeded with FIFA Medical standard protocols in a separate migration script.
-  -- source stores the originating reference, e.g. "FIFA Medical 2023".
-  -- steps is a JSONB array of structured protocol steps.
   CREATE TABLE IF NOT EXISTS "injury_protocols" (
     "id"           TEXT           NOT NULL,
     "name"         TEXT           NOT NULL,
@@ -821,9 +784,6 @@ const TENANT_V2_TABLES_DDL = `
   );
 
   -- medical_records (FK → athletes, injury_protocols)
-  -- clinicalNotes, diagnosis, treatmentDetails: BYTEA — AES-256 encrypted via pgcrypto.
-  -- structure, grade, mechanism: plaintext — required for ACWR correlation analytics.
-  -- createdBy stores the PHYSIO actorId for accountability.
   CREATE TABLE IF NOT EXISTS "medical_records" (
     "id"               TEXT              NOT NULL,
     "athleteId"        TEXT              NOT NULL,
@@ -843,9 +803,6 @@ const TENANT_V2_TABLES_DDL = `
   );
 
   -- return_to_play (FK → athletes; unique per athlete)
-  -- UNIQUE on athleteId enforces at-most-one active RTP record per athlete.
-  -- medicalRecordId nullable: RTP may be set before a formal record is created.
-  -- clearedAt/clearedBy populated when status transitions to LIBERADO.
   CREATE TABLE IF NOT EXISTS "return_to_play" (
     "id"              TEXT         NOT NULL,
     "athleteId"       TEXT         NOT NULL,
@@ -864,8 +821,6 @@ const TENANT_V2_TABLES_DDL = `
   -- data_access_log — LGPD compliance audit for clinical data reads.
   -- No FK to medical_records (intentional): clinical records may be purged under LGPD
   -- Art. 15 / Art. 16 while access logs must be retained for compliance audits.
-  -- entityId stores medical_records.id; entityType defaults to 'MedicalRecord'.
-  -- fieldsRead is a TEXT[] listing which encrypted fields were decrypted (e.g. ['clinicalNotes']).
   CREATE TABLE IF NOT EXISTS "data_access_log" (
     "id"         TEXT         NOT NULL,
     "actorId"    TEXT         NOT NULL,
@@ -880,10 +835,7 @@ const TENANT_V2_TABLES_DDL = `
     CONSTRAINT "data_access_log_pkey" PRIMARY KEY ("id")
   );
 
-  -- creditor_disclosures — SAF compliance (Lei 14.193/2021).
-  -- Append-only: application layer prohibits DELETE. Status transitions only.
-  -- status: PENDING | SETTLED | DISPUTED (TEXT to allow future values without DDL migration).
-  -- registeredBy stores the ADMIN actorId who registered the liability.
+  -- creditor_disclosures — SAF compliance (Lei 14.193/2021). Append-only.
   CREATE TABLE IF NOT EXISTS "creditor_disclosures" (
     "id"           TEXT         NOT NULL,
     "creditorName" TEXT         NOT NULL,
@@ -900,10 +852,6 @@ const TENANT_V2_TABLES_DDL = `
   );
 
   -- field_access_logs — QR Code portaria access control.
-  -- No FK to members (ticket holder may not be a registered member).
-  -- No FK to events (events table arrives in v2.5 — eventId is TEXT nullable).
-  -- idempotencyKey supports offline Background Sync deduplication, same pattern
-  -- as workload_metrics.idempotencyKey. Partial unique index (WHERE NOT NULL).
   CREATE TABLE IF NOT EXISTS "field_access_logs" (
     "id"              TEXT         NOT NULL,
     "eventId"         TEXT,
@@ -919,21 +867,6 @@ const TENANT_V2_TABLES_DDL = `
   );
 `;
 
-/**
- * v2.0 indexes on tenant tables.
- *
- * Index strategy notes:
- * - medical_records.occurredAt uses BRIN — medical records are append-only per athlete
- *   (injuries don't get backdated). Consistent with the workload_metrics.date BRIN pattern.
- *   BRIN is ~100× smaller than B-tree for naturally time-ordered, append-only workloads.
- * - data_access_log.createdAt uses BRIN — access logs are high-volume, append-only,
- *   naturally ordered by time. BRIN is ~100× smaller than B-tree for such workloads.
- * - field_access_logs.scannedAt uses BRIN for the same reason.
- * - field_access_logs.idempotencyKey uses a partial unique index (WHERE NOT NULL)
- *   because NULL values are allowed (sessions without offline idempotency support)
- *   and PostgreSQL does not enforce uniqueness across NULLs in a standard unique index.
- * - return_to_play.athleteId uses a standard UNIQUE index (one record per athlete).
- */
 const TENANT_V2_INDEXES_DDL = `
   -- injury_protocols
   CREATE INDEX IF NOT EXISTS "injury_protocols_structure_idx"
@@ -945,7 +878,6 @@ const TENANT_V2_INDEXES_DDL = `
   CREATE INDEX IF NOT EXISTS "medical_records_athleteId_idx"
     ON "medical_records" ("athleteId");
   -- BRIN: medical records are append-only per athlete (injuries don't get backdated).
-  -- Consistent with workload_metrics.date BRIN pattern.
   CREATE INDEX IF NOT EXISTS "medical_records_occurredAt_brin_idx"
     ON "medical_records" USING BRIN ("occurredAt");
   CREATE INDEX IF NOT EXISTS "medical_records_grade_idx"
@@ -972,8 +904,6 @@ const TENANT_V2_INDEXES_DDL = `
     ON "creditor_disclosures" ("status");
 
   -- field_access_logs
-  -- Partial unique index: allows multiple rows with idempotencyKey IS NULL
-  -- (sessions without offline dedup) while enforcing uniqueness for non-null keys.
   CREATE UNIQUE INDEX IF NOT EXISTS "field_access_logs_idempotencyKey_key"
     ON "field_access_logs" ("idempotencyKey")
     WHERE "idempotencyKey" IS NOT NULL;
@@ -983,21 +913,6 @@ const TENANT_V2_INDEXES_DDL = `
     ON "field_access_logs" ("isValid");
 `;
 
-/**
- * v2.0 foreign key constraints.
- *
- * FK design notes:
- * - medical_records → injury_protocols: ON DELETE SET NULL.
- *   A protocol may be retired (isActive=false) or deleted (admin cleanup) without
- *   losing the clinical record that referenced it.
- * - return_to_play → medical_records: ON DELETE SET NULL.
- *   An RTP status may predate or outlive a specific medical record.
- * - return_to_play → injury_protocols: ON DELETE SET NULL.
- *   Same rationale as medical_records → injury_protocols.
- * - No FK from data_access_log (intentional — see TENANT_V2_TABLES_DDL comments).
- * - No FK from field_access_logs to events (events table arrives in v2.5).
- * - No FK from creditor_disclosures (standalone SAF liability registry).
- */
 const TENANT_V2_FOREIGN_KEYS_DDL = `
   -- medical_records → athletes
   ALTER TABLE "medical_records"
@@ -1030,6 +945,236 @@ const TENANT_V2_FOREIGN_KEYS_DDL = `
     ON DELETE SET NULL ON UPDATE CASCADE;
 `;
 
+/**
+ * v2.5 ArenaPass tables.
+ *
+ * Design notes:
+ * - events: no FK to clubs — lives in the tenant schema; clubId is implicit via search_path.
+ * - event_sectors.priceCents: INTEGER NOT NULL — cents-only per [FIN] constraint.
+ * - tickets: capacity guard enforced by check_ticket_capacity() trigger (hard safety net)
+ *   AND at the service layer in T-139 (application-level check before DB round-trip).
+ *   Trigger fires BEFORE INSERT for non-CANCELLED tickets, incrementing event_sectors.sold
+ *   under a row-level lock to prevent concurrent over-sells.
+ * - fan_profiles.totalSpentCents: INTEGER NOT NULL — maintained by application on payment
+ *   confirmation (T-141). Cents-only per [FIN] constraint.
+ * - pos_sales.amountCents: INTEGER NOT NULL — cents-only per [FIN] constraint.
+ * - pos_sales.paymentMethod: TEXT (not enum) — extensible without DDL migration.
+ * - game_checklists: ON DELETE CASCADE — checklist is owned by the event; rows are
+ *   deleted when the parent event is deleted (e.g. event cancelled before creation).
+ * - TODO: [T-152] — add productId FK when pos_products table is provisioned.
+ */
+const TENANT_V25_TABLES_DDL = `
+  -- Capacity guard: prevents INSERT into tickets when sector.sold >= sector.capacity.
+  -- Atomically increments event_sectors.sold under a row-level lock to prevent
+  -- concurrent over-sells. Application layer (T-139 service) enforces the same
+  -- check before reaching the DB — this trigger is a hard safety net.
+  -- sold decrement on ticket cancellation is handled at the service layer (T-142).
+  CREATE OR REPLACE FUNCTION check_ticket_capacity()
+  RETURNS TRIGGER AS $$
+  DECLARE
+    v_capacity INTEGER;
+    v_sold     INTEGER;
+  BEGIN
+    SELECT capacity, sold INTO v_capacity, v_sold
+    FROM event_sectors
+    WHERE id = NEW."sectorId"
+    FOR UPDATE;                          -- row-level lock prevents concurrent over-sell
+    IF v_sold >= v_capacity THEN
+      RAISE EXCEPTION
+        'Sector at capacity (sold=%, capacity=%)', v_sold, v_capacity;
+    END IF;
+    UPDATE event_sectors
+    SET sold = sold + 1, "updatedAt" = NOW()
+    WHERE id = NEW."sectorId";
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
+
+  CREATE TABLE IF NOT EXISTS "events" (
+    "id"             TEXT           NOT NULL,
+    "opponent"       TEXT           NOT NULL,
+    "eventDate"      TIMESTAMP(3)   NOT NULL,
+    "venue"          TEXT           NOT NULL,
+    "description"    TEXT,
+    "sponsorName"    TEXT,
+    "sponsorLogoUrl" TEXT,
+    "sponsorCtaUrl"  TEXT,
+    "status"         "EventStatus"  NOT NULL DEFAULT 'SCHEDULED',
+    "createdAt"      TIMESTAMP(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"      TIMESTAMP(3)   NOT NULL,
+    CONSTRAINT "events_pkey" PRIMARY KEY ("id")
+  );
+
+  CREATE TABLE IF NOT EXISTS "event_sectors" (
+    "id"         TEXT         NOT NULL,
+    "eventId"    TEXT         NOT NULL,
+    "name"       TEXT         NOT NULL,
+    "capacity"   INTEGER      NOT NULL,
+    "sold"       INTEGER      NOT NULL DEFAULT 0,
+    "priceCents" INTEGER      NOT NULL,           -- cents-only [FIN]
+    "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"  TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "event_sectors_pkey" PRIMARY KEY ("id")
+  );
+
+  CREATE TABLE IF NOT EXISTS "tickets" (
+    "id"          TEXT           NOT NULL,
+    "eventId"     TEXT           NOT NULL,
+    "sectorId"    TEXT           NOT NULL,
+    "fanEmail"    TEXT           NOT NULL,
+    "fanName"     TEXT           NOT NULL,
+    "status"      "TicketStatus" NOT NULL DEFAULT 'PENDING',
+    "checkedIn"   BOOLEAN        NOT NULL DEFAULT false,
+    "checkedInAt" TIMESTAMP(3),
+    "createdAt"   TIMESTAMP(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"   TIMESTAMP(3)   NOT NULL,
+    CONSTRAINT "tickets_pkey" PRIMARY KEY ("id")
+  );
+
+  -- Trigger fires BEFORE INSERT for non-CANCELLED tickets only.
+  -- CREATE TRIGGER does not support IF NOT EXISTS in PG 16 — use DO/EXCEPTION.
+  DO $$ BEGIN
+    CREATE TRIGGER tickets_capacity_check
+      BEFORE INSERT ON tickets
+      FOR EACH ROW
+      WHEN (NEW.status <> 'CANCELLED')
+      EXECUTE FUNCTION check_ticket_capacity();
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  -- email is indexed via UNIQUE constraint below (fan_profiles_email_key).
+  -- totalSpentCents: maintained by application on payment confirmation. [FIN]
+  CREATE TABLE IF NOT EXISTS "fan_profiles" (
+    "id"              TEXT         NOT NULL,
+    "name"            TEXT         NOT NULL,
+    "email"           TEXT         NOT NULL,
+    "phone"           TEXT,
+    "totalSpentCents" INTEGER      NOT NULL DEFAULT 0,   -- cents-only [FIN]
+    "eventIds"        TEXT[]       NOT NULL DEFAULT '{}',
+    "createdAt"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"       TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "fan_profiles_pkey" PRIMARY KEY ("id")
+  );
+
+  -- TODO: [T-152] — add productId FK when pos_products table is provisioned.
+  -- amountCents: integer cents [FIN]; paymentMethod: TEXT not enum (extensible without DDL migration).
+  CREATE TABLE IF NOT EXISTS "pos_sales" (
+    "id"            TEXT         NOT NULL,
+    "eventId"       TEXT         NOT NULL,
+    "productName"   TEXT         NOT NULL,
+    "amountCents"   INTEGER      NOT NULL,            -- cents-only [FIN]
+    "paymentMethod" TEXT         NOT NULL DEFAULT 'CARD',
+    "createdAt"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"     TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "pos_sales_pkey" PRIMARY KEY ("id")
+  );
+
+  -- completedBy stores the actorId of the user who completed the item.
+  -- Items are pre-populated at event creation (T-150 service layer).
+  CREATE TABLE IF NOT EXISTS "game_checklists" (
+    "id"          TEXT         NOT NULL,
+    "eventId"     TEXT         NOT NULL,
+    "category"    TEXT         NOT NULL,
+    "item"        TEXT         NOT NULL,
+    "completed"   BOOLEAN      NOT NULL DEFAULT false,
+    "completedBy" TEXT,
+    "completedAt" TIMESTAMP(3),
+    "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"   TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "game_checklists_pkey" PRIMARY KEY ("id")
+  );
+`;
+
+/**
+ * v2.5 indexes.
+ *
+ * Index strategy notes:
+ * - tickets UNIQUE on (fanEmail, eventId, sectorId): enforces T-139 idempotency invariant —
+ *   one ticket per fan per sector per event.
+ * - tickets_checkedIn_idx: used by gate-scan queries filtering by checked-in status.
+ * - fan_profiles_email_key: UNIQUE — prevents duplicate fan registration.
+ * - events and event_sectors use standard B-tree indexes (small tables, low cardinality on
+ *   status; eventDate queries benefit from btree range scans).
+ */
+const TENANT_V25_INDEXES_DDL = `
+  -- events
+  CREATE INDEX IF NOT EXISTS "events_eventDate_idx"
+    ON "events" ("eventDate");
+  CREATE INDEX IF NOT EXISTS "events_status_idx"
+    ON "events" ("status");
+
+  -- event_sectors
+  CREATE INDEX IF NOT EXISTS "event_sectors_eventId_idx"
+    ON "event_sectors" ("eventId");
+
+  -- tickets
+  -- UNIQUE on (fanEmail, eventId, sectorId) enforces T-139 idempotency invariant.
+  CREATE UNIQUE INDEX IF NOT EXISTS "tickets_fanEmail_eventId_sectorId_key"
+    ON "tickets" ("fanEmail", "eventId", "sectorId");
+  CREATE INDEX IF NOT EXISTS "tickets_eventId_idx"
+    ON "tickets" ("eventId");
+  CREATE INDEX IF NOT EXISTS "tickets_sectorId_idx"
+    ON "tickets" ("sectorId");
+  CREATE INDEX IF NOT EXISTS "tickets_status_idx"
+    ON "tickets" ("status");
+  CREATE INDEX IF NOT EXISTS "tickets_checkedIn_idx"
+    ON "tickets" ("checkedIn");
+
+  -- fan_profiles
+  CREATE UNIQUE INDEX IF NOT EXISTS "fan_profiles_email_key"
+    ON "fan_profiles" ("email");
+
+  -- pos_sales
+  CREATE INDEX IF NOT EXISTS "pos_sales_eventId_idx"
+    ON "pos_sales" ("eventId");
+
+  -- game_checklists
+  CREATE INDEX IF NOT EXISTS "game_checklists_eventId_idx"
+    ON "game_checklists" ("eventId");
+`;
+
+/**
+ * v2.5 foreign key constraints.
+ *
+ * FK design notes:
+ * - event_sectors → events: ON DELETE RESTRICT — cannot delete an event that has sectors.
+ * - tickets → events: ON DELETE RESTRICT — sold tickets reference an event; no cascade delete.
+ * - tickets → event_sectors: ON DELETE RESTRICT — tickets reference a specific sector.
+ * - pos_sales → events: ON DELETE RESTRICT — sales history must outlive the event record.
+ * - game_checklists → events: ON DELETE CASCADE — checklist is fully owned by the event.
+ *   Deleting an event (e.g. cancelled pre-creation) removes its checklist automatically.
+ */
+const TENANT_V25_FOREIGN_KEYS_DDL = `
+  -- event_sectors → events
+  ALTER TABLE "event_sectors"
+    ADD CONSTRAINT IF NOT EXISTS "event_sectors_eventId_fkey"
+    FOREIGN KEY ("eventId") REFERENCES "events" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- tickets → events
+  ALTER TABLE "tickets"
+    ADD CONSTRAINT IF NOT EXISTS "tickets_eventId_fkey"
+    FOREIGN KEY ("eventId") REFERENCES "events" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- tickets → event_sectors
+  ALTER TABLE "tickets"
+    ADD CONSTRAINT IF NOT EXISTS "tickets_sectorId_fkey"
+    FOREIGN KEY ("sectorId") REFERENCES "event_sectors" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- pos_sales → events
+  ALTER TABLE "pos_sales"
+    ADD CONSTRAINT IF NOT EXISTS "pos_sales_eventId_fkey"
+    FOREIGN KEY ("eventId") REFERENCES "events" ("id")
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
+  -- game_checklists → events (CASCADE: checklist owned by event)
+  ALTER TABLE "game_checklists"
+    ADD CONSTRAINT IF NOT EXISTS "game_checklists_eventId_fkey"
+    FOREIGN KEY ("eventId") REFERENCES "events" ("id")
+    ON DELETE CASCADE ON UPDATE CASCADE;
+`;
+
 export const TENANT_TABLES_DDL_FOR_TESTING = TENANT_TABLES_DDL;
 export const TENANT_INDEXES_DDL_FOR_TESTING = TENANT_INDEXES_DDL;
 export const TENANT_FOREIGN_KEYS_DDL_FOR_TESTING = TENANT_FOREIGN_KEYS_DDL;
@@ -1037,6 +1182,10 @@ export const TENANT_V2_TABLES_DDL_FOR_TESTING = TENANT_V2_TABLES_DDL;
 export const TENANT_V2_INDEXES_DDL_FOR_TESTING = TENANT_V2_INDEXES_DDL;
 export const TENANT_V2_FOREIGN_KEYS_DDL_FOR_TESTING =
   TENANT_V2_FOREIGN_KEYS_DDL;
+export const TENANT_V25_TABLES_DDL_FOR_TESTING = TENANT_V25_TABLES_DDL;
+export const TENANT_V25_INDEXES_DDL_FOR_TESTING = TENANT_V25_INDEXES_DDL;
+export const TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING =
+  TENANT_V25_FOREIGN_KEYS_DDL;
 
 /**
  * Provisions a complete PostgreSQL tenant schema for a new club.
@@ -1045,10 +1194,10 @@ export const TENANT_V2_FOREIGN_KEYS_DDL_FOR_TESTING =
  * (enums, tables, indexes, foreign keys, materialized views) in the correct
  * execution order.
  *
- * **Idempotent** — safe to call multiple times for the same `clubId`.
+ * Idempotent — safe to call multiple times for the same `clubId`.
  * All DDL statements use `IF NOT EXISTS` or equivalent guards.
  *
- * **Execution order rationale:**
+ * Execution order rationale:
  *   Steps 1–3 run outside any transaction because `ALTER TYPE ... ADD VALUE`
  *   cannot execute inside an open transaction block (PostgreSQL restriction).
  *
@@ -1057,12 +1206,6 @@ export const TENANT_V2_FOREIGN_KEYS_DDL_FOR_TESTING =
  *   Step 5 (seed) runs outside the transaction — seedInjuryProtocols opens its
  *   own transaction via withTenantSchema. Nested transactions are not supported
  *   by Prisma interactive transactions.
- *
- * @param prisma  - The global Prisma client (public schema connection).
- * @param clubId  - The cuid2 identifier of the new club.
- *
- * @throws {Error} If `clubId` does not match the expected cuid2 format.
- * @throws        Re-throws any PostgreSQL errors from DDL execution.
  */
 export async function provisionTenantSchema(
   prisma: PrismaClient,
@@ -1092,6 +1235,10 @@ export async function provisionTenantSchema(
     await tx.$executeRawUnsafe(TENANT_V2_TABLES_DDL);
     await tx.$executeRawUnsafe(TENANT_V2_INDEXES_DDL);
     await tx.$executeRawUnsafe(TENANT_V2_FOREIGN_KEYS_DDL);
+
+    await tx.$executeRawUnsafe(TENANT_V25_TABLES_DDL);
+    await tx.$executeRawUnsafe(TENANT_V25_INDEXES_DDL);
+    await tx.$executeRawUnsafe(TENANT_V25_FOREIGN_KEYS_DDL);
   });
 
   await seedInjuryProtocols(prisma, clubId);

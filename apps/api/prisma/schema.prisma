@@ -1,52 +1,10 @@
 // MULTI-TENANCY STRATEGY: schema-per-tenant
 //
-//   [PUBLIC SCHEMA] — models that live in the `public` PostgreSQL schema:
-//     Club, User
-//     These are the tenant registry and global auth tables.
+//   [PUBLIC SCHEMA] — Club, User
+//   [TENANT MODELS] — all others, live in clube_{id} schema
 //
-//   [TENANT MODELS] — models that represent the structure of each tenant schema
-//     (clube_{id}): Member, Plan, MemberPlan, Charge, Payment, Message, AuditLog,
-//                   Athlete, Contract, WorkloadMetric, Exercise, TrainingSession,
-//                   SessionExercise, InjuryProtocol, MedicalRecord, ReturnToPlay,
-//                   DataAccessLog, CreditorDisclosure, FieldAccessLog
-//
-//     At runtime, before any tenant query the API MUST execute:
-//       SET search_path TO "clube_{clubId}", public
-//     This is handled by the Prisma middleware in apps/api/src/lib/prisma.ts.
-//     Prisma uses these model definitions for full type-safety; the actual
-//     table rows live inside the tenant's own PostgreSQL schema.
-//
-//     Tenant schemas are created during onboarding via raw SQL:
-//       CREATE SCHEMA IF NOT EXISTS "clube_{clubId}"
-//     followed by running the tenant migrations inside that schema.
-//
-// PAYMENT GATEWAY ABSTRACTION
-//
-//   The Charge model is intentionally gateway-agnostic. Provider-specific
-//   data (Pix QR code, boleto URL, card checkout link, etc.) is stored in
-//   the `gatewayMeta` JSONB column rather than as typed columns.
-//
-//   This allows adding new gateways (Pagarme, Stripe, etc.) without schema
-//   migrations. See apps/api/src/modules/payments/ for the gateway layer.
-//
-// ENCRYPTION
-//
-//   Member.cpf, Member.phone, Athlete.cpf are encrypted at rest using
-//   PostgreSQL's pgcrypto extension (pgp_sym_encrypt / pgp_sym_decrypt,
-//   AES-256). The symmetric key is provided via the MEMBER_ENCRYPTION_KEY
-//   env var.
-//
-//   MedicalRecord.clinicalNotes, .diagnosis, .treatmentDetails are also
-//   encrypted at rest using the same pgcrypto AES-256 mechanism.
-//
-//   Consequences:
-//   - Encrypted fields are stored as Bytes (bytea) — never as plaintext.
-//   - The @unique constraint on cpf is removed; uniqueness is enforced at
-//     the application layer via findMemberByCpf() / findAthleteByCpf() in
-//     src/lib/crypto.ts.
-//   - All reads/writes of encrypted fields go through encryptField() /
-//     decryptField() in src/lib/crypto.ts — never via raw Prisma field access.
-// =============================================================================
+// See original file header for full design notes.
+// v2.5 additions: Event, EventSector, Ticket, FanProfile, PosSale, GameChecklist
 
 generator client {
   provider = "prisma-client-js"
@@ -156,8 +114,6 @@ enum RtpStatus {
 }
 
 /// FIFA Medical-aligned injury grade classification.
-/// GRADE_1 = mild (< 7 days), GRADE_2 = moderate (7–28 days),
-/// GRADE_3 = severe (> 28 days), COMPLETE = complete rupture / structural failure.
 enum InjuryGrade {
   GRADE_1
   GRADE_2
@@ -170,6 +126,20 @@ enum InjuryMechanism {
   NON_CONTACT
   OVERUSE
   UNKNOWN
+}
+
+enum EventStatus {
+  SCHEDULED
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TicketStatus {
+  PENDING
+  PAID
+  CANCELLED
+  CHECKED_IN
 }
 
 enum AuditAction {
@@ -221,7 +191,6 @@ enum AuditAction {
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
-/// The slug is used both in URLs and as part of the schema name.
 model Club {
   id             String   @id @default(cuid())
   slug           String   @unique
@@ -229,9 +198,6 @@ model Club {
   logoUrl        String?
   cnpj           String?  @unique
   planTier       String   @default("starter")
-  /// Static Pix key used as last-resort fallback when all payment gateways fail.
-  /// Supported formats: CPF, CNPJ, phone (+5511999990000), e-mail, or random UUID key.
-  /// Null means no static fallback is configured — all gateway failures will be retried by BullMQ.
   pixKeyFallback String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -242,13 +208,10 @@ model Club {
   @@map("clubs")
 }
 
-/// Global users table (public schema). A user always belongs to one club.
-/// Roles: ADMIN (full access) | TREASURER (read + charge, no delete/settings)
-///        | PHYSIO (clinical data access, no financial access).
 model User {
   id       String   @id @default(cuid())
   email    String   @unique
-  password String // bcrypt hash
+  password String
   role     UserRole @default(TREASURER)
   clubId   String
 
@@ -263,7 +226,7 @@ model User {
 }
 
 // =============================================================================
-// TENANT SCHEMA MODELS — live inside clube_{id} PostgreSQL schemas
+// TENANT SCHEMA MODELS
 // =============================================================================
 
 model Member {
@@ -315,21 +278,6 @@ model MemberPlan {
   @@map("member_plans")
 }
 
-/// Gateway fields:
-///   method      → what payment method was requested (PIX, CARD, CASH, …)
-///   gatewayName → which provider handled it ("asaas", "pagarme", "stripe", null for offline/static-pix)
-///   externalId  → charge ID in the external gateway (used for cancellation / lookup)
-///   gatewayMeta → provider + method-specific data stored as JSONB, e.g.:
-///                   PIX (Asaas/Pagarme) → { qrCodeBase64, pixCopyPaste }
-///                   PIX (Stripe)        → { pixCopyPaste, qrCodeUrl, paymentIntentId }
-///                     NOTE: Stripe serves the QR as a hosted PNG URL, not inline base64.
-///                     Frontend must branch on charges.gatewayName:
-///                       "asaas"/"pagarme" → <img src="data:image/png;base64,{qrCodeBase64}"/>
-///                       "stripe"          → <img src={qrCodeUrl}/> or display pixCopyPaste
-///                   Boleto→ { bankSlipUrl, pdfUrl }
-///                   Card  → { checkoutUrl }
-///                   Cash  → {}  (no external data)
-///                   Static PIX → { type: "static_pix", pixKey: "..." }
 model Charge {
   id          String        @id @default(cuid())
   memberId    String
@@ -513,14 +461,6 @@ model Expense {
   @@map("expenses")
 }
 
-/// Published SAF financial balance sheets.
-/// Stored in the tenant schema (clube_{id}).
-///
-/// IMMUTABLE — no UPDATE or DELETE is ever issued against this table.
-/// Deletion is structurally forbidden by the application (Lei 14.193/2021).
-///
-/// fileHash stores the SHA-256 hex digest of the original PDF bytes, allowing
-/// anyone to verify the document was not tampered with after publication.
 model BalanceSheet {
   id          String   @id @default(cuid())
   title       String
@@ -630,10 +570,6 @@ model TechnicalEvaluation {
   @@map("technical_evaluations")
 }
 
-/// Reference/seed table for injury return-to-play protocols.
-/// Seeded with FIFA Medical standard protocols (20 protocols covering the most
-/// common football injuries). Club-level — not per-athlete.
-/// isActive=false soft-deletes a protocol without breaking existing references.
 model InjuryProtocol {
   id           String      @id @default(cuid())
   name         String
@@ -654,16 +590,6 @@ model InjuryProtocol {
   @@map("injury_protocols")
 }
 
-/// Athlete medical record (prontuário esportivo).
-/// Access restricted to PHYSIO and ADMIN roles at the API layer.
-///
-/// ENCRYPTION: clinicalNotes, diagnosis, treatmentDetails are stored as BYTEA
-/// (AES-256 via pgcrypto). Never read raw — always use decryptField() in src/lib/crypto.ts.
-///
-/// Fields kept as plaintext for analytics (ACWR correlation query):
-///   structure, grade, mechanism — queried without decryption by the physio dashboard.
-///
-/// createdBy stores the PHYSIO actorId for accountability and LGPD audit.
 model MedicalRecord {
   id               String          @id @default(cuid())
   athleteId        String
@@ -692,11 +618,6 @@ model MedicalRecord {
   @@map("medical_records")
 }
 
-/// Return-to-play (RTP) status per athlete.
-/// One record per athlete (UNIQUE on athleteId) — updated in-place as status changes.
-/// Status transitions: AFASTADO → RETORNO_PROGRESSIVO → LIBERADO (and back).
-/// clearedAt/clearedBy populated when status transitions to LIBERADO.
-/// medicalRecordId is nullable — RTP may predate a formal medical record.
 model ReturnToPlay {
   id              String    @id @default(cuid())
   athleteId       String    @unique
@@ -717,14 +638,6 @@ model ReturnToPlay {
   @@map("return_to_play")
 }
 
-/// LGPD compliance audit log for clinical data access (Art. 37 — registro de operações).
-///
-/// Intentionally NO foreign key to medical_records: the clinical record may be
-/// purged under LGPD Art. 15 / Art. 16 while access logs must be retained.
-/// entityId stores medical_records.id; entityType defaults to 'MedicalRecord'.
-/// fieldsRead lists which encrypted fields were decrypted, e.g. ['clinicalNotes'].
-/// action is TEXT (not the AuditAction enum) so the vocabulary can evolve
-/// independently — e.g. "READ", "EXPORT_PDF", "SHARED_WITH_INSURER".
 model DataAccessLog {
   id         String   @id @default(cuid())
   actorId    String
@@ -741,12 +654,6 @@ model DataAccessLog {
   @@map("data_access_log")
 }
 
-/// SAF compliance — Lei 14.193/2021 creditor disclosures (passivos trabalhistas).
-///
-/// APPEND-ONLY: the application layer prohibits DELETE on this table.
-/// Status transitions (PENDING → SETTLED | DISPUTED) are the only mutations allowed.
-/// status is TEXT to allow future values without a DDL migration.
-/// registeredBy stores the ADMIN actorId who registered the liability.
 model CreditorDisclosure {
   id           String   @id @default(cuid())
   creditorName String
@@ -765,13 +672,6 @@ model CreditorDisclosure {
   @@map("creditor_disclosures")
 }
 
-/// QR Code portaria access control log.
-///
-/// No FK to members (ticket holder may not be a registered member).
-/// No FK to events — eventId is TEXT nullable; the events table arrives in v2.5.
-/// idempotencyKey supports offline Background Sync deduplication, consistent
-/// with workload_metrics.idempotencyKey. Partial unique index in DDL:
-///   WHERE idempotencyKey IS NOT NULL.
 model FieldAccessLog {
   id              String   @id @default(cuid())
   eventId         String?
@@ -801,4 +701,112 @@ model PhysioClubAccess {
   @@index([userId])
   @@index([clubId])
   @@map("physio_club_access")
+}
+
+model Event {
+  id             String      @id @default(cuid())
+  opponent       String
+  eventDate      DateTime
+  venue          String
+  description    String?
+  sponsorName    String?
+  sponsorLogoUrl String?
+  sponsorCtaUrl  String?
+  status         EventStatus @default(SCHEDULED)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  sectors   EventSector[]
+  tickets   Ticket[]
+  posSales  PosSale[]
+  checklist GameChecklist[]
+
+  @@index([eventDate])
+  @@index([status])
+  @@map("events")
+}
+
+model EventSector {
+  id         String   @id @default(cuid())
+  eventId    String
+  name       String
+  capacity   Int
+  sold       Int      @default(0)
+  priceCents Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  event   Event    @relation(fields: [eventId], references: [id])
+  tickets Ticket[]
+
+  @@index([eventId])
+  @@map("event_sectors")
+}
+
+model Ticket {
+  id          String       @id @default(cuid())
+  eventId     String
+  sectorId    String
+  fanEmail    String
+  fanName     String
+  status      TicketStatus @default(PENDING)
+  checkedIn   Boolean      @default(false)
+  checkedInAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  event  Event       @relation(fields: [eventId], references: [id])
+  sector EventSector @relation(fields: [sectorId], references: [id])
+
+  @@unique([fanEmail, eventId, sectorId])
+  @@index([eventId])
+  @@index([sectorId])
+  @@index([status])
+  @@map("tickets")
+}
+
+model FanProfile {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  phone           String?
+  totalSpentCents Int      @default(0)
+  eventIds        String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([email])
+  @@map("fan_profiles")
+}
+
+model PosSale {
+  id            String   @id @default(cuid())
+  eventId       String
+  productName   String
+  amountCents   Int
+  paymentMethod String   @default("CARD")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id])
+
+  @@index([eventId])
+  @@map("pos_sales")
+}
+
+model GameChecklist {
+  id          String    @id @default(cuid())
+  eventId     String
+  category    String
+  item        String
+  completed   Boolean   @default(false)
+  completedBy String?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id])
+
+  @@index([eventId])
+  @@map("game_checklists")
 }

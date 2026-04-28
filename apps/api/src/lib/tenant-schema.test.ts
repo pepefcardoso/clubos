@@ -108,7 +108,7 @@ describe.skipIf(!hasDatabase)(
       expect(result).toHaveLength(1);
     });
 
-    it("creates all expected tenant tables (12 total)", async () => {
+    it("creates all expected tenant tables (18 total)", async () => {
       const clubId = makeTestClubId();
       const schemaName = `clube_${clubId}`;
       createdSchemas.push(schemaName);
@@ -123,26 +123,36 @@ describe.skipIf(!hasDatabase)(
         ORDER BY table_name
       `;
 
-      const tableNames = result.map(
-        (r) => r["table_name"] as string,
-      );
+      const tableNames = result.map((r) => r["table_name"] as string);
       expect(tableNames).toEqual(
         expect.arrayContaining([
           "athletes",
           "audit_log",
           "charges",
           "contracts",
+          "creditor_disclosures",
+          "data_access_log",
+          "event_sectors",
+          "events",
+          "fan_profiles",
+          "field_access_logs",
+          "game_checklists",
+          "injury_protocols",
+          "medical_records",
           "member_plans",
           "members",
           "message_templates",
           "messages",
           "payments",
           "plans",
+          "pos_sales",
+          "return_to_play",
           "rules_config",
+          "tickets",
           "workload_metrics",
         ]),
       );
-      expect(tableNames).toHaveLength(12);
+      expect(tableNames).toHaveLength(18);
     });
 
     it("creates members.cpf and members.phone as BYTEA columns", async () => {
@@ -217,7 +227,7 @@ describe.skipIf(!hasDatabase)(
         WHERE table_schema = ${schemaName}
           AND table_type = 'BASE TABLE'
       `;
-      expect(result).toHaveLength(12);
+      expect(result).toHaveLength(18);
     });
 
     it("pgcrypto extension is available after provisioning", async () => {
@@ -354,28 +364,20 @@ describe.skipIf(!hasDatabase)(
 
       expect(byName["id"]?.data_type).toBe("text");
       expect(byName["id"]?.is_nullable).toBe("NO");
-
       expect(byName["athleteId"]?.data_type).toBe("text");
       expect(byName["athleteId"]?.is_nullable).toBe("NO");
-
       expect(byName["trainingSessionId"]?.data_type).toBe("text");
       expect(byName["trainingSessionId"]?.is_nullable).toBe("YES");
-
       expect(byName["date"]?.data_type).toBe("date");
       expect(byName["date"]?.is_nullable).toBe("NO");
-
       expect(byName["rpe"]?.data_type).toBe("integer");
       expect(byName["rpe"]?.is_nullable).toBe("NO");
-
       expect(byName["durationMinutes"]?.data_type).toBe("integer");
       expect(byName["durationMinutes"]?.is_nullable).toBe("NO");
-
       expect(byName["sessionType"]?.data_type).toBe("USER-DEFINED");
       expect(byName["sessionType"]?.is_nullable).toBe("NO");
-
       expect(byName["notes"]?.data_type).toBe("text");
       expect(byName["notes"]?.is_nullable).toBe("YES");
-
       expect(byName["createdAt"]?.data_type).toBe(
         "timestamp without time zone",
       );
@@ -462,7 +464,7 @@ describe.skipIf(!hasDatabase)(
       expect(result[0]?.indexdef).toContain("date");
     });
 
-    it("does NOT create a unique index on workload_metrics.athleteId (multiple sessions per athlete allowed)", async () => {
+    it("does NOT create a unique index on workload_metrics.athleteId", async () => {
       const clubId = makeTestClubId();
       const schemaName = `clube_${clubId}`;
       createdSchemas.push(schemaName);

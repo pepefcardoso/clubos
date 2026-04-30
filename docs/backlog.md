@@ -65,22 +65,6 @@
 
 ### Priority: HIGH
 
-#### T-137 | [TODO] CRUD de eventos (`/api/events`)
-
-**Context:** Admins need to create and manage events with configurable sectors before tickets can be sold.  
-**Architectural context:** `[SEC-TEN]` `withTenantSchema` + `assertValidClubId`; `clubId` from JWT only; soft-delete via `status = CANCELLED`; `[FIN]` `price_cents` as integer.  
-**Files:** `apps/api/src/modules/events/events.routes.ts`, `apps/api/src/modules/events/events.service.ts`  
-**Acceptance criteria:**
-- [ ] `POST /api/events` creates event with `opponent`, `event_date`, `venue`, `description` and nested `event_sectors`
-- [ ] `GET /api/events` returns paginated list with `page` + `limit`
-- [ ] `PUT /api/events/:id` updates event; `assertEventBelongsToClub` required
-- [ ] `DELETE /api/events/:id` soft-deletes via `status = CANCELLED`
-- [ ] Zod validation on all inputs; guard `requireRole('ADMIN')`
-**Out of scope:** Ticket purchase flow (T-139), UI (T-138)  
-**Pattern reference:** `apps/api/src/modules/members/members.routes.ts`
-
----
-
 #### T-138 | [TODO] UI de configuração de evento (`EventFormModal` + `EventsPage`)
 
 **Context:** Admins need a UI to create events and configure sectors with inline pricing.  
@@ -439,6 +423,22 @@
 - [x] Index on `event_date` and `status`; trigger on `event_sector.capacity`
 - [x] DDL idempotent; all monetary fields as integer cents
 **Completed:** 2026-04-22
+
+#### T-137 | [DONE] CRUD de eventos (`/api/events`)
+
+**Context:** Admins need to create and manage events with configurable sectors before tickets can be sold.  
+**Architectural context:** `[SEC-TEN]` `withTenantSchema` + `assertValidClubId`; `clubId` from JWT only; soft-delete via `status = CANCELLED`; `[FIN]` `price_cents` as integer.  
+**Files:** `apps/api/src/modules/events/events.routes.ts`, `apps/api/src/modules/events/events.service.ts`  
+**Acceptance criteria:**
+- [x] `POST /api/events` creates event with `opponent`, `event_date`, `venue`, `description` and nested `event_sectors`
+- [x] `GET /api/events` returns paginated list with `page` + `limit`
+- [x] `PUT /api/events/:id` updates event; `assertEventBelongsToClub` required
+- [x] `DELETE /api/events/:id` soft-deletes via `status = CANCELLED`
+- [x] Zod validation on all inputs; guard `requireRole('ADMIN')`
+**Out of scope:** Ticket purchase flow (T-139), UI (T-138)  
+**Pattern reference:** `apps/api/src/modules/members/members.routes.ts`
+**Completed:** 2026-04-30
+
 
 ---
 

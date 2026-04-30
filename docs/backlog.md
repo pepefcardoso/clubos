@@ -14,7 +14,7 @@
 | ID | Title | Status | Priority | Sprint | Area |
 |----|-------|--------|----------|--------|------|
 | T-136 | Schema Prisma + DDL tenant (events, tickets, fan_profiles, pos_sales) | DONE | HIGH | S12 | Infra |
-| T-137 | CRUD de eventos (`/api/events`) | TODO | HIGH | S12 | API |
+| T-137 | CRUD de eventos (`/api/events`) | DONE | HIGH | S12 | API |
 | T-138 | UI de configuração de evento (`EventFormModal` + `EventsPage`) | TODO | HIGH | S12 | Web |
 | T-139 | Geração de cobrança PIX por ingresso | TODO | HIGH | S12 | API |
 | T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256 | TODO | HIGH | S12 | Jobs |
@@ -45,26 +45,6 @@
 
 ## In Progress
 
-### T-136 | [DONE] Schema Prisma + DDL tenant v2.5
-
-**Context:** ArenaPass requires new tenant tables for events, tickets, fan profiles, and PDV sales.  
-**Architectural context:** `provisionTenantSchema` (idempotent DDL); all monetary fields as integer cents `[FIN]`; `[SEC-TEN]` DDL must be idempotent.  
-**Files:** `apps/api/src/lib/provision-tenant-schema.ts`, Prisma schema  
-**Acceptance criteria:**
-- [x] Tables `events`, `event_sectors`, `tickets`, `fan_profiles`, `pos_sales`, `game_checklists` created in tenant schema
-- [x] Index on `event_date` and `status`
-- [x] Trigger prevents `INSERT` when `event_sector.capacity` is exceeded
-- [x] DDL idempotent — existing clubs receive tables on next execution
-- [x] All monetary fields are integer cents
-**Out of scope:** Application logic, routes, or UI — schema only  
-**Pattern reference:** existing `provisionTenantSchema` in `apps/api/src/lib/`
-
----
-
-## Todo
-
-### Priority: HIGH
-
 #### T-138 | [TODO] UI de configuração de evento (`EventFormModal` + `EventsPage`)
 
 **Context:** Admins need a UI to create events and configure sectors with inline pricing.  
@@ -80,6 +60,10 @@
 **Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern
 
 ---
+
+## Todo
+
+### Priority: HIGH
 
 #### T-139 | [TODO] Geração de cobrança PIX por ingresso
 

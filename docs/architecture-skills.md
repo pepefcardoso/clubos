@@ -7,26 +7,6 @@
 
 ## CODE_STYLE & GIT
 
-### Naming Conventions
-
-```yaml
-variables_functions: camelCase # generateCharge, memberStatus
-classes_types: PascalCase # ChargeService, PaymentGateway
-interfaces: PascalCase # CreateChargeInput
-constants: SCREAMING_SNAKE # MAX_RETRY_ATTEMPTS
-component_files: PascalCase # MemberCard.tsx, ChargeTable.tsx
-service_util_files: kebab-case # charge-service.ts, format-currency.ts
-gateway_files: kebab-case+suffix # asaas.gateway.ts, pagarme.gateway.ts
-env_vars: SCREAMING_SNAKE # DATABASE_URL, ASAAS_API_KEY
-api_routes: kebab-case plural # GET /api/members, POST /api/charges
-webhook_routes: parametric # POST /webhooks/:gateway
-```
-
-### Language Rules
-
-- MUST use **English** for all code: variables, functions, comments, commits, branches, PRs.
-- MUST use **Portuguese** for UI strings, error messages, and WhatsApp templates.
-
 ### Formatting & Tooling
 
 - MUST enforce Prettier: `printWidth: 100`, `singleQuote: true`, `semi: true`.
@@ -58,40 +38,6 @@ webhook_routes: parametric # POST /webhooks/:gateway
 
 Valid types: feat | fix | docs | style | refactor | test | chore
 ```
-
----
-
-## COMMENT_POLICY
-
-### BLOCKER — Forbidden Patterns (merge-blocking)
-
-| Pattern                           | Detection Signal                                                      | Required Action                                     |
-| --------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------- |
-| Commented-out code                | Lines starting with `//` or `/* */` containing executable code tokens | Delete immediately                                  |
-| Redundant/noise comment           | Comment restates what the code or type system already expresses       | Delete                                              |
-| Journal/changelog entry           | Inline date+author+change format                                      | Delete — use `git log`                              |
-| Section divider                   | `// ───`, `// ===`, `// ***` used as separators                       | Extract into named functions                        |
-| Misleading/aspirational           | Comment describes behaviour not yet implemented                       | Delete — open a ticket                              |
-| `TODO`/`FIXME` without ticket ref | Matches regex `TODO(?!\s*:\s*\[)` on `main`/`develop`                 | Resolve or rewrite as `// TODO: [TICKET-ID] — desc` |
-
-### ALLOWED — Permitted Comment Types
-
-1. **Legal header** — License/copyright at file top.
-2. **Intent comment (Why, never What)** — Non-obvious business logic, legal constraints, or deliberate trade-offs.
-3. **Warning of severe consequences** — Billable external calls, irreversible ops, duplicate-billing risk.
-4. **Clarification of non-obvious third-party behaviour** — Must include reference URL.
-5. **JSDoc** — **Restricted scope only**: exported functions in `packages/shared-types/` and methods on the `PaymentGateway` interface. Forbidden everywhere else.
-
-### Comment Maintenance Rules
-
-| Situation                                  | Required Action                                 |
-| ------------------------------------------ | ----------------------------------------------- |
-| Code change touches commented block        | Update or delete comment **in the same commit** |
-| Comment no longer matches code             | Delete or fix immediately — not deferred        |
-| Comment accuracy uncertain                 | Delete it                                       |
-| Comment replaceable by better name/extract | Refactor and delete                             |
-
----
 
 ## ARCH_INVARIANTS
 

@@ -1,145 +1,145 @@
-# RPI — Research & Planning Phase — ClubOS
+<!-- docs/rpi-prompt.md -->
+
+# RPI Prompt — ClubOS
+
 # Task: T-{xxx}
 
 ## Role
-Act as a Senior Software Engineer and Systems Architect with full knowledge of the ClubOS
-codebase. Execute the **Research** and **Planning** phases of the RPI workflow for task
-**T-{xxx}** from the backlog before any code is written.
+
+Senior Software Engineer with full ClubOS codebase knowledge.
+Execute Research → Plan → produce Implementation Guideline. No code until the guideline is approved.
 
 ---
 
-## Step 0 — Load the Right Skill File (do this first, do nothing else until done)
+## §0 — Load the Right Skill File (do this first, nothing else)
 
-Identify the task domain and load **only** the matching file:
+| Domain                                     | Load                                          |
+| ------------------------------------------ | --------------------------------------------- |
+| UI / component / styling                   | `docs/ui-ux-skills.md`                        |
+| Auth / RBAC / crypto / webhooks            | `docs/security-skills.md`                     |
+| DB schema / API / layers / payments / jobs | `docs/architecture-skills.md`                 |
+| Two domains                                | Both; justify inline                          |
+| Three+ domains                             | `docs/architecture-skills.md` + most specific |
 
-```
-Task involves UI / component / styling?           → load docs/ui-ux-skills.md ONLY
-Task involves auth / RBAC / crypto / webhooks?    → load docs/security-skills.md ONLY
-Task involves DB schema / API / layers / payments?→ load docs/architecture-skills.md ONLY
-Task spans two domains?                           → load both; justify inline
-Task spans three or more domains?                 → load docs/architecture-skills.md + the most specific one
-```
-
-**Do not load all skill files.** Each unnecessary file costs ~3–6k tokens and is a BLOCKER per
-`docs/context-efficiency-skill.md`.
+**BLOCKER:** Loading all skill files. Each unnecessary file costs ~3–6k tokens.
 
 ---
 
-## Step 1 — Research Phase
+## §1 — Research
 
-With only the needed files in context:
+1. **Locate files.** `grep`/`bash` before reading whole files. Descend import chain only if the answer isn't at the entry point. Never re-read files already in context.
 
-1. **Locate affected files.** Use `grep`/`bash` before reading whole files. Descend the import
-   chain only if the answer isn't at the entry point.
+2. **Check for reuse.** Before proposing any new type, utility, or helper:
+   - Search `packages/shared-types/` — extend existing types if possible.
+   - Search `apps/api/src/lib/` — reuse crypto, token, env, Redis helpers.
+   - Gateways: via `GatewayRegistry` only.
 
-2. **Check for reusable code.** Before proposing any new type, function, or utility:
-   - Search `packages/shared-types/` for existing types to extend.
-   - Search `apps/api/src/lib/` for existing crypto, token, env, and Redis helpers.
-   - Search `apps/api/src/modules/payments/gateways/` only via `GatewayRegistry` — never import
-     a concrete gateway directly.
+3. **Identify active constraints.** Call out which apply to this task:
 
-3. **Identify active constraints.** For T-{xxx}, explicitly call out which of these apply:
+   | Tag          | Constraint                                                            |
+   | ------------ | --------------------------------------------------------------------- |
+   | `[FIN]`      | Integer cents — no float                                              |
+   | `[ARCH-GW]`  | GatewayRegistry — no concrete import                                  |
+   | `[SEC-WH]`   | Webhook pipeline (timestamp → HMAC → dedup → 200 → enqueue)           |
+   | `[SEC-JOB]`  | BullMQ payload = IDs only, no PII                                     |
+   | `[SEC-TEN]`  | withTenantSchema + assertValidClubId on every query                   |
+   | `[SEC-OBJ]`  | assertXxxBelongsToClub in every single-resource handler               |
+   | `[SEC-FILE]` | Magic bytes validation + randomUUID filename                          |
+   | `[UI-BRL]`   | formatBRL() + font-mono on all monetary values                        |
+   | `[UI-A11Y]`  | label+htmlFor, aria-label, badge with text                            |
+   | `[PR-FIN]`   | touches charges/payments/webhooks/jobs → ≥ 2 approvals + 80% coverage |
 
-   | Constraint | Applies? | Evidence |
-   |---|---|---|
-   | `[FIN]` Integer cents — no float | | |
-   | `[ARCH-GW]` GatewayRegistry — no concrete import | | |
-   | `[SEC-WH]` Webhook pipeline (timestamp → HMAC → dedup → 200 → enqueue) | | |
-   | `[SEC-JOB]` BullMQ payload = IDs only, no PII | | |
-   | `[SEC-TEN]` withTenantSchema + assertValidClubId on every query | | |
-   | `[SEC-OBJ]` assertXxxBelongsToClub in every single-resource handler | | |
-   | `[SEC-FILE]` Magic bytes validation + randomUUID filename | | |
-   | `[UI-BRL]` formatBRL() + font-mono on all monetary values | | |
-   | `[UI-A11Y]` label+htmlFor, aria-label, badge with text | | |
-   | `[PR-FIN]` PR touches charges/payments/webhooks/jobs → ≥ 2 approvals + 80% coverage | | |
+4. **Cross-file coupling — check these sibling files:**
 
-4. **Check cross-file coupling.** Per `agent-instructions.md §1`:
-
-   | If editing… | You MUST also check… |
-   |---|---|
-   | `modules/charges/**` | `modules/payments/`, `jobs/charge-generation/`, `modules/webhooks/` |
-   | `modules/payments/gateways/**` | GatewayRegistry index, PaymentGateway interface, webhook worker |
-   | `modules/webhooks/**` | BullMQ worker idempotency, `gateway_txid` dedup, HMAC validation |
-   | Any BullMQ job payload | Confirm IDs only — no PII |
-   | `lib/env.ts` | `.env.example`, Zod schema, `validateEnv()` at bootstrap |
-   | Any route handler receiving a resource ID | `assertXxxBelongsToClub` call |
-   | `sse-bus.ts` | React Query invalidation keys in the web counterpart |
+   | When editing…                           | Also check…                                                         |
+   | --------------------------------------- | ------------------------------------------------------------------- |
+   | `modules/charges/**`                    | `modules/payments/`, `jobs/charge-generation/`, `modules/webhooks/` |
+   | `modules/payments/gateways/**`          | `GatewayRegistry` index, `PaymentGateway` interface, webhook worker |
+   | `modules/webhooks/**`                   | BullMQ worker idempotency, `gateway_txid` dedup, HMAC validation    |
+   | Any BullMQ job payload                  | Confirm IDs only — no PII                                           |
+   | `lib/env.ts`                            | `.env.example`, Zod schema, `validateEnv()` call at bootstrap       |
+   | `provisionTenantSchema`                 | All tenant DDL; ensure idempotency                                  |
+   | `modules/medical/**` / `return_to_play` | Role guards, `data_access_log`                                      |
+   | Any route handler with resource ID      | `assertXxxBelongsToClub` call                                       |
+   | `sse-bus.ts`                            | React Query invalidation keys in the matching web module            |
 
 ---
 
-## Step 2 — Planning Phase
+## §2 — Plan
 
-Output a decomposition plan **before** proposing any code or diffs. Format exactly:
+Output a decomposition plan before any code. Max 10 steps.
 
 ```
+
 PLAN — T-{xxx}: [Task name]
 Scope: [single module | cross-module | full-stack]
 Skill files loaded: [list]
-Active constraints: [list only the ones that apply from Step 1]
-PR gate: [yes — ≥ 2 approvals required | no]
+Active constraints: [from §1, only those that apply]
+PR gate: [yes — ≥ 2 approvals | no]
 
 Steps:
-  1. [path/to/file] — action (e.g. add Zod schema for CreateEventInput)
-  2. [path/to/file] — action
-  3. [path/to/file] — action
-  ...  (max 10 steps)
 
-Testing strategy:
-  Unit:        [what + which service methods]
-  Integration: [what + which endpoints]
-  E2E:         [what + Playwright scenario, if applicable]
-  Security:    [one negative test per RBAC row / tenant isolation invariant that applies]
+1. [path/to/file] — action
+2. [path/to/file] — action
+   ...
+
+Testing:
+Unit: [service methods to cover]
+Integration: [endpoints to cover]
+Security: [one negative test per RBAC row / tenant isolation invariant]
+
 ```
 
-If the task spec is already fully detailed, produce the plan immediately — do not ask for
-clarification unless a constraint collision makes the spec ambiguous.
+If the task spec is already fully detailed, produce the plan immediately — no clarifying questions unless a constraint collision makes the spec ambiguous.
 
 ---
 
-## Step 3 — Deliverables
+## §3 — Deliverables
 
-### 3.1 — Implementation Guideline (`guideline_T-{xxx}.md`)
+### 3.1 — Implementation Guideline
 
-Produce the guideline in a fenced code block. Use this template:
+# Guideline — T-{xxx}: [Task name]
 
-```markdown
-# Implementation Guideline — T-{xxx}: [Task name]
 **Sprint:** S{xx} | **Effort:** {x}d | **PR gate:** [≥ 2 approvals | standard]
 
 ## Active Constraints
-[Bullet list of constraint tags that apply, with one-line explanation each]
+
+- `[TAG]` one-line explanation
 
 ## Affected Paths
-[List every file to create or edit, with a one-line description of the change]
+
+- `path/to/file` — what changes
 
 ## Cross-File Coupling
-[List any sibling files that must be checked or updated]
+
+- `path/to/sibling` — why it must be checked
 
 ## Implementation Notes
 
-### [Section per major concern: API / DB / UI / Job / Security]
-[Code snippets only for non-obvious logic — max 30 lines per snippet]
+### [API | DB | UI | Job | Security — one section per concern]
+
+[Code snippets for non-obvious logic only — max 30 lines]
 [Cite constraints inline: `// cents-only [FIN]`, `// IDs only [SEC-JOB]`]
 
 ## Testing Checklist
+
 - [ ] Happy path: [description]
-- [ ] Edge case: [description per documented business rule]
-- [ ] Security: [one negative test per RBAC row or tenant isolation invariant]
-- [ ] Coverage: [≥ 80% if PR-FIN gate applies]
+- [ ] Edge case: [per documented business rule]
+- [ ] Security: [one negative test per RBAC row / tenant isolation invariant]
+- [ ] Coverage ≥ 80% if [PR-FIN] applies
 
 ## Completion Checklist
+
 - [ ] `pnpm lint` → zero warnings
 - [ ] `pnpm tsc --noEmit` → clean
 - [ ] `pnpm vitest run` → all pass
 - [ ] No `any`, no commented-out code, no `TODO` without ticket ref
 - [ ] `.env.example` updated if new env vars added
-- [ ] `[PR-FIN]` — two reviewers assigned if applicable
-```
+- [ ] Two reviewers assigned if [PR-FIN]
+
+````
 
 ### 3.2 — Context Manifest
-
-List the exact file paths the agent needs in context during Implementation. Use ClubOS
-monorepo paths. Example format:
 
 ```
 CONTEXT MANIFEST — T-{xxx}
@@ -147,27 +147,28 @@ CONTEXT MANIFEST — T-{xxx}
 Core files to read:
   apps/api/src/modules/{module}/{module}.service.ts
   apps/api/src/modules/{module}/{module}.routes.ts
-  apps/api/src/lib/env.ts                          ← if adding env vars
-  apps/api/src/jobs/{job-name}.worker.ts            ← if touching a BullMQ job
-  packages/shared-types/src/{domain}.schemas.ts     ← check before defining new types
+  apps/api/src/lib/env.ts                            ← if adding env vars
+  apps/api/src/jobs/{job}.worker.ts                  ← if touching BullMQ
+  packages/shared-types/src/{domain}.schemas.ts      ← check before new types
 
-Skill files already loaded (do not re-read):
-  docs/{skill-file}.md
+Skill files loaded (do not re-read):
+  docs/{skill}.md
 
-Reference only (do not re-read unless diff needed):
-  apps/api/src/modules/payments/gateways/index.ts   ← GatewayRegistry
-  apps/api/src/lib/tenant.ts                        ← withTenantSchema
-  agent-instructions.md §2 (Absolute Blockers)
-  agent-instructions.md §6 (RBAC Matrix)
+Reference (do not re-read unless diff needed):
+  apps/api/src/modules/payments/gateways/index.ts    ← GatewayRegistry
+  apps/api/src/lib/tenant.ts                         ← withTenantSchema
+  CLAUDE.md §Hard Rules
+  CLAUDE.md §RBAC
 ```
 
 ---
 
-## Output Format Rules (from `context-efficiency-skill.md`)
+## Output Rules
 
-- Output the PLAN first, then `guideline_T-{xxx}.md`, then the Context Manifest.
-- No prose wrap after delivering the guideline ("I have created…" is forbidden).
+- Output PLAN → Guideline → Context Manifest in that order.
+- No prose wrap after delivering output ("I have created…" is forbidden).
 - No recap of requirements already given.
-- Cite constraints inline in code snippets — not in a separate prose paragraph.
-- For bug fixes: root cause in one sentence + targeted diff only.
-- For new features: full guideline + manifest.
+- Cite constraints inline in snippets — not in prose.
+- **Diff-first for edits** — show only changed lines + 3 lines context. Full file only for new files or when > 40% changes (state this explicitly).
+- Batch independent reads in a single step. Sequential only when there's a real dependency.
+````

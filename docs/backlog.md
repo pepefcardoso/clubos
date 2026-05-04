@@ -15,7 +15,7 @@
 |----|-------|--------|----------|--------|------|
 | T-136 | Schema Prisma + DDL tenant (events, tickets, fan_profiles, pos_sales) | DONE | HIGH | S12 | Infra |
 | T-137 | CRUD de eventos (`/api/events`) | DONE | HIGH | S12 | API |
-| T-138 | UI de configuração de evento (`EventFormModal` + `EventsPage`) | TODO | HIGH | S12 | Web |
+| T-138 | UI de configuração de evento (`EventFormModal` + `EventsPage`) | DONE | HIGH | S12 | Web |
 | T-139 | Geração de cobrança PIX por ingresso | TODO | HIGH | S12 | API |
 | T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256 | TODO | HIGH | S12 | Jobs |
 | T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`) | TODO | HIGH | S12 | Web |
@@ -45,26 +45,6 @@
 
 ## In Progress
 
-#### T-138 | [TODO] UI de configuração de evento (`EventFormModal` + `EventsPage`)
-
-**Context:** Admins need a UI to create events and configure sectors with inline pricing.  
-**Architectural context:** `[UI-BRL]` `formatBRL()` + `font-mono` on all price displays; `[UI-A11Y]` status badge with text + color; visible to `ADMIN` only.  
-**Files:** `apps/web/src/app/(app)/access/page.tsx`, `apps/web/src/app/(app)/access/components/EventFormModal.tsx`, `EventSectorsTable.tsx`  
-**Acceptance criteria:**
-- [ ] `EventsPage` accessible at `/access`
-- [ ] `EventFormModal` with opponent, date, venue fields and inline editable sectors table
-- [ ] Sector prices displayed with `formatBRL()` + `font-mono`
-- [ ] Status badge includes text label (not color only)
-- [ ] Visible to `ADMIN` only; other roles see 403
-**Out of scope:** Ticket sales UI (T-141), gate scanner (T-144)  
-**Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern
-
----
-
-## Todo
-
-### Priority: HIGH
-
 #### T-139 | [TODO] Geração de cobrança PIX por ingresso
 
 **Context:** Fans need to purchase tickets via PIX; the system must create a charge and a pending ticket atomically.  
@@ -80,6 +60,10 @@
 **Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`
 
 ---
+
+## Todo
+
+### Priority: HIGH
 
 #### T-140 | [TODO] Worker BullMQ `confirm-ticket` + QR Code SHA-256
 
@@ -423,6 +407,19 @@
 **Pattern reference:** `apps/api/src/modules/members/members.routes.ts`
 **Completed:** 2026-04-30
 
+#### T-138 | [DONE] UI de configuração de evento (`EventFormModal` + `EventsPage`)
+
+**Context:** Admins need a UI to create events and configure sectors with inline pricing.  
+**Architectural context:** `[UI-BRL]` `formatBRL()` + `font-mono` on all price displays; `[UI-A11Y]` status badge with text + color; visible to `ADMIN` only.  
+**Files:** `apps/web/src/app/(app)/access/page.tsx`, `apps/web/src/app/(app)/access/components/EventFormModal.tsx`, `EventSectorsTable.tsx`  
+**Acceptance criteria:**
+- [x] `EventsPage` accessible at `/access`
+- [x] `EventFormModal` with opponent, date, venue fields and inline editable sectors table
+- [x] Sector prices displayed with `formatBRL()` + `font-mono`
+- [x] Status badge includes text label (not color only)
+- [x] Visible to `ADMIN` only; other roles see 403
+**Out of scope:** Ticket sales UI (T-141), gate scanner (T-144)  
+**Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern
 
 ---
 

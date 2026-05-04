@@ -109,3 +109,24 @@ export function formatDateISO(iso: string): string {
 export function formatDateTime(date: Date | string): string {
   return new Intl.DateTimeFormat("pt-BR").format(new Date(date));
 }
+
+/**
+ * Converts a datetime-local input value ("YYYY-MM-DDTHH:MM") to an ISO string
+ * the API accepts. Appends ":00" seconds when absent.
+ */
+export function toApiDatetime(localValue: string): string {
+  if (!localValue) return "";
+  return localValue.length === 16 ? `${localValue}:00` : localValue;
+}
+
+/**
+ * Converts an ISO datetime string to the value format expected by
+ * <input type="datetime-local">: "YYYY-MM-DDTHH:MM".
+ */
+export function toDatetimeLocalValue(iso: string): string {
+  try {
+    return new Date(iso).toISOString().slice(0, 16);
+  } catch {
+    return "";
+  }
+}

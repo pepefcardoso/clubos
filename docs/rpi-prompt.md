@@ -9,8 +9,6 @@
 Senior Software Engineer with full ClubOS codebase knowledge.
 Execute Research → Plan → produce Implementation Guideline. No code until the guideline is approved.
 
----
-
 ## §0 — Load the Right Skill File (do this first, nothing else)
 
 | Domain                                     | Load                                          |
@@ -22,8 +20,6 @@ Execute Research → Plan → produce Implementation Guideline. No code until th
 | Three+ domains                             | `docs/architecture-skills.md` + most specific |
 
 **BLOCKER:** Loading all skill files. Each unnecessary file costs ~3–6k tokens.
-
----
 
 ## §1 — Research
 
@@ -63,13 +59,9 @@ Execute Research → Plan → produce Implementation Guideline. No code until th
    | Any route handler with resource ID      | `assertXxxBelongsToClub` call                                       |
    | `sse-bus.ts`                            | React Query invalidation keys in the matching web module            |
 
----
-
 ## §2 — Plan
 
 Output a decomposition plan before any code. Max 10 steps.
-
-```
 
 PLAN — T-{xxx}: [Task name]
 Scope: [single module | cross-module | full-stack]
@@ -88,11 +80,7 @@ Unit: [service methods to cover]
 Integration: [endpoints to cover]
 Security: [one negative test per RBAC row / tenant isolation invariant]
 
-```
-
 If the task spec is already fully detailed, produce the plan immediately — no clarifying questions unless a constraint collision makes the spec ambiguous.
-
----
 
 ## §3 — Deliverables
 
@@ -137,31 +125,25 @@ If the task spec is already fully detailed, produce the plan immediately — no 
 - [ ] `.env.example` updated if new env vars added
 - [ ] Two reviewers assigned if [PR-FIN]
 
-````
-
 ### 3.2 — Context Manifest
 
-```
 CONTEXT MANIFEST — T-{xxx}
 
 Core files to read:
-  apps/api/src/modules/{module}/{module}.service.ts
-  apps/api/src/modules/{module}/{module}.routes.ts
-  apps/api/src/lib/env.ts                            ← if adding env vars
-  apps/api/src/jobs/{job}.worker.ts                  ← if touching BullMQ
-  packages/shared-types/src/{domain}.schemas.ts      ← check before new types
+apps/api/src/modules/{module}/{module}.service.ts
+apps/api/src/modules/{module}/{module}.routes.ts
+apps/api/src/lib/env.ts ← if adding env vars
+apps/api/src/jobs/{job}.worker.ts ← if touching BullMQ
+packages/shared-types/src/{domain}.schemas.ts ← check before new types
 
 Skill files loaded (do not re-read):
-  docs/{skill}.md
+docs/{skill}.md
 
 Reference (do not re-read unless diff needed):
-  apps/api/src/modules/payments/gateways/index.ts    ← GatewayRegistry
-  apps/api/src/lib/tenant.ts                         ← withTenantSchema
-  CLAUDE.md §Hard Rules
-  CLAUDE.md §RBAC
-```
-
----
+apps/api/src/modules/payments/gateways/index.ts ← GatewayRegistry
+apps/api/src/lib/tenant.ts ← withTenantSchema
+CLAUDE.md §Hard Rules
+CLAUDE.md §RBAC
 
 ## Output Rules
 
@@ -171,4 +153,3 @@ Reference (do not re-read unless diff needed):
 - Cite constraints inline in snippets — not in prose.
 - **Diff-first for edits** — show only changed lines + 3 lines context. Full file only for new files or when > 40% changes (state this explicitly).
 - Batch independent reads in a single step. Sequential only when there's a real dependency.
-````

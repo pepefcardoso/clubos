@@ -16,7 +16,7 @@
 | T-136 | Schema Prisma + DDL tenant (events, tickets, fan_profiles, pos_sales) | DONE | HIGH | S12 | Infra |
 | T-137 | CRUD de eventos (`/api/events`) | DONE | HIGH | S12 | API |
 | T-138 | UI de configuração de evento (`EventFormModal` + `EventsPage`) | DONE | HIGH | S12 | Web |
-| T-139 | Geração de cobrança PIX por ingresso | TODO | HIGH | S12 | API |
+| T-139 | Geração de cobrança PIX por ingresso | DONE | HIGH | S12 | API |
 | T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256 | TODO | HIGH | S12 | Jobs |
 | T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`) | TODO | HIGH | S12 | Web |
 | T-142 | Cancelamento de ingresso com reembolso | TODO | HIGH | S12 | API |
@@ -45,26 +45,6 @@
 
 ## In Progress
 
-#### T-139 | [TODO] Geração de cobrança PIX por ingresso
-
-**Context:** Fans need to purchase tickets via PIX; the system must create a charge and a pending ticket atomically.  
-**Architectural context:** `[ARCH-GW]` via `GatewayRegistry.forMethod('PIX')`; `[FIN]` `price_cents` integer; `[SEC-OBJ]` `assertEventBelongsToClub`; `[SEC-TEN]`; `[PR-FIN]` ≥ 2 approvals.  
-**Files:** `apps/api/src/modules/events/tickets/tickets.routes.ts`, `tickets.service.ts`  
-**Acceptance criteria:**
-- [ ] `POST /api/events/:id/tickets/purchase` creates `Ticket` (status `PENDING`) and PIX charge
-- [ ] Idempotent by `fan_email + event_id + sector_id`
-- [ ] Rejects purchase when `event_sector.sold >= event_sector.capacity`
-- [ ] `assertEventBelongsToClub` called before any mutation
-- [ ] No concrete gateway import — `GatewayRegistry.forMethod('PIX')` only
-**Out of scope:** QR Code delivery (T-140), cancellation (T-142)  
-**Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`
-
----
-
-## Todo
-
-### Priority: HIGH
-
 #### T-140 | [TODO] Worker BullMQ `confirm-ticket` + QR Code SHA-256
 
 **Context:** On payment confirmation, the ticket must be activated and a QR code delivered to the fan.  
@@ -81,6 +61,10 @@
 **Pattern reference:** `apps/api/src/jobs/webhook-events/` worker pattern
 
 ---
+
+## Todo
+
+### Priority: HIGH
 
 #### T-141 | [TODO] Página pública de compra de ingresso
 
@@ -420,6 +404,20 @@
 - [x] Visible to `ADMIN` only; other roles see 403
 **Out of scope:** Ticket sales UI (T-141), gate scanner (T-144)  
 **Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern
+
+#### T-139 | [DONE] Geração de cobrança PIX por ingresso
+
+**Context:** Fans need to purchase tickets via PIX; the system must create a charge and a pending ticket atomically.  
+**Architectural context:** `[ARCH-GW]` via `GatewayRegistry.forMethod('PIX')`; `[FIN]` `price_cents` integer; `[SEC-OBJ]` `assertEventBelongsToClub`; `[SEC-TEN]`; `[PR-FIN]` ≥ 2 approvals.  
+**Files:** `apps/api/src/modules/events/tickets/tickets.routes.ts`, `tickets.service.ts`  
+**Acceptance criteria:**
+- [ ] `POST /api/events/:id/tickets/purchase` creates `Ticket` (status `PENDING`) and PIX charge
+- [ ] Idempotent by `fan_email + event_id + sector_id`
+- [ ] Rejects purchase when `event_sector.sold >= event_sector.capacity`
+- [ ] `assertEventBelongsToClub` called before any mutation
+- [ ] No concrete gateway import — `GatewayRegistry.forMethod('PIX')` only
+**Out of scope:** QR Code delivery (T-140), cancellation (T-142)  
+**Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`
 
 ---
 

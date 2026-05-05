@@ -750,6 +750,9 @@ model Ticket {
   fanEmail    String
   fanName     String
   status      TicketStatus @default(PENDING)
+  externalId  String?
+  gatewayName String?
+  gatewayMeta Json?
   checkedIn   Boolean      @default(false)
   checkedInAt DateTime?
   createdAt   DateTime     @default(now())

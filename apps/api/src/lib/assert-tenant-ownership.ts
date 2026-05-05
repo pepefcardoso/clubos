@@ -124,3 +124,43 @@ export async function assertExpenseExists(
   });
   if (!found) throw new NotFoundError("Despesa não encontrada.");
 }
+
+/**
+ * Asserts that an Event with the given ID exists within the CURRENT tenant schema.
+ *
+ * MUST be called inside a `withTenantSchema` callback.
+ * Returns 404 (never 403) — returning 403 would confirm the event exists in
+ * another tenant, leaking cross-tenant structure.
+ */
+export async function assertEventExists(
+  prisma: PrismaClient,
+  eventId: string,
+): Promise<void> {
+  const found = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true },
+  });
+  if (!found) throw new NotFoundError("Evento não encontrado.");
+}
+
+/**
+ * Asserts that an EventSector with the given sectorId belongs to the given eventId
+ * within the CURRENT tenant schema.
+ *
+ * Both the sectorId and its eventId are verified together, preventing a sector
+ * from a different event being used in a ticket purchase.
+ *
+ * MUST be called inside a `withTenantSchema` callback.
+ * Returns 404 (never 403).
+ */
+export async function assertEventSectorExists(
+  prisma: PrismaClient,
+  sectorId: string,
+  eventId: string,
+): Promise<void> {
+  const found = await prisma.eventSector.findFirst({
+    where: { id: sectorId, eventId },
+    select: { id: true },
+  });
+  if (!found) throw new NotFoundError("Setor não encontrado.");
+}

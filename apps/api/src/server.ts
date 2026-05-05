@@ -29,6 +29,7 @@ import { balanceSheetPublicRoutes } from "./modules/balance-sheets/balance-sheet
 import { integrationIngestRoutes } from "./modules/integrations/integrations.ingest.routes.js";
 import { clubPublicRoutes } from "./modules/clubs/clubs.public.routes.js";
 import { tryoutConsentRoutes } from "./modules/tryout/tryout-consent.routes.js";
+import { ticketPublicRoutes } from "./modules/events/tickets.public.routes.js";
 
 export async function buildApp() {
   validateEnv();
@@ -155,6 +156,8 @@ export async function buildApp() {
   await fastify.register(clubPublicRoutes, { prefix: "/api/public" });
 
   await fastify.register(tryoutConsentRoutes, { prefix: "/api/public" });
+
+  await fastify.register(ticketPublicRoutes, { prefix: "/api/events" });
 
   await fastify.register(eventsRoutes, { prefix: "/api/events" });
 

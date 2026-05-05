@@ -225,6 +225,5 @@ export async function purchaseTicket(
     sectorName: sector.name,
     amountCents: sector.priceCents,
     gatewayMeta: chargeResult.meta,
-    // TODO: [T-140] — webhook worker will set status=PAID on payment confirmation
   };
 }

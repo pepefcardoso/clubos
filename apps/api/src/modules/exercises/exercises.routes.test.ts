@@ -95,7 +95,6 @@ async function buildApp(
       user?: AccessTokenPayload;
       actorId?: string;
     };
-    // Ensure the mock user is injected for every request
     r.user = userPayload;
     r.actorId = userPayload.sub;
   });

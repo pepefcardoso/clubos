@@ -149,11 +149,9 @@ test.describe("Medical Dashboard — ADMIN role", () => {
     const mp = new MedicalDashboardPage(page);
     await mp.goto();
 
-    // Wait for initial render
     await expect(mp.correlationSection).toBeVisible();
     const initialCount = capturedUrls.length;
 
-    // Click 60d period filter
     await mp.getPeriodFilterButton("60d").click();
     await page.waitForTimeout(500);
 

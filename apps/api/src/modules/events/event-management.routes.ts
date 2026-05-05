@@ -1,4 +1,3 @@
-// apps/api/src/modules/events/event-management.routes.ts
 import type { FastifyInstance } from "fastify";
 import {
   CreateEventSchema,

@@ -193,6 +193,77 @@ export async function resolveClubIdFromChargeId(
 }
 
 /**
+ * Returns true when externalReference identifies a ticket payment.
+ * Ticket references follow the format `ticket:{ticketId}`.
+ */
+export function isTicketPayment(
+  externalReference: string | null | undefined,
+): boolean {
+  return (
+    typeof externalReference === "string" &&
+    externalReference.startsWith("ticket:")
+  );
+}
+
+/**
+ * Extracts the ticketId from a `ticket:{ticketId}` externalReference string.
+ * Caller must ensure isTicketPayment() returned true before calling this.
+ */
+export function extractTicketId(externalReference: string): string {
+  return externalReference.slice("ticket:".length);
+}
+
+/**
+ * Resolves the clubId that owns the given ticketId by scanning all tenant
+ * schemas. Mirrors resolveClubIdFromChargeId — same scan strategy, different table.
+ *
+ * @param prisma   Singleton Prisma client (public schema access for Club list).
+ * @param ticketId The internal ClubOS ticket ID.
+ */
+export async function resolveClubIdFromTicketId(
+  prisma: PrismaClient,
+  ticketId: string,
+): Promise<string | null> {
+  const clubs = await prisma.club.findMany({ select: { id: true } });
+
+  for (const club of clubs) {
+    try {
+      const found = await withTenantSchema(prisma, club.id, async (tx) => {
+        return tx.ticket.findUnique({
+          where: { id: ticketId },
+          select: { id: true },
+        });
+      });
+      if (found !== null) {
+        return club.id;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Idempotency check for ticket payments.
+ * Returns true if the ticket is already PAID — caller should skip re-processing.
+ */
+export async function isTicketAlreadyPaid(
+  prisma: PrismaClient,
+  clubId: string,
+  ticketId: string,
+): Promise<boolean> {
+  const ticket = await withTenantSchema(prisma, clubId, async (tx) => {
+    return tx.ticket.findUnique({
+      where: { id: ticketId },
+      select: { status: true },
+    });
+  });
+  return ticket !== null && String(ticket.status) === "PAID";
+}
+
+/**
  * Handles a PAYMENT_RECEIVED webhook event.
  *
  * Executes atomically within a single DB transaction:

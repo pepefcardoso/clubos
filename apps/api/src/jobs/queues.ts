@@ -287,3 +287,33 @@ export const monthlyReportQueue = new Queue("monthly-report", {
     },
   },
 });
+
+/**
+ * Queue for ticket payment confirmation jobs.
+ *
+ * Enqueued by the webhook worker when a gateway event with
+ * externalReference `ticket:{ticketId}` is received.
+ *
+ * Each job:
+ *   1. Updates ticket status to PAID
+ *   2. Generates a deterministic HMAC-SHA256 QR token
+ *   3. Sends a confirmation email with the QR code to the fan
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 1s → attempt 2 (exponential: 2s, 4s)
+ *   Max 3 attempts — email delivery failures should surface quickly.
+ *   confirmTicketAndNotify() is idempotent: retries do not re-send
+ *   if the ticket is already PAID.
+ */
+export const confirmTicketQueue = new Queue("confirm-ticket", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 200 },
+    removeOnFail: { count: 500 },
+    attempts: 3,
+    backoff: {
+      type: "exponential",
+      delay: 1_000,
+    },
+  },
+});

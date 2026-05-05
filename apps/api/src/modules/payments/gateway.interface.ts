@@ -67,6 +67,7 @@ export interface CreateChargeInput {
   customer: GatewayCustomer;
   description?: string | undefined;
   idempotencyKey: string;
+  externalReference?: string | undefined;
 }
 
 export interface ChargeResult {

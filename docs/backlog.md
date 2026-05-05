@@ -17,7 +17,7 @@
 | T-137 | CRUD de eventos (`/api/events`) | DONE | HIGH | S12 | API |
 | T-138 | UI de configuração de evento (`EventFormModal` + `EventsPage`) | DONE | HIGH | S12 | Web |
 | T-139 | Geração de cobrança PIX por ingresso | DONE | HIGH | S12 | API |
-| T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256 | TODO | HIGH | S12 | Jobs |
+| T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256 | DONE | HIGH | S12 | Jobs |
 | T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`) | TODO | HIGH | S12 | Web |
 | T-142 | Cancelamento de ingresso com reembolso | TODO | HIGH | S12 | API |
 | T-143 | Backend de validação de ingresso (HMAC + Redis dedup) | TODO | HIGH | S13 | API |
@@ -45,27 +45,6 @@
 
 ## In Progress
 
-#### T-140 | [TODO] Worker BullMQ `confirm-ticket` + QR Code SHA-256
-
-**Context:** On payment confirmation, the ticket must be activated and a QR code delivered to the fan.  
-**Architectural context:** `[SEC-JOB]` payload IDs only — fetch PII inside worker; `[ARCH-JOB]` idempotent; rate limit 30 msg/min via Redis; failure → Sentry.  
-**Files:** `apps/api/src/jobs/confirm-ticket.worker.ts`, `apps/api/src/modules/events/tickets/tickets.service.ts`  
-**Acceptance criteria:**
-- [ ] Worker triggered by webhook payment confirmation
-- [ ] Sets `Ticket.status = PAID`, generates QR Code via HMAC-SHA256 (`ticket_id + event_id + secret`)
-- [ ] Job payload contains `ticketId`, `eventId`, `clubId` only — no email, no name
-- [ ] Rate limit 30 msg/min per club enforced via Redis
-- [ ] Idempotent — reprocessing does not generate duplicate QR or messages
-- [ ] Exceptions logged to Sentry
-**Out of scope:** Webhook pipeline itself (T-142), gate validation (T-143)  
-**Pattern reference:** `apps/api/src/jobs/webhook-events/` worker pattern
-
----
-
-## Todo
-
-### Priority: HIGH
-
 #### T-141 | [TODO] Página pública de compra de ingresso
 
 **Context:** Fans without an account need to purchase tickets via a public link shared by the club.  
@@ -81,6 +60,10 @@
 **Pattern reference:** `apps/web/src/app/(marketing)/peneiras/page.tsx`
 
 ---
+
+## Todo
+
+### Priority: HIGH
 
 #### T-142 | [TODO] Cancelamento de ingresso com reembolso
 
@@ -411,13 +394,28 @@
 **Architectural context:** `[ARCH-GW]` via `GatewayRegistry.forMethod('PIX')`; `[FIN]` `price_cents` integer; `[SEC-OBJ]` `assertEventBelongsToClub`; `[SEC-TEN]`; `[PR-FIN]` ≥ 2 approvals.  
 **Files:** `apps/api/src/modules/events/tickets/tickets.routes.ts`, `tickets.service.ts`  
 **Acceptance criteria:**
-- [ ] `POST /api/events/:id/tickets/purchase` creates `Ticket` (status `PENDING`) and PIX charge
-- [ ] Idempotent by `fan_email + event_id + sector_id`
-- [ ] Rejects purchase when `event_sector.sold >= event_sector.capacity`
-- [ ] `assertEventBelongsToClub` called before any mutation
-- [ ] No concrete gateway import — `GatewayRegistry.forMethod('PIX')` only
+- [x] `POST /api/events/:id/tickets/purchase` creates `Ticket` (status `PENDING`) and PIX charge
+- [x] Idempotent by `fan_email + event_id + sector_id`
+- [x] Rejects purchase when `event_sector.sold >= event_sector.capacity`
+- [x] `assertEventBelongsToClub` called before any mutation
+- [x] No concrete gateway import — `GatewayRegistry.forMethod('PIX')` only
 **Out of scope:** QR Code delivery (T-140), cancellation (T-142)  
 **Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`
+
+#### T-140 | [DONE] Worker BullMQ `confirm-ticket` + QR Code SHA-256
+
+**Context:** On payment confirmation, the ticket must be activated and a QR code delivered to the fan.  
+**Architectural context:** `[SEC-JOB]` payload IDs only — fetch PII inside worker; `[ARCH-JOB]` idempotent; rate limit 30 msg/min via Redis; failure → Sentry.  
+**Files:** `apps/api/src/jobs/confirm-ticket.worker.ts`, `apps/api/src/modules/events/tickets/tickets.service.ts`  
+**Acceptance criteria:**
+- [x] Worker triggered by webhook payment confirmation
+- [x] Sets `Ticket.status = PAID`, generates QR Code via HMAC-SHA256 (`ticket_id + event_id + secret`)
+- [x] Job payload contains `ticketId`, `eventId`, `clubId` only — no email, no name
+- [x] Rate limit 30 msg/min per club enforced via Redis
+- [x] Idempotent — reprocessing does not generate duplicate QR or messages
+- [x] Exceptions logged to Sentry
+**Out of scope:** Webhook pipeline itself (T-142), gate validation (T-143)  
+**Pattern reference:** `apps/api/src/jobs/webhook-events/` worker pattern
 
 ---
 

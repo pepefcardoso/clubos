@@ -107,6 +107,7 @@ export async function purchaseTicket(
     },
     description: `Ingresso — ${sector.name}`,
     idempotencyKey: ticket.id,
+    externalReference: `ticket:${ticket.id}`,
   });
 
   await withTenantSchema(prisma, club.id, async (tx) => {

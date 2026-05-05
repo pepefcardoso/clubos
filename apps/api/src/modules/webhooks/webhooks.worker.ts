@@ -6,17 +6,36 @@ import {
   hasExistingPayment,
   resolveClubIdFromChargeId,
   handlePaymentReceived,
+  isTicketPayment,
+  extractTicketId,
+  resolveClubIdFromTicketId,
+  isTicketAlreadyPaid,
   type WebhookJobData,
 } from "./webhooks.service.js";
+import { confirmTicketQueue } from "../../jobs/queues.js";
+import {
+  CONFIRM_TICKET_JOB_NAMES,
+  type ConfirmTicketJobData,
+} from "../../jobs/confirm-ticket/confirm-ticket.types.js";
 
 /**
  * Starts the webhook event processing worker.
  *
- * Two-layer idempotency:
+ * Routing:
+ *   externalReference starts with `ticket:` → ticket payment branch
+ *     → idempotency check (isTicketAlreadyPaid)
+ *     → enqueue confirm-ticket job
+ *   otherwise → member charge branch (existing behaviour)
+ *
+ * Two-layer idempotency (member charges):
  *   Layer 1 — BullMQ: deterministic jobId prevents enqueueing the same
  *             gatewayTxId twice while a job is still in the queue.
  *   Layer 2 — DB (this file): checks payments table before any write,
  *             protecting against retries and post-completion redelivery.
+ *
+ * Ticket idempotency:
+ *   Single layer — isTicketAlreadyPaid() DB check before enqueue.
+ *   The confirm-ticket worker also guards internally.
  *
  * Concurrency: 5 (matches architecture-rules.md cap for financial jobs).
  */
@@ -39,7 +58,58 @@ export function startWebhookWorker(): Worker<WebhookJobData> {
         return { skipped: true, reason: "unknown_event_type" };
       }
 
-      const chargeId = event.externalReference;
+      const externalRef = event.externalReference;
+
+      if (isTicketPayment(externalRef)) {
+        const ticketId = extractTicketId(externalRef!);
+
+        let ticketClubId = job.data.clubId;
+        if (!ticketClubId) {
+          const resolved = await resolveClubIdFromTicketId(prisma, ticketId);
+          if (!resolved) {
+            job.log(
+              `[webhook-worker] Ticket ${ticketId} not found in any club — discarding`,
+            );
+            return { skipped: true, reason: "ticket_not_found" };
+          }
+          ticketClubId = resolved;
+          await job.updateData({ ...job.data, clubId: ticketClubId });
+        }
+
+        const alreadyPaid = await isTicketAlreadyPaid(
+          prisma,
+          ticketClubId,
+          ticketId,
+        );
+        if (alreadyPaid) {
+          job.log(
+            `[webhook-worker] Ticket ${ticketId} already PAID — skipping`,
+          );
+          return { skipped: true, reason: "ticket_already_paid" };
+        }
+
+        const confirmJobData: ConfirmTicketJobData = {
+          ticketId,
+          clubId: ticketClubId,
+        };
+
+        await confirmTicketQueue.add(
+          CONFIRM_TICKET_JOB_NAMES.CONFIRM_TICKET,
+          confirmJobData,
+          {
+            jobId: `confirm-ticket:${ticketId}`,
+            attempts: 3,
+            backoff: { type: "exponential", delay: 1_000 },
+          },
+        );
+
+        job.log(
+          `[webhook-worker] Ticket payment — enqueued confirm-ticket for ${ticketId} (club: ${ticketClubId})`,
+        );
+        return { processed: true, ticketId, clubId: ticketClubId };
+      }
+
+      const chargeId = externalRef;
       if (!chargeId) {
         job.log(
           `[webhook-worker] No externalReference on event — cannot resolve tenant. Discarding.`,
@@ -58,7 +128,6 @@ export function startWebhookWorker(): Worker<WebhookJobData> {
           return { skipped: true, reason: "charge_not_found" };
         }
         clubId = resolved;
-
         await job.updateData({ ...job.data, clubId });
       }
 
@@ -144,7 +213,7 @@ export function startWebhookWorker(): Worker<WebhookJobData> {
           `${job?.attemptsMade ?? 0} attempt(s): ${err.message}`,
       );
     } catch {
-      // Swallow any secondary error in the error handler itself.
+      // Swallow any secondary error in the error handler itself
     }
   });
 

@@ -15,6 +15,77 @@ import type {
   PurchaseTicketResponse,
 } from "./tickets.schema.js";
 
+export interface PublicEventDetails {
+  id: string;
+  opponent: string;
+  eventDate: string;
+  venue: string;
+  description: string | null;
+  status: string;
+  sectors: Array<{
+    id: string;
+    name: string;
+    priceCents: number;
+    capacity: number;
+    available: number;
+  }>;
+}
+
+export async function getPublicEventDetails(
+  prisma: PrismaClient,
+  clubSlug: string,
+  eventId: string,
+): Promise<PublicEventDetails> {
+  const club = await prisma.club.findUnique({
+    where: { slug: clubSlug },
+    select: { id: true },
+  });
+  if (!club) throw new NotFoundError("Clube não encontrado.");
+
+  const event = await withTenantSchema(prisma, club.id, async (tx) => {
+    return tx.event.findUnique({
+      where: { id: eventId },
+      select: {
+        id: true,
+        opponent: true,
+        eventDate: true,
+        venue: true,
+        description: true,
+        status: true,
+        sectors: {
+          select: {
+            id: true,
+            name: true,
+            priceCents: true,
+            capacity: true,
+            sold: true,
+          },
+        },
+      },
+    });
+  });
+
+  if (!event) throw new NotFoundError("Evento não encontrado.");
+  if (String(event.status) === "CANCELLED")
+    throw new NotFoundError("Evento não disponível.");
+
+  return {
+    id: event.id,
+    opponent: event.opponent,
+    eventDate: event.eventDate.toISOString(),
+    venue: event.venue,
+    description: event.description,
+    status: String(event.status),
+    sectors: event.sectors.map((s) => ({
+      id: s.id,
+      name: s.name,
+      priceCents: s.priceCents,
+      capacity: s.capacity,
+      available: s.capacity - s.sold,
+    })),
+  };
+}
+
 export async function purchaseTicket(
   prisma: PrismaClient,
   clubSlug: string,

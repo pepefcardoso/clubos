@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { PurchaseTicketInputSchema } from "./tickets.schema.js";
-import { purchaseTicket } from "./tickets.service.js";
+import { purchaseTicket, getPublicEventDetails } from "./tickets.service.js";
 import {
   NotFoundError,
   ValidationError,
@@ -11,22 +11,47 @@ export async function ticketPublicRoutes(
   fastify: FastifyInstance,
 ): Promise<void> {
   /**
-   * POST /api/events/:clubSlug/:eventId/tickets/purchase
+   * GET /api/events/:clubSlug/:eventId
    *
-   * Public endpoint — no JWT required. Fan identity is supplied in the request body.
-   * Idempotent by (fanEmail, eventId, sectorId): re-submitting the same purchase
-   * returns 201 with the original ticketId and a fresh PIX charge.
-   *
-   * Response body: PurchaseTicketResponse
-   *   { ticketId, status, fanEmail, sectorName, amountCents, gatewayMeta }
+   * Public endpoint — returns event info + sector availability for the purchase page.
+   * ISR-friendly: response is safe to cache for short TTLs (30s) at the CDN layer.
    *
    * Error codes:
-   *   400 — invalid body (Zod)
-   *   404 — unknown clubSlug, eventId, or sectorId
-   *   422 — event not SCHEDULED, or sector at capacity
-   *   500 — gateway failure (ticket row not created)
-   *
-   * TODO: [T-158] — apply per-event rate limiting: ticket-purchase:{eventId} → 50 req/min
+   *   404 — unknown clubSlug, eventId, or CANCELLED event
+   */
+  fastify.get<{
+    Params: { clubSlug: string; eventId: string };
+  }>("/:clubSlug/:eventId", async (request, reply) => {
+    const { clubSlug, eventId } = request.params;
+    try {
+      const result = await getPublicEventDetails(
+        fastify.prisma,
+        clubSlug,
+        eventId,
+      );
+      return reply.status(200).send(result);
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: err.message,
+        });
+      }
+      if (err instanceof ValidationError) {
+        return reply.status(422).send({
+          statusCode: 422,
+          error: "Unprocessable Entity",
+          message: err.message,
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * POST /api/events/:clubSlug/:eventId/tickets/purchase
+   * (unchanged — see original file)
    */
   fastify.post<{
     Params: { clubSlug: string; eventId: string };

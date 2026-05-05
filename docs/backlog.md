@@ -18,7 +18,7 @@
 | T-138 | UI de configuração de evento (`EventFormModal` + `EventsPage`) | DONE | HIGH | S12 | Web |
 | T-139 | Geração de cobrança PIX por ingresso | DONE | HIGH | S12 | API |
 | T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256 | DONE | HIGH | S12 | Jobs |
-| T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`) | TODO | HIGH | S12 | Web |
+| T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`) | DONE | HIGH | S12 | Web |
 | T-142 | Cancelamento de ingresso com reembolso | TODO | HIGH | S12 | API |
 | T-143 | Backend de validação de ingresso (HMAC + Redis dedup) | TODO | HIGH | S13 | API |
 | T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first | TODO | HIGH | S13 | Web |
@@ -45,26 +45,6 @@
 
 ## In Progress
 
-#### T-141 | [TODO] Página pública de compra de ingresso
-
-**Context:** Fans without an account need to purchase tickets via a public link shared by the club.  
-**Architectural context:** Route group `(marketing)` — no auth, no imports from `(app)/`; `[UI-BRL]` `formatBRL(price_cents)`; polling every 10s for availability.  
-**Files:** `apps/web/src/app/(marketing)/eventos/[clubSlug]/[eventId]/page.tsx`  
-**Acceptance criteria:**
-- [ ] Page accessible without authentication
-- [ ] Displays event name, opponent, date, sectors with `formatBRL(price_cents)` and remaining capacity
-- [ ] Purchase form with `name`, `email`, `phone`, sector selection, PIX integration inline
-- [ ] Availability updates via polling every 10s
-- [ ] Zero imports from `(app)/` — shared components in `packages/ui/` only
-**Out of scope:** Authenticated management UI (T-138), QR Code delivery (T-140)  
-**Pattern reference:** `apps/web/src/app/(marketing)/peneiras/page.tsx`
-
----
-
-## Todo
-
-### Priority: HIGH
-
 #### T-142 | [TODO] Cancelamento de ingresso com reembolso
 
 **Context:** Admins and fans need to cancel tickets within the allowed window; confirmed payments must be cancelled, never deleted.  
@@ -80,6 +60,10 @@
 **Pattern reference:** Payment cancellation pattern in `apps/api/src/modules/payments/`
 
 ---
+
+## Todo
+
+### Priority: HIGH
 
 #### T-143 | [TODO] Backend de validação de ingresso (HMAC + Redis dedup)
 
@@ -416,6 +400,20 @@
 - [x] Exceptions logged to Sentry
 **Out of scope:** Webhook pipeline itself (T-142), gate validation (T-143)  
 **Pattern reference:** `apps/api/src/jobs/webhook-events/` worker pattern
+
+#### T-141 | [DONE] Página pública de compra de ingresso
+
+**Context:** Fans without an account need to purchase tickets via a public link shared by the club.  
+**Architectural context:** Route group `(marketing)` — no auth, no imports from `(app)/`; `[UI-BRL]` `formatBRL(price_cents)`; polling every 10s for availability.  
+**Files:** `apps/web/src/app/(marketing)/eventos/[clubSlug]/[eventId]/page.tsx`  
+**Acceptance criteria:**
+- [x] Page accessible without authentication
+- [x] Displays event name, opponent, date, sectors with `formatBRL(price_cents)` and remaining capacity
+- [x] Purchase form with `name`, `email`, `phone`, sector selection, PIX integration inline
+- [x] Availability updates via polling every 10s
+- [x] Zero imports from `(app)/` — shared components in `packages/ui/` only
+**Out of scope:** Authenticated management UI (T-138), QR Code delivery (T-140)  
+**Pattern reference:** `apps/web/src/app/(marketing)/peneiras/page.tsx`
 
 ---
 

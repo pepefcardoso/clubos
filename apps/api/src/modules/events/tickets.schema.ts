@@ -30,3 +30,9 @@ export interface PurchaseTicketResponse {
     [key: string]: unknown;
   };
 }
+
+export const CancelTicketInputSchema = z.object({
+  reason: z.string().min(1).max(500),
+});
+
+export type CancelTicketInput = z.infer<typeof CancelTicketInputSchema>;

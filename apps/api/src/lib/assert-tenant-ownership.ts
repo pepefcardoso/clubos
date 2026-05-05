@@ -164,3 +164,14 @@ export async function assertEventSectorExists(
   });
   if (!found) throw new NotFoundError("Setor não encontrado.");
 }
+
+export async function assertTicketExists(
+  prisma: PrismaClient,
+  ticketId: string,
+): Promise<void> {
+  const found = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { id: true },
+  });
+  if (!found) throw new NotFoundError("Ingresso não encontrado.");
+}

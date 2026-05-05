@@ -188,6 +188,7 @@ enum AuditAction {
   FIELD_ACCESS_LOGGED
   MEDICAL_RECORD_TRANSFER_OUT
   MEDICAL_RECORD_TRANSFER_IN
+  TICKET_CANCELLED
 }
 
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.

@@ -196,6 +196,9 @@ const TENANT_ENUMS_DDL = `
       'PENDING', 'PAID', 'CANCELLED', 'CHECKED_IN'
     );
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  -- v2.5 ArenaPass — ticket cancellation audit action
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'TICKET_CANCELLED';
 `;
 
 /**

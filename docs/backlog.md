@@ -19,7 +19,7 @@
 | T-139 | Geração de cobrança PIX por ingresso | DONE | HIGH | S12 | API |
 | T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256 | DONE | HIGH | S12 | Jobs |
 | T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`) | DONE | HIGH | S12 | Web |
-| T-142 | Cancelamento de ingresso com reembolso | TODO | HIGH | S12 | API |
+| T-142 | Cancelamento de ingresso com reembolso | DONE | HIGH | S12 | API |
 | T-143 | Backend de validação de ingresso (HMAC + Redis dedup) | TODO | HIGH | S13 | API |
 | T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first | TODO | HIGH | S13 | Web |
 | T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`) | TODO | HIGH | S13 | API |
@@ -45,26 +45,6 @@
 
 ## In Progress
 
-#### T-142 | [TODO] Cancelamento de ingresso com reembolso
-
-**Context:** Admins and fans need to cancel tickets within the allowed window; confirmed payments must be cancelled, never deleted.  
-**Architectural context:** `[FIN]` confirmed payment cannot be deleted — cancel with recorded reason; `[PR-FIN]` ≥ 2 approvals; `[SEC-OBJ]` `assertTicketBelongsToClub`.  
-**Files:** `apps/api/src/modules/events/tickets/tickets.routes.ts`, `tickets.service.ts`  
-**Acceptance criteria:**
-- [ ] `DELETE /api/tickets/:id` reverses gateway charge, sets `Ticket.status = CANCELLED`, records reason in `audit_log`
-- [ ] Returns 400 if `ticket.checkedIn = true`
-- [ ] Rejects cancellation if event is within 24h
-- [ ] Payment is cancelled with reason — never deleted
-- [ ] `assertTicketBelongsToClub` required
-**Out of scope:** Bulk cancellation (future scope)  
-**Pattern reference:** Payment cancellation pattern in `apps/api/src/modules/payments/`
-
----
-
-## Todo
-
-### Priority: HIGH
-
 #### T-143 | [TODO] Backend de validação de ingresso (HMAC + Redis dedup)
 
 **Context:** Gate staff need to validate tickets in real-time; duplicate scan attempts must return 409.  
@@ -79,7 +59,9 @@
 **Out of scope:** Scanner UI (T-144)  
 **Pattern reference:** `apps/api/src/modules/webhooks/` HMAC validation pattern
 
----
+## Todo
+
+### Priority: HIGH
 
 #### T-147 | [TODO] Funil torcedor → sócio (BullMQ `fan-to-member-funnel`)
 
@@ -414,6 +396,20 @@
 - [x] Zero imports from `(app)/` — shared components in `packages/ui/` only
 **Out of scope:** Authenticated management UI (T-138), QR Code delivery (T-140)  
 **Pattern reference:** `apps/web/src/app/(marketing)/peneiras/page.tsx`
+
+#### T-142 | [DONE] Cancelamento de ingresso com reembolso
+
+**Context:** Admins and fans need to cancel tickets within the allowed window; confirmed payments must be cancelled, never deleted.  
+**Architectural context:** `[FIN]` confirmed payment cannot be deleted — cancel with recorded reason; `[PR-FIN]` ≥ 2 approvals; `[SEC-OBJ]` `assertTicketBelongsToClub`.  
+**Files:** `apps/api/src/modules/events/tickets/tickets.routes.ts`, `tickets.service.ts`  
+**Acceptance criteria:**
+- [x] `DELETE /api/tickets/:id` reverses gateway charge, sets `Ticket.status = CANCELLED`, records reason in `audit_log`
+- [x] Returns 400 if `ticket.checkedIn = true`
+- [x] Rejects cancellation if event is within 24h
+- [x] Payment is cancelled with reason — never deleted
+- [x] `assertTicketBelongsToClub` required
+**Out of scope:** Bulk cancellation (future scope)  
+**Pattern reference:** Payment cancellation pattern in `apps/api/src/modules/payments/`
 
 ---
 

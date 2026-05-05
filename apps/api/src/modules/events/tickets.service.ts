@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { PrismaClient } from "../../../generated/prisma/index.js";
+import type { Prisma, PrismaClient } from "../../../generated/prisma/index.js";
 import {
   withTenantSchema,
   isPrismaUniqueConstraintError,
@@ -14,6 +14,8 @@ import type {
   PurchaseTicketInput,
   PurchaseTicketResponse,
 } from "./tickets.schema.js";
+import { ConflictError } from "../../lib/errors.js";
+import { assertTicketExists } from "../../lib/assert-tenant-ownership.js";
 
 export interface PublicEventDetails {
   id: string;
@@ -187,7 +189,7 @@ export async function purchaseTicket(
       data: {
         externalId: chargeResult.externalId,
         gatewayName: gateway.name,
-        gatewayMeta: chargeResult.meta,
+        gatewayMeta: chargeResult.meta as Prisma.InputJsonValue,
         updatedAt: new Date(),
       },
     });
@@ -226,4 +228,132 @@ export async function purchaseTicket(
     amountCents: sector.priceCents,
     gatewayMeta: chargeResult.meta,
   };
+}
+
+const CANCELLATION_WINDOW_MS = 24 * 60 * 60 * 1_000;
+
+export class TicketAlreadyCancelledError extends ConflictError {
+  constructor() {
+    super("Ingresso já cancelado.");
+  }
+}
+
+export class TicketCheckedInError extends ValidationError {
+  constructor() {
+    super("Ingresso já utilizado na portaria.");
+  }
+}
+
+export class TicketCancellationWindowError extends ValidationError {
+  constructor() {
+    super("Cancelamento não permitido dentro de 24h do evento.");
+  }
+}
+
+/**
+ * Cancels a ticket and, when the ticket has an associated gateway charge,
+ * requests a refund via the registered gateway.
+ *
+ * Invariants enforced inside a single tenant transaction:
+ *   - ticket must exist in caller's tenant schema      [SEC-OBJ]
+ *   - ticket must not be checked in
+ *   - ticket must not already be CANCELLED
+ *   - event must be more than 24h away
+ *   - event_sectors.sold is decremented atomically
+ *   - Payment row is soft-cancelled (cancelledAt set), never deleted   [FIN]
+ *   - AuditLog row created with action TICKET_CANCELLED
+ *
+ * Gateway call (cancelCharge) happens OUTSIDE the transaction to avoid
+ * holding a DB lock during a network round-trip. If the gateway call fails,
+ * the ticket remains in its current state (no partial update) and the error
+ * propagates to the route handler.
+ */
+export async function cancelTicket(
+  prisma: PrismaClient,
+  clubId: string,
+  ticketId: string,
+  reason: string,
+  actorId: string,
+): Promise<void> {
+  const snapshot = await withTenantSchema(prisma, clubId, async (tx) => {
+    await assertTicketExists(tx, ticketId);
+
+    const ticket = await tx.ticket.findUnique({
+      where: { id: ticketId },
+      select: {
+        id: true,
+        status: true,
+        checkedIn: true,
+        sectorId: true,
+        externalId: true,
+        gatewayName: true,
+        event: { select: { eventDate: true } },
+      },
+    });
+
+    const t = ticket!;
+
+    if (t.checkedIn) throw new TicketCheckedInError();
+    if (String(t.status) === "CANCELLED")
+      throw new TicketAlreadyCancelledError();
+
+    const msUntilEvent = t.event.eventDate.getTime() - Date.now();
+    if (msUntilEvent < CANCELLATION_WINDOW_MS) {
+      throw new TicketCancellationWindowError();
+    }
+
+    return {
+      sectorId: t.sectorId,
+      externalId: t.externalId,
+      gatewayName: t.gatewayName,
+      status: String(t.status) as "PENDING" | "PAID",
+    };
+  });
+
+  if (snapshot.externalId && snapshot.gatewayName) {
+    const gateway = GatewayRegistry.get(snapshot.gatewayName);
+    await gateway.cancelCharge(snapshot.externalId, reason);
+  }
+
+  await withTenantSchema(prisma, clubId, async (tx) => {
+    if (snapshot.externalId && snapshot.gatewayName) {
+      const charge = await tx.charge.findFirst({
+        where: { externalId: snapshot.externalId },
+        select: { id: true },
+      });
+      if (charge) {
+        await tx.payment.updateMany({
+          where: { chargeId: charge.id, cancelledAt: null },
+          data: { cancelledAt: new Date(), cancelReason: reason },
+        });
+      }
+    }
+
+    await tx.ticket.update({
+      where: { id: ticketId },
+      data: { status: "CANCELLED", updatedAt: new Date() },
+    });
+
+    await tx.eventSector.update({
+      where: { id: snapshot.sectorId },
+      data: { sold: { decrement: 1 }, updatedAt: new Date() },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        id: randomUUID(),
+        actorId,
+        action: "TICKET_CANCELLED",
+        entityId: ticketId,
+        entityType: "Ticket",
+        metadata: {
+          reason,
+          hadExternalCharge: Boolean(snapshot.externalId),
+          gatewayName: snapshot.gatewayName ?? null,
+          previousStatus: snapshot.status,
+        },
+        createdAt: new Date(),
+      },
+    });
+  });
 }

@@ -105,4 +105,16 @@ export interface PaymentGateway {
     rawBody: Buffer,
     headers: Record<string, string | string[] | undefined>,
   ): WebhookEvent;
+
+  /**
+   * Requests the gateway to cancel / refund an existing charge.
+   *
+   * MUST be idempotent — calling twice for the same externalId MUST NOT throw.
+   * The concrete implementation is responsible for mapping provider-specific
+   * errors to a generic Error (non-idempotent failures bubble up to the caller).
+   *
+   * @param externalId Gateway charge identifier (stored in tickets.externalId).
+   * @param reason     Human-readable cancellation reason forwarded to the provider.
+   */
+  cancelCharge(externalId: string, reason: string): Promise<void>;
 }

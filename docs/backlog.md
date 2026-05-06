@@ -20,7 +20,7 @@
 | T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256 | DONE | HIGH | S12 | Jobs |
 | T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`) | DONE | HIGH | S12 | Web |
 | T-142 | Cancelamento de ingresso com reembolso | DONE | HIGH | S12 | API |
-| T-143 | Backend de validação de ingresso (HMAC + Redis dedup) | TODO | HIGH | S13 | API |
+| T-143 | Backend de validação de ingresso (HMAC + Redis dedup) | DONE | HIGH | S13 | API |
 | T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first | TODO | HIGH | S13 | Web |
 | T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`) | TODO | HIGH | S13 | API |
 | T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`) | TODO | MEDIUM | S13 | Full |
@@ -45,24 +45,6 @@
 
 ## In Progress
 
-#### T-143 | [TODO] Backend de validação de ingresso (HMAC + Redis dedup)
-
-**Context:** Gate staff need to validate tickets in real-time; duplicate scan attempts must return 409.  
-**Architectural context:** `[SEC-WH]` HMAC-SHA256 + `timingSafeEqual`; Redis `SET NX` dedup TTL 24h; `[SEC-TEN]`; `[SEC-OBJ]` `assertEventBelongsToClub`.  
-**Files:** `apps/api/src/modules/events/tickets/validate.routes.ts`, `validate.service.ts`  
-**Acceptance criteria:**
-- [ ] `POST /api/events/:id/tickets/validate` verifies HMAC-SHA256 signature via `timingSafeEqual`
-- [ ] Rejects duplicate scans via Redis `SET NX` (TTL 24h) — returns 409
-- [ ] Sets `Ticket.checked_in = true`, records in `field_access_logs` with `actor_id`, `timestamp`, `ip`
-- [ ] `assertEventBelongsToClub` required
-- [ ] SSE event `CHECKIN_CONFIRMED` emitted after successful validation
-**Out of scope:** Scanner UI (T-144)  
-**Pattern reference:** `apps/api/src/modules/webhooks/` HMAC validation pattern
-
-## Todo
-
-### Priority: HIGH
-
 #### T-147 | [TODO] Funil torcedor → sócio (BullMQ `fan-to-member-funnel`)
 
 **Context:** After check-in, a conversion message should be sent to the fan with a membership offer.  
@@ -77,7 +59,9 @@
 **Out of scope:** Message templates (managed separately), CRM UI (T-146)  
 **Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern
 
----
+## Todo
+
+### Priority: HIGH
 
 #### T-153 | [TODO] Integração mPOS Stone/SumUp com fallback PIX
 
@@ -410,6 +394,20 @@
 - [x] `assertTicketBelongsToClub` required
 **Out of scope:** Bulk cancellation (future scope)  
 **Pattern reference:** Payment cancellation pattern in `apps/api/src/modules/payments/`
+
+#### T-143 | [DONE] Backend de validação de ingresso (HMAC + Redis dedup)
+
+**Context:** Gate staff need to validate tickets in real-time; duplicate scan attempts must return 409.  
+**Architectural context:** `[SEC-WH]` HMAC-SHA256 + `timingSafeEqual`; Redis `SET NX` dedup TTL 24h; `[SEC-TEN]`; `[SEC-OBJ]` `assertEventBelongsToClub`.  
+**Files:** `apps/api/src/modules/events/tickets/validate.routes.ts`, `validate.service.ts`  
+**Acceptance criteria:**
+- [ ] `POST /api/events/:id/tickets/validate` verifies HMAC-SHA256 signature via `timingSafeEqual`
+- [ ] Rejects duplicate scans via Redis `SET NX` (TTL 24h) — returns 409
+- [ ] Sets `Ticket.checked_in = true`, records in `field_access_logs` with `actor_id`, `timestamp`, `ip`
+- [ ] `assertEventBelongsToClub` required
+- [ ] SSE event `CHECKIN_CONFIRMED` emitted after successful validation
+**Out of scope:** Scanner UI (T-144)  
+**Pattern reference:** `apps/api/src/modules/webhooks/` HMAC validation pattern
 
 ---
 

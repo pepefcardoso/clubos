@@ -24,7 +24,7 @@
 | T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first | TODO | HIGH | S13 | Web |
 | T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`) | TODO | HIGH | S13 | API |
 | T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`) | TODO | MEDIUM | S13 | Full |
-| T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`) | TODO | HIGH | S13 | Jobs |
+| T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`) | DONE | HIGH | S13 | Jobs |
 | T-148 | Campos de patrocínio em `events` (logo + CTA) | TODO | MEDIUM | S13 | Full |
 | T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento) | TODO | MEDIUM | S14 | Jobs |
 | T-150 | CRUD de checklist de operações de jogo | TODO | MEDIUM | S14 | API |
@@ -45,24 +45,6 @@
 
 ## In Progress
 
-#### T-147 | [TODO] Funil torcedor → sócio (BullMQ `fan-to-member-funnel`)
-
-**Context:** After check-in, a conversion message should be sent to the fan with a membership offer.  
-**Architectural context:** `[SEC-JOB]` payload `fan_id + event_id` only — fetch name/contact inside worker; `[ARCH-JOB]` idempotent 1 message per `fan_id + event_id`; results recorded in `messages`.  
-**Files:** `apps/api/src/jobs/fan-to-member-funnel.worker.ts`  
-**Acceptance criteria:**
-- [ ] Job enqueued after `CHECKIN_CONFIRMED` event
-- [ ] Payload contains `fanId`, `eventId`, `clubId` only
-- [ ] Sends conversion message once per `fan_id + event_id` combination (idempotent)
-- [ ] Result recorded in `messages` table for audit
-- [ ] Failure logged to Sentry
-**Out of scope:** Message templates (managed separately), CRM UI (T-146)  
-**Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern
-
-## Todo
-
-### Priority: HIGH
-
 #### T-153 | [TODO] Integração mPOS Stone/SumUp com fallback PIX
 
 **Context:** Event staff need to accept card payments at the venue; fallback to PIX if terminal is unavailable.  
@@ -76,7 +58,9 @@
 **Out of scope:** PDV UI (T-154), product catalog (T-152)  
 **Pattern reference:** `apps/api/src/modules/payments/gateways/` registry pattern
 
----
+## Todo
+
+### Priority: HIGH
 
 #### T-155 | [TODO] Provisionamento DDL tenant v2.5 (idempotente)
 
@@ -408,6 +392,20 @@
 - [ ] SSE event `CHECKIN_CONFIRMED` emitted after successful validation
 **Out of scope:** Scanner UI (T-144)  
 **Pattern reference:** `apps/api/src/modules/webhooks/` HMAC validation pattern
+
+#### T-147 | [DONE] Funil torcedor → sócio (BullMQ `fan-to-member-funnel`)
+
+**Context:** After check-in, a conversion message should be sent to the fan with a membership offer.  
+**Architectural context:** `[SEC-JOB]` payload `fan_id + event_id` only — fetch name/contact inside worker; `[ARCH-JOB]` idempotent 1 message per `fan_id + event_id`; results recorded in `messages`.  
+**Files:** `apps/api/src/jobs/fan-to-member-funnel.worker.ts`  
+**Acceptance criteria:**
+- [x] Job enqueued after `CHECKIN_CONFIRMED` event
+- [x] Payload contains `fanId`, `eventId`, `clubId` only
+- [x] Sends conversion message once per `fan_id + event_id` combination (idempotent)
+- [x] Result recorded in `messages` table for audit
+- [x] Failure logged to Sentry
+**Out of scope:** Message templates (managed separately), CRM UI (T-146)  
+**Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern
 
 ---
 

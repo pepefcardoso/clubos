@@ -13,6 +13,7 @@ export const TEMPLATE_KEYS = {
   CHARGE_REMINDER_D0: "charge_reminder_d0",
   OVERDUE_NOTICE: "overdue_notice",
   CHARGE_REMINDER_MANUAL: "charge_reminder_manual",
+  FAN_CONVERSION: "fan_conversion",
 } as const;
 
 export type TemplateKey = (typeof TEMPLATE_KEYS)[keyof typeof TEMPLATE_KEYS];
@@ -53,4 +54,14 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, string> = {
     "Regularize sua situação pelo Pix abaixo e continue aproveitando os benefícios do clube:\n\n" +
     "{pix_link}\n\n" +
     "Em caso de dúvidas, entre em contato conosco. 🏆",
+
+  fan_conversion:
+    "Olá, {nome}! 👋\n\n" +
+    "Que alegria ter você no jogo contra *{opponent}* em {eventDate}! 🏆\n\n" +
+    "Quer continuar fazendo parte dessa história? Torne-se sócio do clube e garanta:\n\n" +
+    "• Acesso antecipado a ingressos\n" +
+    "• Descontos exclusivos\n" +
+    "• Benefícios especiais para sócios\n\n" +
+    "Acesse {membership_url} e filie-se agora.\n\n" +
+    "— ClubOS",
 };

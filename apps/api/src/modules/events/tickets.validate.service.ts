@@ -14,6 +14,8 @@ import {
 } from "../../lib/errors.js";
 import { emitCheckinConfirmed } from "../../lib/sse-bus.js";
 import type { ValidateTicketResponse } from "./tickets.validate.schema.js";
+import { fanFunnelQueue } from "../../jobs/queues.js";
+import { FAN_FUNNEL_JOB_NAMES } from "../../jobs/fan-to-member-funnel/fan-to-member-funnel.types.js";
 
 const SCAN_DEDUP_TTL_SECONDS = 24 * 60 * 60;
 
@@ -184,6 +186,20 @@ export async function validateTicket(
     sectorName: result.sectorName,
     checkedInAt: result.checkedInAt,
   });
+
+  fanFunnelQueue
+    .add(
+      FAN_FUNNEL_JOB_NAMES.SEND_FAN_CONVERSION,
+      { ticketId: parsed.ticketId, eventId, clubId },
+      { jobId: `fan-funnel:${parsed.ticketId}` },
+    )
+    .catch((err: unknown) => {
+      console.error(
+        "[fan-funnel] Failed to enqueue for ticket",
+        parsed.ticketId,
+        err instanceof Error ? err.message : err,
+      );
+    });
 
   return result;
 }

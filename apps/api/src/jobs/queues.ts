@@ -317,3 +317,34 @@ export const confirmTicketQueue = new Queue("confirm-ticket", {
     },
   },
 });
+
+/**
+ * Queue for fan-to-member funnel conversion emails.
+ *
+ * Enqueued by validateTicket() immediately after a successful check-in.
+ * Each job:
+ *   1. Resolves the FanProfile by ticket fanEmail inside the tenant schema
+ *   2. Checks Redis dedup (30-day TTL per fan+event pair)
+ *   3. Renders and sends the fan_conversion email via Resend
+ *   4. Writes to audit_log (entityType = "FanProfile")
+ *
+ * Not event-driven by cron — purely triggered by gate scanner check-ins.
+ * Email-only delivery: no WhatsApp rate-limit concern.
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 5s → attempt 2 (exponential backoff).
+ *   On failure, service clears the Redis dedup key so the retry can proceed.
+ *   Max 2 attempts — duplicate send risk is low (dedup cleared on failure).
+ */
+export const fanFunnelQueue = new Queue("fan-to-member-funnel", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 200 },
+    removeOnFail: { count: 500 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 5_000,
+    },
+  },
+});

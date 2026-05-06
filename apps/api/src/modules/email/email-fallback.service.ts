@@ -125,7 +125,9 @@ export function buildEmailSubject(template: TemplateKey): string {
     charge_reminder_d3: "Lembrete: sua mensalidade vence em 3 dias",
     charge_reminder_d0: "Atenção: sua mensalidade vence hoje",
     overdue_notice: "Aviso de inadimplência — regularize sua situação",
-    charge_reminder_manual: "Notificação de cobrança — entre em contato com seu clube", 
+    charge_reminder_manual:
+      "Notificação de cobrança — entre em contato com seu clube",
+    fan_conversion: "Você foi ao jogo! Que tal se tornar sócio?",
   };
   return subjects[template] ?? "Mensagem do seu clube";
 }

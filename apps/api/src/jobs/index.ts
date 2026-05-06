@@ -40,6 +40,8 @@ import { MONTHLY_REPORT_JOB_NAMES } from "./monthly-report/monthly-report.types.
 import { monthlyReportQueue } from "./queues.js";
 import { startConfirmTicketWorker } from "./confirm-ticket/confirm-ticket.worker.js";
 import { confirmTicketQueue } from "./queues.js";
+import { startFanFunnelWorker } from "./fan-to-member-funnel/fan-to-member-funnel.worker.js";
+import { fanFunnelQueue } from "./queues.js";
 
 /**
  * Cron expression: 1st of every month at 08:00 UTC.
@@ -261,6 +263,7 @@ export async function registerJobs(): Promise<void> {
   _workers.push(startMonthlyReportDispatchWorker());
   _workers.push(startMonthlyReportWorker());
   _workers.push(startConfirmTicketWorker());
+  _workers.push(startFanFunnelWorker());
 
   if (process.env["NODE_ENV"] !== "test") {
     await chargeGenerationQueue.upsertJobScheduler(
@@ -421,5 +424,6 @@ export async function closeJobs(): Promise<void> {
   await weeklyAthleteReportQueue.close();
   await monthlyReportQueue.close();
   await confirmTicketQueue.close();
+  await fanFunnelQueue.close();
   console.info("[jobs] All workers and queues closed");
 }

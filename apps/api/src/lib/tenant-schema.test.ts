@@ -108,7 +108,7 @@ describe.skipIf(!hasDatabase)(
       expect(result).toHaveLength(1);
     });
 
-    it("creates all expected tenant tables (18 total)", async () => {
+    it("creates all expected tenant tables (31 total)", async () => {
       const clubId = makeTestClubId();
       const schemaName = `clube_${clubId}`;
       createdSchemas.push(schemaName);
@@ -128,16 +128,20 @@ describe.skipIf(!hasDatabase)(
         expect.arrayContaining([
           "athletes",
           "audit_log",
+          "balance_sheets",
           "charges",
           "contracts",
           "creditor_disclosures",
           "data_access_log",
           "event_sectors",
           "events",
+          "expenses",
+          "exercises",
           "fan_profiles",
           "field_access_logs",
           "game_checklists",
           "injury_protocols",
+          "integration_tokens",
           "medical_records",
           "member_plans",
           "members",
@@ -148,11 +152,14 @@ describe.skipIf(!hasDatabase)(
           "pos_sales",
           "return_to_play",
           "rules_config",
+          "session_exercises",
+          "technical_evaluations",
           "tickets",
+          "training_sessions",
           "workload_metrics",
         ]),
       );
-      expect(tableNames).toHaveLength(18);
+      expect(tableNames).toHaveLength(31);
     });
 
     it("creates members.cpf and members.phone as BYTEA columns", async () => {
@@ -213,7 +220,7 @@ describe.skipIf(!hasDatabase)(
       ).resolves.toBeUndefined();
     });
 
-    it("schema created by second call has the same tables as the first", async () => {
+     it("schema created by second call has the same tables as the first", async () => {
       const clubId = makeTestClubId();
       const schemaName = `clube_${clubId}`;
       createdSchemas.push(schemaName);
@@ -227,7 +234,7 @@ describe.skipIf(!hasDatabase)(
         WHERE table_schema = ${schemaName}
           AND table_type = 'BASE TABLE'
       `;
-      expect(result).toHaveLength(18);
+      expect(result).toHaveLength(31);
     });
 
     it("pgcrypto extension is available after provisioning", async () => {

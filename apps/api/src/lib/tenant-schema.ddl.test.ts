@@ -6,6 +6,10 @@ import {
   TENANT_V2_TABLES_DDL_FOR_TESTING,
   TENANT_V2_INDEXES_DDL_FOR_TESTING,
   TENANT_V2_FOREIGN_KEYS_DDL_FOR_TESTING,
+  TENANT_V25_TABLES_DDL_FOR_TESTING,
+  TENANT_V25_INDEXES_DDL_FOR_TESTING,
+  TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING,
+  TENANT_V25_TICKETS_PAYMENT_PATCH_DDL,
 } from "./tenant-schema.js";
 
 describe("TENANT_TABLES_DDL — technical_evaluations", () => {
@@ -336,6 +340,27 @@ describe("Idempotency — IF NOT EXISTS on all CREATE statements", () => {
     );
     expect(adds).toBeNull();
   });
+
+  it("all CREATE TABLE statements in TENANT_V25_TABLES_DDL use IF NOT EXISTS", () => {
+    const creates = TENANT_V25_TABLES_DDL_FOR_TESTING.match(
+      /CREATE TABLE\s+(?!IF NOT EXISTS)/gi,
+    );
+    expect(creates).toBeNull();
+  });
+
+  it("all CREATE INDEX statements in TENANT_V25_INDEXES_DDL use IF NOT EXISTS", () => {
+    const creates = TENANT_V25_INDEXES_DDL_FOR_TESTING.match(
+      /CREATE (?:UNIQUE )?INDEX\s+(?!IF NOT EXISTS)/gi,
+    );
+    expect(creates).toBeNull();
+  });
+
+  it("all ADD CONSTRAINT statements in TENANT_V25_FOREIGN_KEYS_DDL use IF NOT EXISTS", () => {
+    const adds = TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING.match(
+      /ADD CONSTRAINT\s+(?!IF NOT EXISTS)/gi,
+    );
+    expect(adds).toBeNull();
+  });
 });
 
 describe("Exported DDL constants are non-empty strings", () => {
@@ -351,6 +376,12 @@ describe("Exported DDL constants are non-empty strings", () => {
     [
       "TENANT_V2_FOREIGN_KEYS_DDL_FOR_TESTING",
       TENANT_V2_FOREIGN_KEYS_DDL_FOR_TESTING,
+    ],
+    ["TENANT_V25_TABLES_DDL_FOR_TESTING", TENANT_V25_TABLES_DDL_FOR_TESTING],
+    ["TENANT_V25_INDEXES_DDL_FOR_TESTING", TENANT_V25_INDEXES_DDL_FOR_TESTING],
+    [
+      "TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING",
+      TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING,
     ],
   ] as const;
 
@@ -420,3 +451,149 @@ function extractFkBlock(ddl: string, constraintName: string): string {
   const end = ddl.indexOf(";", idx);
   return ddl.slice(alterStart, end + 1);
 }
+
+describe("TENANT_V25_TABLES_DDL — events", () => {
+  it("declares events with status defaulting to SCHEDULED", () => {
+    const block = extractTableBlock(
+      TENANT_V25_TABLES_DDL_FOR_TESTING,
+      "events",
+    );
+    expect(block).toContain('"EventStatus"');
+    expect(block).toContain("DEFAULT 'SCHEDULED'");
+  });
+
+  it("declares event_sectors.priceCents as INTEGER NOT NULL (cents-only [FIN])", () => {
+    const block = extractTableBlock(
+      TENANT_V25_TABLES_DDL_FOR_TESTING,
+      "event_sectors",
+    );
+    expect(block).toContain('"priceCents" INTEGER      NOT NULL');
+  });
+
+  it("declares fan_profiles.totalSpentCents as INTEGER NOT NULL DEFAULT 0 (cents-only [FIN])", () => {
+    const block = extractTableBlock(
+      TENANT_V25_TABLES_DDL_FOR_TESTING,
+      "fan_profiles",
+    );
+    expect(block).toContain('"totalSpentCents" INTEGER');
+    expect(block).toContain("DEFAULT 0");
+    const line = block.split("\n").find((l) => l.includes('"totalSpentCents"'));
+    expect(line).toBeDefined();
+    expect(line).not.toContain("FLOAT");
+  });
+
+  it("declares pos_sales.amountCents as INTEGER NOT NULL (cents-only [FIN])", () => {
+    const block = extractTableBlock(
+      TENANT_V25_TABLES_DDL_FOR_TESTING,
+      "pos_sales",
+    );
+    expect(block).toContain('"amountCents"   INTEGER      NOT NULL');
+  });
+
+  it("declares tickets with status defaulting to PENDING", () => {
+    const block = extractTableBlock(
+      TENANT_V25_TABLES_DDL_FOR_TESTING,
+      "tickets",
+    );
+    expect(block).toContain('"TicketStatus"');
+    expect(block).toContain("DEFAULT 'PENDING'");
+  });
+
+  it("capacity trigger uses CREATE OR REPLACE FUNCTION (idempotent)", () => {
+    expect(TENANT_V25_TABLES_DDL_FOR_TESTING).toContain(
+      "CREATE OR REPLACE FUNCTION check_ticket_capacity()",
+    );
+  });
+
+  it("trigger registration uses DO/EXCEPTION pattern (idempotent)", () => {
+    expect(TENANT_V25_TABLES_DDL_FOR_TESTING).toContain(
+      "tickets_capacity_check",
+    );
+    expect(TENANT_V25_TABLES_DDL_FOR_TESTING).toContain(
+      "EXCEPTION WHEN duplicate_object",
+    );
+  });
+
+  it("trigger fires BEFORE INSERT and skips CANCELLED status", () => {
+    const ddl = TENANT_V25_TABLES_DDL_FOR_TESTING;
+    const triggerIdx = ddl.indexOf("tickets_capacity_check");
+    const endIdx = ddl.indexOf("END $$;", triggerIdx) + 7;
+    const block = ddl.slice(triggerIdx, endIdx);
+    expect(block).toContain("BEFORE INSERT ON tickets");
+    expect(block).toContain("WHEN (NEW.status <> 'CANCELLED')");
+  });
+});
+
+describe("TENANT_V25_INDEXES_DDL — key invariants", () => {
+  it("creates UNIQUE index on tickets (fanEmail, eventId, sectorId) — idempotency invariant", () => {
+    const block = extractIndexBlock(
+      TENANT_V25_INDEXES_DDL_FOR_TESTING,
+      "tickets_fanEmail_eventId_sectorId_key",
+    );
+    expect(block).toContain("CREATE UNIQUE INDEX IF NOT EXISTS");
+    expect(block).toContain('"fanEmail"');
+    expect(block).toContain('"eventId"');
+    expect(block).toContain('"sectorId"');
+  });
+
+  it("creates UNIQUE index on fan_profiles.email", () => {
+    const block = extractIndexBlock(
+      TENANT_V25_INDEXES_DDL_FOR_TESTING,
+      "fan_profiles_email_key",
+    );
+    expect(block).toContain("CREATE UNIQUE INDEX IF NOT EXISTS");
+  });
+
+  it("creates checkedIn index on tickets for gate-scan queries", () => {
+    expect(TENANT_V25_INDEXES_DDL_FOR_TESTING).toContain(
+      '"tickets_checkedIn_idx"',
+    );
+  });
+});
+
+describe("TENANT_V25_FOREIGN_KEYS_DDL — cascade behavior", () => {
+  it("game_checklists → events uses ON DELETE CASCADE (owned by event)", () => {
+    const block = extractFkBlock(
+      TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING,
+      "game_checklists_eventId_fkey",
+    );
+    expect(block).toContain("ON DELETE CASCADE");
+  });
+
+  it("tickets → events uses ON DELETE RESTRICT (sold tickets must outlive event record)", () => {
+    const block = extractFkBlock(
+      TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING,
+      "tickets_eventId_fkey",
+    );
+    expect(block).toContain("ON DELETE RESTRICT");
+  });
+
+  it("event_sectors → events uses ON DELETE RESTRICT", () => {
+    const block = extractFkBlock(
+      TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING,
+      "event_sectors_eventId_fkey",
+    );
+    expect(block).toContain("ON DELETE RESTRICT");
+  });
+});
+
+describe("TENANT_V25_TICKETS_PAYMENT_PATCH_DDL — ADD COLUMN IF NOT EXISTS", () => {
+  it("adds externalId column to tickets", () => {
+    expect(TENANT_V25_TICKETS_PAYMENT_PATCH_DDL).toContain(
+      'ADD COLUMN IF NOT EXISTS "externalId"',
+    );
+  });
+
+  it("adds gatewayName column to tickets", () => {
+    expect(TENANT_V25_TICKETS_PAYMENT_PATCH_DDL).toContain(
+      'ADD COLUMN IF NOT EXISTS "gatewayName"',
+    );
+  });
+
+  it("adds gatewayMeta JSONB column to tickets", () => {
+    expect(TENANT_V25_TICKETS_PAYMENT_PATCH_DDL).toContain(
+      'ADD COLUMN IF NOT EXISTS "gatewayMeta"',
+    );
+    expect(TENANT_V25_TICKETS_PAYMENT_PATCH_DDL).toContain("JSONB");
+  });
+});

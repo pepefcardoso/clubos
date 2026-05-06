@@ -457,3 +457,115 @@ describe("provisionTenantSchema — schema name derivation", () => {
     ).toBe(true);
   });
 });
+
+describe("provisionTenantSchema — v2.5 enums", () => {
+  it("creates EventStatus enum with all four values", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    const calls = sqlCallsWith(prisma._calls, "EventStatus");
+    expect(calls.length).toBeGreaterThan(0);
+    const combined = calls.join("\n");
+    expect(combined).toContain("SCHEDULED");
+    expect(combined).toContain("LIVE");
+    expect(combined).toContain("COMPLETED");
+    expect(combined).toContain("CANCELLED");
+  });
+
+  it("creates TicketStatus enum with all four values", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    const calls = sqlCallsWith(prisma._calls, "TicketStatus");
+    expect(calls.length).toBeGreaterThan(0);
+    const combined = calls.join("\n");
+    expect(combined).toContain("PENDING");
+    expect(combined).toContain("PAID");
+    expect(combined).toContain("CANCELLED");
+    expect(combined).toContain("CHECKED_IN");
+  });
+
+  it("adds TICKET_CANCELLED AuditAction with IF NOT EXISTS", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    expect(anySqlContains(prisma._calls, "'TICKET_CANCELLED'")).toBe(true);
+    const calls = sqlCallsWith(prisma._calls, "'TICKET_CANCELLED'");
+    expect(calls.some((sql) => sql.includes("ADD VALUE IF NOT EXISTS"))).toBe(
+      true,
+    );
+  });
+});
+
+describe("provisionTenantSchema — v2.5 tables present", () => {
+  const v25Tables = [
+    "events",
+    "event_sectors",
+    "tickets",
+    "fan_profiles",
+    "pos_sales",
+    "game_checklists",
+  ];
+
+  for (const table of v25Tables) {
+    it(`creates table "${table}"`, async () => {
+      await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+      expect(
+        anySqlContains(prisma._calls, `CREATE TABLE IF NOT EXISTS "${table}"`),
+      ).toBe(true);
+    });
+  }
+
+  it("registers check_ticket_capacity trigger function", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    expect(anySqlContains(prisma._calls, "check_ticket_capacity")).toBe(true);
+    const calls = sqlCallsWith(prisma._calls, "check_ticket_capacity");
+    expect(
+      calls.some((sql) => sql.includes("CREATE OR REPLACE FUNCTION")),
+    ).toBe(true);
+  });
+
+  it("applies tickets payment patch (externalId, gatewayName, gatewayMeta columns)", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    const calls = sqlCallsWith(prisma._calls, '"externalId"');
+    expect(calls.some((sql) => sql.includes("ADD COLUMN IF NOT EXISTS"))).toBe(
+      true,
+    );
+  });
+});
+
+describe("provisionTenantSchema — v2.5 indexes", () => {
+  it("creates UNIQUE index on tickets (fanEmail, eventId, sectorId)", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    expect(
+      anySqlContains(prisma._calls, '"tickets_fanEmail_eventId_sectorId_key"'),
+    ).toBe(true);
+  });
+
+  it("creates UNIQUE index on fan_profiles.email", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    expect(anySqlContains(prisma._calls, '"fan_profiles_email_key"')).toBe(
+      true,
+    );
+  });
+
+  it("creates checkedIn index on tickets", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    expect(anySqlContains(prisma._calls, '"tickets_checkedIn_idx"')).toBe(true);
+  });
+});
+
+describe("provisionTenantSchema — v2.5 foreign keys", () => {
+  it("adds FK from event_sectors to events", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    expect(anySqlContains(prisma._calls, '"event_sectors_eventId_fkey"')).toBe(
+      true,
+    );
+  });
+
+  it("game_checklists → events FK uses ON DELETE CASCADE", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    const calls = sqlCallsWith(prisma._calls, '"game_checklists_eventId_fkey"');
+    expect(calls.some((sql) => sql.includes("ON DELETE CASCADE"))).toBe(true);
+  });
+
+  it("tickets → events FK uses ON DELETE RESTRICT", async () => {
+    await provisionTenantSchema(prisma as never, VALID_CLUB_ID);
+    const calls = sqlCallsWith(prisma._calls, '"tickets_eventId_fkey"');
+    expect(calls.some((sql) => sql.includes("ON DELETE RESTRICT"))).toBe(true);
+  });
+});

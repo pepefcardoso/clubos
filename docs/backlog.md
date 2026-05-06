@@ -32,7 +32,7 @@
 | T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`) | TODO | MEDIUM | S14 | Full |
 | T-153 | Integração mPOS Stone/SumUp com fallback PIX | DONE | HIGH | S14 | API |
 | T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first | TODO | HIGH | S14 | Web |
-| T-155 | Provisionamento DDL tenant v2.5 (idempotente) | TODO | HIGH | S12 | Infra |
+| T-155 | Provisionamento DDL tenant v2.5 (idempotente) | DONE | HIGH | S12 | Infra |
 | T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | TODO | HIGH | S12 | Infra |
 | T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório) | TODO | HIGH | S15 | Test |
 | T-158 | Rate limiting PDV e tickets (Redis) | TODO | MEDIUM | S15 | Infra |
@@ -44,22 +44,6 @@
 ---
 
 ## In Progress
-
-#### T-155 | [TODO] Provisionamento DDL tenant v2.5 (idempotente)
-
-**Context:** Existing clubs must automatically receive the new v2.5 tables on next provisioning run.  
-**Architectural context:** `[SEC-TEN]` DDL must be idempotent; `provisionTenantSchema` is the only place for tenant DDL changes.  
-**Files:** `apps/api/src/lib/provision-tenant-schema.ts`  
-**Acceptance criteria:**
-- [ ] `events`, `event_sectors`, `tickets`, `fan_profiles`, `pos_sales`, `game_checklists` added to `provisionTenantSchema`
-- [ ] Existing clubs receive tables on next execution without errors
-- [ ] DDL wrapped in `IF NOT EXISTS` guards
-**Out of scope:** Data migration, seeding  
-**Pattern reference:** existing `provisionTenantSchema` implementation
-
-## Todo
-
-### Priority: HIGH
 
 #### T-156 | [TODO] Rotas SSE v2.5
 
@@ -73,7 +57,7 @@
 **Out of scope:** New SSE transport implementation (scaling concern)  
 **Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
 
----
+## Todo
 
 ### Priority: MEDIUM
 
@@ -404,6 +388,18 @@
 - [ ] `POS_PROVIDER` resolved from env — no hardcoded provider name
 **Out of scope:** PDV UI (T-154), product catalog (T-152)  
 **Pattern reference:** `apps/api/src/modules/payments/gateways/` registry pattern
+
+#### T-155 | [DONE] Provisionamento DDL tenant v2.5 (idempotente)
+
+**Context:** Existing clubs must automatically receive the new v2.5 tables on next provisioning run.  
+**Architectural context:** `[SEC-TEN]` DDL must be idempotent; `provisionTenantSchema` is the only place for tenant DDL changes.  
+**Files:** `apps/api/src/lib/provision-tenant-schema.ts`  
+**Acceptance criteria:**
+- [ ] `events`, `event_sectors`, `tickets`, `fan_profiles`, `pos_sales`, `game_checklists` added to `provisionTenantSchema`
+- [ ] Existing clubs receive tables on next execution without errors
+- [ ] DDL wrapped in `IF NOT EXISTS` guards
+**Out of scope:** Data migration, seeding  
+**Pattern reference:** existing `provisionTenantSchema` implementation
 
 ---
 

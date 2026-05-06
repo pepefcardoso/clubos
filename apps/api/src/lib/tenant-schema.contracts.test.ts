@@ -400,7 +400,7 @@ describe.skipIf(!hasDatabase)("provisionTenantSchema — contracts table", () =>
     expect(labels).toHaveLength(4);
   });
 
-  it("all original tenant tables still exist after provisioning", async () => {
+  it("all 31 tenant tables are provisioned (regression guard)", async () => {
     const clubId = makeTestClubId();
     const schemaName = `clube_${clubId}`;
     createdSchemas.push(schemaName);
@@ -414,18 +414,26 @@ describe.skipIf(!hasDatabase)("provisionTenantSchema — contracts table", () =>
           AND table_type   = 'BASE TABLE'
         ORDER BY table_name
       `;
-    const names = result.map((r) => r["table_name"] as string);
 
-    for (const table of [
-      "audit_log",
-      "charges",
-      "member_plans",
-      "members",
-      "messages",
-      "payments",
-      "plans",
-    ]) {
-      expect(names).toContain(table);
-    }
+    const names = result.map((r) => r["table_name"] as string);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "audit_log",
+        "charges",
+        "contracts",
+        "event_sectors",
+        "events",
+        "fan_profiles",
+        "game_checklists",
+        "member_plans",
+        "members",
+        "messages",
+        "payments",
+        "plans",
+        "pos_sales",
+        "tickets",
+      ]),
+    );
+    expect(names).toHaveLength(31);
   });
 });

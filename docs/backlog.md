@@ -340,11 +340,11 @@
 **Architectural context:** `[SEC-WH]` HMAC-SHA256 + `timingSafeEqual`; Redis `SET NX` dedup TTL 24h; `[SEC-TEN]`; `[SEC-OBJ]` `assertEventBelongsToClub`.  
 **Files:** `apps/api/src/modules/events/tickets/validate.routes.ts`, `validate.service.ts`  
 **Acceptance criteria:**
-- [ ] `POST /api/events/:id/tickets/validate` verifies HMAC-SHA256 signature via `timingSafeEqual`
-- [ ] Rejects duplicate scans via Redis `SET NX` (TTL 24h) — returns 409
-- [ ] Sets `Ticket.checked_in = true`, records in `field_access_logs` with `actor_id`, `timestamp`, `ip`
-- [ ] `assertEventBelongsToClub` required
-- [ ] SSE event `CHECKIN_CONFIRMED` emitted after successful validation
+- [x] `POST /api/events/:id/tickets/validate` verifies HMAC-SHA256 signature via `timingSafeEqual`
+- [x] Rejects duplicate scans via Redis `SET NX` (TTL 24h) — returns 409
+- [x] Sets `Ticket.checked_in = true`, records in `field_access_logs` with `actor_id`, `timestamp`, `ip`
+- [x] `assertEventBelongsToClub` required
+- [x] SSE event `CHECKIN_CONFIRMED` emitted after successful validation
 **Out of scope:** Scanner UI (T-144)  
 **Pattern reference:** `apps/api/src/modules/webhooks/` HMAC validation pattern
 

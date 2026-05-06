@@ -54,7 +54,7 @@ export function AccessScannerPage({ eventId = "open" }: AccessScannerPageProps) 
     useEffect(() => {
         if (!user?.clubId) return;
         void resetStuckSyncingScans(user.clubId);
-    }, [user?.clubId]);
+    }, [user]);
 
     const doFlush = useCallback(async () => {
         if (!user?.clubId || isSyncing) return;
@@ -69,7 +69,7 @@ export function AccessScannerPage({ eventId = "open" }: AccessScannerPageProps) 
         } finally {
             setIsSyncing(false);
         }
-    }, [user?.clubId, getAccessToken, isSyncing, bumpLog]);
+    }, [user, getAccessToken, isSyncing, bumpLog]);
 
     useEffect(() => {
         const wasOffline = !prevOnlineRef.current;
@@ -82,8 +82,10 @@ export function AccessScannerPage({ eventId = "open" }: AccessScannerPageProps) 
     }, [isOnline, doFlush]);
 
     useEffect(() => {
-        if (scanState.phase === "idle") bumpLog();
-    }, [scanState.phase, bumpLog]);
+        if (scanState.phase !== "idle") return;
+        const id = setTimeout(() => setLogRefreshKey((k) => k + 1), 0);
+        return () => clearTimeout(id);
+    }, [scanState.phase]);
 
     const isScanning = scanState.phase !== "idle";
 

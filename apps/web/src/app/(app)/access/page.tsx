@@ -3,7 +3,7 @@ import { AccessScannerPage } from "@/components/access/AccessScannerPage";
 
 export const metadata: Metadata = {
     title: "Portaria — ClubOS",
-    robots: "noindex",
+    robots: "noindex, nofollow",
 };
 
 interface PageProps {
@@ -13,13 +13,14 @@ interface PageProps {
 /**
  * /access?event=<eventId>
  *
- * The `event` query param maps to the eventId used in:
- *   POST /api/events/:eventId/access/validate
+ * The `event` query param pre-selects the event in the AccessScannerPage picker.
+ * When omitted the picker starts in "no event selected" state.
  *
- * When omitted, `AccessScannerPage` defaults to 'open' for open-access
- * scanning (no specific event context — suitable for general admission).
+ * ADMIN-only guard is enforced inside AccessScannerPage via useAuth + router.replace.
+ * Server-side guard is left to the middleware layer (auth middleware redirects
+ * non-authenticated requests before this page renders).
  */
 export default async function Page({ searchParams }: PageProps) {
     const { event } = await searchParams;
-    return <AccessScannerPage eventId={event ?? "open"} />;
+    return <AccessScannerPage eventId={event} />;
 }

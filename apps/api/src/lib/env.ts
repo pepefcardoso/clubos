@@ -189,56 +189,69 @@ const AllowedOriginsSchema = z
     }
   });
 
-export const EnvSchema = z.object({
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
+export const EnvSchema = z
+  .object({
+    NODE_ENV: z
+      .enum(["development", "test", "production"])
+      .default("development"),
 
-  DATABASE_URL: DatabaseUrlSchema,
+    DATABASE_URL: DatabaseUrlSchema,
+    REDIS_URL: RedisUrlSchema,
 
-  REDIS_URL: RedisUrlSchema,
+    JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+    JWT_REFRESH_SECRET: z
+      .string()
+      .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
 
-  JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+    MEMBER_ENCRYPTION_KEY: z
+      .string()
+      .min(32, "MEMBER_ENCRYPTION_KEY must be at least 32 characters"),
 
-  JWT_REFRESH_SECRET: z
-    .string()
-    .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
+    MEMBER_CARD_SECRET: z
+      .string()
+      .min(32, "MEMBER_CARD_SECRET must be at least 32 characters"),
 
-  MEMBER_ENCRYPTION_KEY: z
-    .string()
-    .min(32, "MEMBER_ENCRYPTION_KEY must be at least 32 characters"),
+    ACCESS_QR_SECRET: z
+      .string()
+      .min(32, "ACCESS_QR_SECRET must be at least 32 characters"),
 
-  /**
-   * Symmetric secret for signing digital membership card tokens.
-   * Separate from JWT_SECRET to allow independent rotation.
-   * Rotating this key only invalidates issued cards (24h TTL),
-   * not active user sessions.
-   */
-  MEMBER_CARD_SECRET: z
-    .string()
-    .min(32, "MEMBER_CARD_SECRET must be at least 32 characters"),
+    PORT: z.coerce.number().int().positive().default(3001),
+    HOST: z.string().default("0.0.0.0"),
+    LOG_LEVEL: z
+      .enum(["trace", "debug", "info", "warn", "error", "fatal"])
+      .default("info"),
 
-  /**
-   * HMAC-SHA256 key for signing and verifying QR Code access tokens.
-   * Separate from MEMBER_CARD_SECRET and JWT_SECRET to allow independent
-   * rotation. Rotating this key invalidates all outstanding QR codes
-   * (4-hour TTL) without affecting user sessions or member card tokens.
-   */
-  ACCESS_QR_SECRET: z
-    .string()
-    .min(32, "ACCESS_QR_SECRET must be at least 32 characters"),
+    ASAAS_API_KEY: z.string().optional(),
+    ASAAS_WEBHOOK_SECRET: z.string().optional(),
+    SENTRY_DSN: z.url().optional().or(z.literal("")),
+    ALLOWED_ORIGINS: AllowedOriginsSchema,
 
-  PORT: z.coerce.number().int().positive().default(3001),
-  HOST: z.string().default("0.0.0.0"),
-  LOG_LEVEL: z
-    .enum(["trace", "debug", "info", "warn", "error", "fatal"])
-    .default("info"),
-
-  ASAAS_API_KEY: z.string().optional(),
-  ASAAS_WEBHOOK_SECRET: z.string().optional(),
-  SENTRY_DSN: z.url().optional().or(z.literal("")),
-  ALLOWED_ORIGINS: AllowedOriginsSchema,
-});
+    /**
+     * Which mPOS provider to activate. Supported values: "stone" | "sumup".
+     * Omitting disables mPOS; PIX fallback still works via existing gateways.
+     */
+    POS_PROVIDER: z.enum(["stone", "sumup"]).optional(),
+    /** Required when POS_PROVIDER=stone */
+    STONE_API_KEY: z.string().optional(),
+    /** Required when POS_PROVIDER=sumup */
+    SUMUP_API_KEY: z.string().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.POS_PROVIDER === "stone" && !val.STONE_API_KEY) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["STONE_API_KEY"],
+        message: "STONE_API_KEY is required when POS_PROVIDER=stone",
+      });
+    }
+    if (val.POS_PROVIDER === "sumup" && !val.SUMUP_API_KEY) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["SUMUP_API_KEY"],
+        message: "SUMUP_API_KEY is required when POS_PROVIDER=sumup",
+      });
+    }
+  });
 
 export type Env = z.infer<typeof EnvSchema>;
 

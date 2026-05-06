@@ -1,23 +1,10 @@
 import { GatewayRegistry } from "../gateway.registry.js";
 import { AsaasGateway } from "./asaas.gateway.js";
 import { PagarmeGateway } from "./pagarme.gateway.js";
+import { StoneGateway } from "./stone.gateway.js";
 import { StripeGateway } from "./stripe.gateway.js";
+import { SumupGateway } from "./sumup.gateway.js";
 
-/**
- * GATEWAY BOOTSTRAP
- *
- * To add a new gateway:
- *   1. Create `<provider>.gateway.ts` implementing PaymentGateway
- *   2. Import it here and call GatewayRegistry.register(new ProviderGateway(...))
- *   3. Add the required env vars to .env.example
- *   4. No other file needs to change.
- *
- * INSERTION ORDER = PRIORITY
- *   GatewayRegistry.forMethod() returns the first matching gateway.
- *   Asaas is registered first   → primary gateway for PIX (Brazilian provider).
- *   Pagarme is registered second → secondary fallback gateway.
- *   Stripe is registered third   → tertiary international gateway (opt-in via STRIPE_ENABLED=true).
- */
 export function registerGateways(): void {
   const asaasApiKey = process.env["ASAAS_API_KEY"];
   const asaasWebhookSecret = process.env["ASAAS_WEBHOOK_SECRET"];
@@ -67,6 +54,27 @@ export function registerGateways(): void {
         webhookSecret: stripeWebhookSecret,
       }),
     );
+  }
+
+  const posProvider = process.env["POS_PROVIDER"];
+
+  if (posProvider === "stone") {
+    const stoneApiKey = process.env["STONE_API_KEY"];
+    if (!stoneApiKey) {
+      throw new Error("STONE_API_KEY is required when POS_PROVIDER=stone");
+    }
+    GatewayRegistry.register(
+      new StoneGateway({
+        apiKey: stoneApiKey,
+        sandbox: process.env["NODE_ENV"] !== "production",
+      }),
+    );
+  } else if (posProvider === "sumup") {
+    const sumupApiKey = process.env["SUMUP_API_KEY"];
+    if (!sumupApiKey) {
+      throw new Error("SUMUP_API_KEY is required when POS_PROVIDER=sumup");
+    }
+    GatewayRegistry.register(new SumupGateway({ apiKey: sumupApiKey }));
   }
 }
 

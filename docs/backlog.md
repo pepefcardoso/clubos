@@ -30,7 +30,7 @@
 | T-150 | CRUD de checklist de operações de jogo | TODO | MEDIUM | S14 | API |
 | T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first | TODO | MEDIUM | S14 | Web |
 | T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`) | TODO | MEDIUM | S14 | Full |
-| T-153 | Integração mPOS Stone/SumUp com fallback PIX | TODO | HIGH | S14 | API |
+| T-153 | Integração mPOS Stone/SumUp com fallback PIX | DONE | HIGH | S14 | API |
 | T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first | TODO | HIGH | S14 | Web |
 | T-155 | Provisionamento DDL tenant v2.5 (idempotente) | TODO | HIGH | S12 | Infra |
 | T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | TODO | HIGH | S12 | Infra |
@@ -45,23 +45,6 @@
 
 ## In Progress
 
-#### T-153 | [TODO] Integração mPOS Stone/SumUp com fallback PIX
-
-**Context:** Event staff need to accept card payments at the venue; fallback to PIX if terminal is unavailable.  
-**Architectural context:** `[ARCH-GW]` fallback via `GatewayRegistry.forMethod('PIX')` — never direct import; `[FIN]` `amount_cents` as integer; `[PR-FIN]` ≥ 2 approvals.  
-**Files:** `apps/api/src/modules/events/pos/pos.routes.ts`, `pos.service.ts`  
-**Acceptance criteria:**
-- [ ] `POST /api/events/:id/pos/charge` creates charge via `POS_PROVIDER` SDK (Stone or SumUp)
-- [ ] Records sale in `pos_sales` with `amount_cents` as integer
-- [ ] Falls back to `GatewayRegistry.forMethod('PIX')` if terminal unavailable
-- [ ] `POS_PROVIDER` resolved from env — no hardcoded provider name
-**Out of scope:** PDV UI (T-154), product catalog (T-152)  
-**Pattern reference:** `apps/api/src/modules/payments/gateways/` registry pattern
-
-## Todo
-
-### Priority: HIGH
-
 #### T-155 | [TODO] Provisionamento DDL tenant v2.5 (idempotente)
 
 **Context:** Existing clubs must automatically receive the new v2.5 tables on next provisioning run.  
@@ -74,7 +57,9 @@
 **Out of scope:** Data migration, seeding  
 **Pattern reference:** existing `provisionTenantSchema` implementation
 
----
+## Todo
+
+### Priority: HIGH
 
 #### T-156 | [TODO] Rotas SSE v2.5
 
@@ -406,6 +391,19 @@
 - [x] Failure logged to Sentry
 **Out of scope:** Message templates (managed separately), CRM UI (T-146)  
 **Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern
+
+#### T-153 | [DONE] Integração mPOS Stone/SumUp com fallback PIX
+
+**Context:** Event staff need to accept card payments at the venue; fallback to PIX if terminal is unavailable.  
+**Architectural context:** `[ARCH-GW]` fallback via `GatewayRegistry.forMethod('PIX')` — never direct import; `[FIN]` `amount_cents` as integer; `[PR-FIN]` ≥ 2 approvals.  
+**Files:** `apps/api/src/modules/events/pos/pos.routes.ts`, `pos.service.ts`  
+**Acceptance criteria:**
+- [ ] `POST /api/events/:id/pos/charge` creates charge via `POS_PROVIDER` SDK (Stone or SumUp)
+- [ ] Records sale in `pos_sales` with `amount_cents` as integer
+- [ ] Falls back to `GatewayRegistry.forMethod('PIX')` if terminal unavailable
+- [ ] `POS_PROVIDER` resolved from env — no hardcoded provider name
+**Out of scope:** PDV UI (T-154), product catalog (T-152)  
+**Pattern reference:** `apps/api/src/modules/payments/gateways/` registry pattern
 
 ---
 

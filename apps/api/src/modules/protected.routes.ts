@@ -26,6 +26,7 @@ import { fieldAccessRoutes } from "./field-access/field-access.routes.js";
 import { eventManagementRoutes } from "./events/event-management.routes.js";
 import { ticketAdminRoutes } from "./events/tickets.admin.routes.js";
 import { ticketValidateRoutes } from "./events/tickets.validate.routes.js";
+import { posRoutes } from "./events/pos/pos.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -97,4 +98,5 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(eventManagementRoutes, { prefix: "/events" });
   await fastify.register(ticketAdminRoutes, { prefix: "/tickets" });
   await fastify.register(ticketValidateRoutes, { prefix: "/tickets" });
+  await fastify.register(posRoutes, { prefix: "/events" });
 }

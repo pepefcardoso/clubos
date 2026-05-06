@@ -33,7 +33,7 @@
 | T-153 | Integração mPOS Stone/SumUp com fallback PIX | DONE | HIGH | S14 | API |
 | T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first | TODO | HIGH | S14 | Web |
 | T-155 | Provisionamento DDL tenant v2.5 (idempotente) | DONE | HIGH | S12 | Infra |
-| T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | TODO | HIGH | S12 | Infra |
+| T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | DONE | HIGH | S12 | Infra |
 | T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório) | TODO | HIGH | S15 | Test |
 | T-158 | Rate limiting PDV e tickets (Redis) | TODO | MEDIUM | S15 | Infra |
 | T-159 | Matriz RBAC v2.5 (testes unitários dos novos endpoints) | TODO | HIGH | S15 | Test |
@@ -44,22 +44,6 @@
 ---
 
 ## In Progress
-
-#### T-156 | [TODO] Rotas SSE v2.5
-
-**Context:** Clients need real-time updates for ticket sales and check-ins without polling.  
-**Architectural context:** `sse-bus.ts` coupling — React Query invalidation keys must be updated in matching web modules.  
-**Files:** `apps/api/src/modules/events/sse-bus.ts`, matching web query files  
-**Acceptance criteria:**
-- [ ] `TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED` events added to `sse-bus.ts`
-- [ ] `EVENT_QUERY_KEY` and `TICKETS_QUERY_KEY` invalidated in `queryClient` on receipt
-- [ ] Scaling note in code: replace `EventEmitter` with `redis.publish/subscribe` when > 1 process
-**Out of scope:** New SSE transport implementation (scaling concern)  
-**Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
-
-## Todo
-
-### Priority: MEDIUM
 
 #### T-144 | [TODO] UI de portaria mobile-first (`TicketScannerPage`) offline-first
 
@@ -75,7 +59,9 @@
 **Out of scope:** Backend validation (T-143)  
 **Pattern reference:** offline attendance pattern in `apps/web/src/app/(app)/training/`
 
----
+## Todo
+
+### Priority: MEDIUM
 
 #### T-145 | [TODO] Relatório de bilheteria pós-jogo
 
@@ -382,10 +368,10 @@
 **Architectural context:** `[ARCH-GW]` fallback via `GatewayRegistry.forMethod('PIX')` — never direct import; `[FIN]` `amount_cents` as integer; `[PR-FIN]` ≥ 2 approvals.  
 **Files:** `apps/api/src/modules/events/pos/pos.routes.ts`, `pos.service.ts`  
 **Acceptance criteria:**
-- [ ] `POST /api/events/:id/pos/charge` creates charge via `POS_PROVIDER` SDK (Stone or SumUp)
-- [ ] Records sale in `pos_sales` with `amount_cents` as integer
-- [ ] Falls back to `GatewayRegistry.forMethod('PIX')` if terminal unavailable
-- [ ] `POS_PROVIDER` resolved from env — no hardcoded provider name
+- [x] `POST /api/events/:id/pos/charge` creates charge via `POS_PROVIDER` SDK (Stone or SumUp)
+- [x] Records sale in `pos_sales` with `amount_cents` as integer
+- [x] Falls back to `GatewayRegistry.forMethod('PIX')` if terminal unavailable
+- [x] `POS_PROVIDER` resolved from env — no hardcoded provider name
 **Out of scope:** PDV UI (T-154), product catalog (T-152)  
 **Pattern reference:** `apps/api/src/modules/payments/gateways/` registry pattern
 
@@ -395,11 +381,23 @@
 **Architectural context:** `[SEC-TEN]` DDL must be idempotent; `provisionTenantSchema` is the only place for tenant DDL changes.  
 **Files:** `apps/api/src/lib/provision-tenant-schema.ts`  
 **Acceptance criteria:**
-- [ ] `events`, `event_sectors`, `tickets`, `fan_profiles`, `pos_sales`, `game_checklists` added to `provisionTenantSchema`
-- [ ] Existing clubs receive tables on next execution without errors
-- [ ] DDL wrapped in `IF NOT EXISTS` guards
+- [x] `events`, `event_sectors`, `tickets`, `fan_profiles`, `pos_sales`, `game_checklists` added to `provisionTenantSchema`
+- [x] Existing clubs receive tables on next execution without errors
+- [x] DDL wrapped in `IF NOT EXISTS` guards
 **Out of scope:** Data migration, seeding  
 **Pattern reference:** existing `provisionTenantSchema` implementation
+
+#### T-156 | [DONE] Rotas SSE v2.5
+
+**Context:** Clients need real-time updates for ticket sales and check-ins without polling.  
+**Architectural context:** `sse-bus.ts` coupling — React Query invalidation keys must be updated in matching web modules.  
+**Files:** `apps/api/src/modules/events/sse-bus.ts`, matching web query files  
+**Acceptance criteria:**
+- [x] `TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED` events added to `sse-bus.ts`
+- [x] `EVENT_QUERY_KEY` and `TICKETS_QUERY_KEY` invalidated in `queryClient` on receipt
+- [x] Scaling note in code: replace `EventEmitter` with `redis.publish/subscribe` when > 1 process
+**Out of scope:** New SSE transport implementation (scaling concern)  
+**Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
 
 ---
 

@@ -16,6 +16,7 @@ import type {
 } from "./tickets.schema.js";
 import { ConflictError } from "../../lib/errors.js";
 import { assertTicketExists } from "../../lib/assert-tenant-ownership.js";
+import { emitTicketSold, emitEventCapacityUpdated } from "../../lib/sse-bus.js";
 
 export interface PublicEventDetails {
   id: string;
@@ -220,6 +221,22 @@ export async function purchaseTicket(
     );
   });
 
+  emitTicketSold(club.id, {
+    ticketId: ticket.id,
+    eventId,
+    sectorId: input.sectorId,
+    sectorName: sector.name,
+    fanName: input.fanName,
+  });
+
+  emitEventCapacityUpdated(club.id, {
+    eventId,
+    sectorId: input.sectorId,
+    sold: sector.sold + 1,
+    capacity: sector.capacity,
+    available: sector.capacity - sector.sold - 1,
+  });
+
   return {
     ticketId: ticket.id,
     status: "PENDING",
@@ -282,6 +299,7 @@ export async function cancelTicket(
       where: { id: ticketId },
       select: {
         id: true,
+        eventId: true,
         status: true,
         checkedIn: true,
         sectorId: true,
@@ -303,6 +321,7 @@ export async function cancelTicket(
     }
 
     return {
+      eventId: t.eventId,
       sectorId: t.sectorId,
       externalId: t.externalId,
       gatewayName: t.gatewayName,
@@ -315,45 +334,66 @@ export async function cancelTicket(
     await gateway.cancelCharge(snapshot.externalId, reason);
   }
 
-  await withTenantSchema(prisma, clubId, async (tx) => {
-    if (snapshot.externalId && snapshot.gatewayName) {
-      const charge = await tx.charge.findFirst({
-        where: { externalId: snapshot.externalId },
-        select: { id: true },
-      });
-      if (charge) {
-        await tx.payment.updateMany({
-          where: { chargeId: charge.id, cancelledAt: null },
-          data: { cancelledAt: new Date(), cancelReason: reason },
+  const { updatedSector } = await withTenantSchema(
+    prisma,
+    clubId,
+    async (tx) => {
+      if (snapshot.externalId && snapshot.gatewayName) {
+        const charge = await tx.charge.findFirst({
+          where: { externalId: snapshot.externalId },
+          select: { id: true },
         });
+        if (charge) {
+          await tx.payment.updateMany({
+            where: { chargeId: charge.id, cancelledAt: null },
+            data: { cancelledAt: new Date(), cancelReason: reason },
+          });
+        }
       }
-    }
 
-    await tx.ticket.update({
-      where: { id: ticketId },
-      data: { status: "CANCELLED", updatedAt: new Date() },
-    });
+      await tx.ticket.update({
+        where: { id: ticketId },
+        data: { status: "CANCELLED", updatedAt: new Date() },
+      });
 
-    await tx.eventSector.update({
-      where: { id: snapshot.sectorId },
-      data: { sold: { decrement: 1 }, updatedAt: new Date() },
-    });
+      await tx.eventSector.update({
+        where: { id: snapshot.sectorId },
+        data: { sold: { decrement: 1 }, updatedAt: new Date() },
+      });
 
-    await tx.auditLog.create({
-      data: {
-        id: randomUUID(),
-        actorId,
-        action: "TICKET_CANCELLED",
-        entityId: ticketId,
-        entityType: "Ticket",
-        metadata: {
-          reason,
-          hadExternalCharge: Boolean(snapshot.externalId),
-          gatewayName: snapshot.gatewayName ?? null,
-          previousStatus: snapshot.status,
+      const updatedSector = await tx.eventSector.findUnique({
+        where: { id: snapshot.sectorId },
+        select: { sold: true, capacity: true },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          id: randomUUID(),
+          actorId,
+          action: "TICKET_CANCELLED",
+          entityId: ticketId,
+          entityType: "Ticket",
+          metadata: {
+            reason,
+            hadExternalCharge: Boolean(snapshot.externalId),
+            gatewayName: snapshot.gatewayName ?? null,
+            previousStatus: snapshot.status,
+          },
+          createdAt: new Date(),
         },
-        createdAt: new Date(),
-      },
+      });
+
+      return { updatedSector };
+    },
+  );
+
+  if (updatedSector) {
+    emitEventCapacityUpdated(clubId, {
+      eventId: snapshot.eventId,
+      sectorId: snapshot.sectorId,
+      sold: updatedSector.sold,
+      capacity: updatedSector.capacity,
+      available: updatedSector.capacity - updatedSector.sold,
     });
-  });
+  }
 }

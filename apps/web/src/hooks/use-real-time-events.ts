@@ -8,6 +8,7 @@ import {
   CHARGES_HISTORY_QUERY_KEY,
   OVERDUE_MEMBERS_QUERY_KEY,
 } from "@/hooks/use-dashboard";
+import { EVENTS_QUERY_KEY } from "@/hooks/use-events";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -74,6 +75,14 @@ export function useRealTimeEvents(): void {
         void queryClient.invalidateQueries({
           queryKey: OVERDUE_MEMBERS_QUERY_KEY,
         });
+      });
+
+      es.addEventListener("TICKET_SOLD", () => {
+        void queryClient.invalidateQueries({ queryKey: EVENTS_QUERY_KEY });
+      });
+
+      es.addEventListener("EVENT_CAPACITY_UPDATED", () => {
+        void queryClient.invalidateQueries({ queryKey: EVENTS_QUERY_KEY });
       });
 
       es.onerror = () => {

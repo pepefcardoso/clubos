@@ -16,6 +16,22 @@ export interface CheckinConfirmedPayload {
   checkedInAt: string;
 }
 
+export interface TicketSoldPayload {
+  ticketId: string;
+  eventId: string;
+  sectorId: string;
+  sectorName: string;
+  fanName: string;
+}
+
+export interface EventCapacityUpdatedPayload {
+  eventId: string;
+  sectorId: string;
+  sold: number;
+  capacity: number;
+  available: number;
+}
+
 export type SseBusEvent =
   | {
       type: "PAYMENT_CONFIRMED";
@@ -26,6 +42,12 @@ export type SseBusEvent =
       type: "CHECKIN_CONFIRMED";
       clubId: string;
       payload: CheckinConfirmedPayload;
+    }
+  | { type: "TICKET_SOLD"; clubId: string; payload: TicketSoldPayload }
+  | {
+      type: "EVENT_CAPACITY_UPDATED";
+      clubId: string;
+      payload: EventCapacityUpdatedPayload;
     };
 
 class SseBus extends EventEmitter {}
@@ -46,5 +68,25 @@ export function emitCheckinConfirmed(
   payload: CheckinConfirmedPayload,
 ): void {
   const event: SseBusEvent = { type: "CHECKIN_CONFIRMED", clubId, payload };
+  sseBus.emit(`club:${clubId}`, event);
+}
+
+export function emitTicketSold(
+  clubId: string,
+  payload: TicketSoldPayload,
+): void {
+  const event: SseBusEvent = { type: "TICKET_SOLD", clubId, payload };
+  sseBus.emit(`club:${clubId}`, event);
+}
+
+export function emitEventCapacityUpdated(
+  clubId: string,
+  payload: EventCapacityUpdatedPayload,
+): void {
+  const event: SseBusEvent = {
+    type: "EVENT_CAPACITY_UPDATED",
+    clubId,
+    payload,
+  };
   sseBus.emit(`club:${clubId}`, event);
 }

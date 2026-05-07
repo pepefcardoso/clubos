@@ -21,7 +21,7 @@
 | T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`) | DONE | HIGH | S12 | Web |
 | T-142 | Cancelamento de ingresso com reembolso | DONE | HIGH | S12 | API |
 | T-143 | Backend de validação de ingresso (HMAC + Redis dedup) | DONE | HIGH | S13 | API |
-| T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first | TODO | HIGH | S13 | Web |
+| T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first | DONE | HIGH | S13 | Web |
 | T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`) | TODO | HIGH | S13 | API |
 | T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`) | TODO | MEDIUM | S13 | Full |
 | T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`) | DONE | HIGH | S13 | Jobs |
@@ -45,24 +45,6 @@
 
 ## In Progress
 
-#### T-144 | [TODO] UI de portaria mobile-first (`TicketScannerPage`) offline-first
-
-**Context:** Gate staff need a fast QR scanner that works without internet connectivity during events.  
-**Architectural context:** Offline queue via Dexie.js + Background Sync; dedup by `ticket_id` in local queue; `[UI-A11Y]` check-in status badge with text.  
-**Files:** `apps/web/src/app/(app)/access/TicketScannerPage.tsx`  
-**Acceptance criteria:**
-- [ ] Camera scans QR Code and displays result in < 1s
-- [ ] Works offline: local Dexie.js queue with Background Sync on reconnect
-- [ ] Deduplicates by `ticket_id` — no duplicate check-in submissions
-- [ ] Check-in counter per sector via SSE `CHECKIN_CONFIRMED`
-- [ ] Status badge includes text label beyond color
-**Out of scope:** Backend validation (T-143)  
-**Pattern reference:** offline attendance pattern in `apps/web/src/app/(app)/training/`
-
-## Todo
-
-### Priority: MEDIUM
-
 #### T-145 | [TODO] Relatório de bilheteria pós-jogo
 
 **Context:** Admins and treasurers need a post-event revenue report with sector breakdown.  
@@ -76,7 +58,9 @@
 **Out of scope:** CRM data (T-146), CSV export of fans  
 **Pattern reference:** `apps/api/src/jobs/monthly-report/` PDF pattern
 
----
+## Todo
+
+### Priority: MEDIUM
 
 #### T-146 | [TODO] CRM de torcedor
 
@@ -398,6 +382,20 @@
 - [x] Scaling note in code: replace `EventEmitter` with `redis.publish/subscribe` when > 1 process
 **Out of scope:** New SSE transport implementation (scaling concern)  
 **Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
+
+#### T-144 | [DONE] UI de portaria mobile-first (`TicketScannerPage`) offline-first
+
+**Context:** Gate staff need a fast QR scanner that works without internet connectivity during events.  
+**Architectural context:** Offline queue via Dexie.js + Background Sync; dedup by `ticket_id` in local queue; `[UI-A11Y]` check-in status badge with text.  
+**Files:** `apps/web/src/app/(app)/access/TicketScannerPage.tsx`  
+**Acceptance criteria:**
+- [x] Camera scans QR Code and displays result in < 1s
+- [x] Works offline: local Dexie.js queue with Background Sync on reconnect
+- [x] Deduplicates by `ticket_id` — no duplicate check-in submissions
+- [x] Check-in counter per sector via SSE `CHECKIN_CONFIRMED`
+- [x] Status badge includes text label beyond color
+**Out of scope:** Backend validation (T-143)  
+**Pattern reference:** offline attendance pattern in `apps/web/src/app/(app)/training/`
 
 ---
 

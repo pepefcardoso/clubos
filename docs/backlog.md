@@ -23,7 +23,7 @@
 | T-143 | Backend de validação de ingresso (HMAC + Redis dedup) | DONE | HIGH | S13 | API |
 | T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first | DONE | HIGH | S13 | Web |
 | T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`) | DONE | HIGH | S13 | API |
-| T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`) | TODO | MEDIUM | S13 | Full |
+| T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`) | DONE | MEDIUM | S13 | Full |
 | T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`) | DONE | HIGH | S13 | Jobs |
 | T-148 | Campos de patrocínio em `events` (logo + CTA) | TODO | MEDIUM | S13 | Full |
 | T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento) | TODO | MEDIUM | S14 | Jobs |
@@ -45,23 +45,6 @@
 
 ## In Progress
 
-#### T-146 | [TODO] CRM de torcedor
-
-**Context:** Clubs need a database of fans built from ticket purchases to enable re-engagement campaigns.  
-**Architectural context:** `[FIN]` `total_spent_cents` as integer; `[SEC]` CSV export must sanitize injection characters.  
-**Files:** `apps/api/src/modules/events/fans/fans.routes.ts`, `apps/web/src/app/(app)/access/FanProfilesPage.tsx`  
-**Acceptance criteria:**
-- [ ] `GET /api/fans` with search by email/phone, pagination, sort by `total_spent_cents`
-- [ ] `FanProfilesPage` with filters and CSV export
-- [ ] CSV export prefixes `=`, `+`, `-`, `@` fields with `'` to prevent injection
-- [ ] `total_spent_cents` stored and displayed as integer cents with `formatBRL()`
-**Out of scope:** Fan-to-member conversion messaging (T-147)  
-**Pattern reference:** `apps/web/src/app/(app)/members/MembersPage.tsx`
-
-## Todo
-
-### Priority: MEDIUM
-
 #### T-148 | [TODO] Campos de patrocínio em `events`
 
 **Context:** Clubs want to display sponsor branding on ticket confirmation and the public event page.  
@@ -75,7 +58,9 @@
 **Out of scope:** Sponsorship analytics, programmatic ad serving  
 **Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`
 
----
+## Todo
+
+### Priority: MEDIUM
 
 #### T-149 | [TODO] Job BullMQ `game-logistics-notice`
 
@@ -394,6 +379,19 @@
 - [x] Requires `ADMIN` or `TREASURER` role
 **Out of scope:** CRM data (T-146), CSV export of fans  
 **Pattern reference:** `apps/api/src/jobs/monthly-report/` PDF pattern
+
+#### T-146 | [DONE] CRM de torcedor
+
+**Context:** Clubs need a database of fans built from ticket purchases to enable re-engagement campaigns.  
+**Architectural context:** `[FIN]` `total_spent_cents` as integer; `[SEC]` CSV export must sanitize injection characters.  
+**Files:** `apps/api/src/modules/events/fans/fans.routes.ts`, `apps/web/src/app/(app)/access/FanProfilesPage.tsx`  
+**Acceptance criteria:**
+- [x] `GET /api/fans` with search by email/phone, pagination, sort by `total_spent_cents`
+- [x] `FanProfilesPage` with filters and CSV export
+- [x] CSV export prefixes `=`, `+`, `-`, `@` fields with `'` to prevent injection
+- [x] `total_spent_cents` stored and displayed as integer cents with `formatBRL()`
+**Out of scope:** Fan-to-member conversion messaging (T-147)  
+**Pattern reference:** `apps/web/src/app/(app)/members/MembersPage.tsx`
 
 ---
 

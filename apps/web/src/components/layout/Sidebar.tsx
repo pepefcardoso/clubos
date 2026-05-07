@@ -20,7 +20,8 @@ import {
   ArrowLeftRight,
   ClipboardList,
   Scale,
-  ScanLine
+  ScanLine,
+  Heart,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,12 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/expenses", label: "Despesas", icon: Receipt },
   { label: "Mensagens", href: "/templates", icon: MessageSquare },
   { label: "Contratos", href: "/contracts", icon: ScrollText },
+  {
+    href: "/fans",
+    label: "Torcedores",
+    icon: Heart,
+    roles: ["ADMIN", "TREASURER"] as const,
+  },
   {
     href: "/saf",
     label: "SAF",

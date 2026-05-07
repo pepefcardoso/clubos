@@ -22,6 +22,9 @@ import {
   Scale,
   ScanLine,
   Heart,
+  Calendar,
+  Activity,
+  Stethoscope,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -39,7 +42,20 @@ const PRIMARY_NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Sócios", href: "/members", icon: Users },
   { label: "Atletas", href: "/athletes", icon: Users2 },
+  {
+    label: "Saúde",
+    href: "/medical",
+    icon: Activity,
+    roles: ["ADMIN", "PHYSIO"]
+  },
+  {
+    label: "Fisioterapia",
+    href: "/physio",
+    icon: Stethoscope,
+    roles: ["ADMIN", "PHYSIO"]
+  },
   { href: "/training", label: "Chamada", icon: ClipboardList },
+  { label: "Eventos", href: "/events", icon: Calendar },
   {
     href: "/access",
     label: "Portaria",

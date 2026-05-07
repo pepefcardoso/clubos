@@ -199,6 +199,9 @@ const TENANT_ENUMS_DDL = `
 
   -- v2.5 ArenaPass — ticket cancellation audit action
   ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'TICKET_CANCELLED';
+
+  -- v2.5 ArenaPass — event bilheteria report
+  ALTER TYPE "AuditAction" ADD VALUE IF NOT EXISTS 'EVENT_REPORT_GENERATED';
 `;
 
 /**

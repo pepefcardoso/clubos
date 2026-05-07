@@ -22,7 +22,7 @@
 | T-142 | Cancelamento de ingresso com reembolso | DONE | HIGH | S12 | API |
 | T-143 | Backend de validação de ingresso (HMAC + Redis dedup) | DONE | HIGH | S13 | API |
 | T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first | DONE | HIGH | S13 | Web |
-| T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`) | TODO | HIGH | S13 | API |
+| T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`) | DONE | HIGH | S13 | API |
 | T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`) | TODO | MEDIUM | S13 | Full |
 | T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`) | DONE | HIGH | S13 | Jobs |
 | T-148 | Campos de patrocínio em `events` (logo + CTA) | TODO | MEDIUM | S13 | Full |
@@ -45,23 +45,6 @@
 
 ## In Progress
 
-#### T-145 | [TODO] Relatório de bilheteria pós-jogo
-
-**Context:** Admins and treasurers need a post-event revenue report with sector breakdown.  
-**Architectural context:** `[FIN]` revenue = `price_cents × sold` as integer; `[PR-FIN]` ≥ 2 approvals; guard `requireRole('ADMIN', 'TREASURER')`.  
-**Files:** `apps/api/src/modules/events/reports/reports.routes.ts`, `reports.service.ts`  
-**Acceptance criteria:**
-- [ ] `GET /api/events/:id/report` returns total revenue by sector, occupancy rate, check-ins, no-shows
-- [ ] All revenue in integer cents — no floats
-- [ ] PDF generation via `react-pdf` with club logo; SHA-256 hash recorded in `audit_log`
-- [ ] Requires `ADMIN` or `TREASURER` role
-**Out of scope:** CRM data (T-146), CSV export of fans  
-**Pattern reference:** `apps/api/src/jobs/monthly-report/` PDF pattern
-
-## Todo
-
-### Priority: MEDIUM
-
 #### T-146 | [TODO] CRM de torcedor
 
 **Context:** Clubs need a database of fans built from ticket purchases to enable re-engagement campaigns.  
@@ -75,7 +58,9 @@
 **Out of scope:** Fan-to-member conversion messaging (T-147)  
 **Pattern reference:** `apps/web/src/app/(app)/members/MembersPage.tsx`
 
----
+## Todo
+
+### Priority: MEDIUM
 
 #### T-148 | [TODO] Campos de patrocínio em `events`
 
@@ -396,6 +381,19 @@
 - [x] Status badge includes text label beyond color
 **Out of scope:** Backend validation (T-143)  
 **Pattern reference:** offline attendance pattern in `apps/web/src/app/(app)/training/`
+
+#### T-145 | [TODO] Relatório de bilheteria pós-jogo
+
+**Context:** Admins and treasurers need a post-event revenue report with sector breakdown.  
+**Architectural context:** `[FIN]` revenue = `price_cents × sold` as integer; `[PR-FIN]` ≥ 2 approvals; guard `requireRole('ADMIN', 'TREASURER')`.  
+**Files:** `apps/api/src/modules/events/reports/reports.routes.ts`, `reports.service.ts`  
+**Acceptance criteria:**
+- [x] `GET /api/events/:id/report` returns total revenue by sector, occupancy rate, check-ins, no-shows
+- [x] All revenue in integer cents — no floats
+- [x] PDF generation via `react-pdf` with club logo; SHA-256 hash recorded in `audit_log`
+- [x] Requires `ADMIN` or `TREASURER` role
+**Out of scope:** CRM data (T-146), CSV export of fans  
+**Pattern reference:** `apps/api/src/jobs/monthly-report/` PDF pattern
 
 ---
 

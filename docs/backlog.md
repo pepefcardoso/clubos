@@ -25,7 +25,7 @@
 | T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`) | DONE | HIGH | S13 | API |
 | T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`) | DONE | MEDIUM | S13 | Full |
 | T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`) | DONE | HIGH | S13 | Jobs |
-| T-148 | Campos de patrocínio em `events` (logo + CTA) | TODO | MEDIUM | S13 | Full |
+| T-148 | Campos de patrocínio em `events` (logo + CTA) | DONE | MEDIUM | S13 | Full |
 | T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento) | TODO | MEDIUM | S14 | Jobs |
 | T-150 | CRUD de checklist de operações de jogo | TODO | MEDIUM | S14 | API |
 | T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first | TODO | MEDIUM | S14 | Web |
@@ -45,23 +45,6 @@
 
 ## In Progress
 
-#### T-148 | [TODO] Campos de patrocínio em `events`
-
-**Context:** Clubs want to display sponsor branding on ticket confirmation and the public event page.  
-**Architectural context:** `[SEC-FILE]` logo validated by magic bytes — never trust `Content-Type`; filename via `randomUUID()`.  
-**Files:** `apps/api/src/modules/events/events.service.ts`, Prisma schema  
-**Acceptance criteria:**
-- [ ] `sponsor_name`, `sponsor_logo_url`, `sponsor_cta_url` fields added to `events`
-- [ ] Logo validated by magic bytes via `file-type`; filename = `randomUUID()`
-- [ ] Minimum logo dimensions 200×60px enforced via Sharp
-- [ ] Logo displayed in `confirm-ticket` worker output and public event page
-**Out of scope:** Sponsorship analytics, programmatic ad serving  
-**Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`
-
-## Todo
-
-### Priority: MEDIUM
-
 #### T-149 | [TODO] Job BullMQ `game-logistics-notice`
 
 **Context:** Club captains need an automated WhatsApp notification 48h before each event with squad and logistics details.  
@@ -75,7 +58,9 @@
 **Out of scope:** Checklist CRUD (T-150), UI (T-151)  
 **Pattern reference:** `apps/api/src/jobs/due-today-notices/` timing pattern
 
----
+## Todo
+
+### Priority: MEDIUM
 
 #### T-150 | [TODO] CRUD de checklist de operações de jogo
 
@@ -392,6 +377,19 @@
 - [x] `total_spent_cents` stored and displayed as integer cents with `formatBRL()`
 **Out of scope:** Fan-to-member conversion messaging (T-147)  
 **Pattern reference:** `apps/web/src/app/(app)/members/MembersPage.tsx`
+
+#### T-148 | [DONE] Campos de patrocínio em `events`
+
+**Context:** Clubs want to display sponsor branding on ticket confirmation and the public event page.  
+**Architectural context:** `[SEC-FILE]` logo validated by magic bytes — never trust `Content-Type`; filename via `randomUUID()`.  
+**Files:** `apps/api/src/modules/events/events.service.ts`, Prisma schema  
+**Acceptance criteria:**
+- [x] `sponsor_name`, `sponsor_logo_url`, `sponsor_cta_url` fields added to `events`
+- [x] Logo validated by magic bytes via `file-type`; filename = `randomUUID()`
+- [x] Minimum logo dimensions 200×60px enforced via Sharp
+- [x] Logo displayed in `confirm-ticket` worker output and public event page
+**Out of scope:** Sponsorship analytics, programmatic ad serving  
+**Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`
 
 ---
 

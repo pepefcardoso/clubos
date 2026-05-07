@@ -37,7 +37,14 @@ export async function confirmTicketAndNotify(
           select: { name: true },
         },
         event: {
-          select: { opponent: true, eventDate: true, venue: true },
+          select: {
+            opponent: true,
+            eventDate: true,
+            venue: true,
+            sponsorName: true,
+            sponsorLogoUrl: true,
+            sponsorCtaUrl: true,
+          },
         },
       },
     });
@@ -88,6 +95,9 @@ export async function confirmTicketAndNotify(
       sectorName: ticket.sector.name,
       qrImageUrl,
       qrToken,
+      sponsorName: ticket.event.sponsorName,
+      sponsorLogoUrl: ticket.event.sponsorLogoUrl,
+      sponsorCtaUrl: ticket.event.sponsorCtaUrl,
     }),
     text: buildConfirmationText({
       fanName: ticket.fanName,
@@ -96,6 +106,7 @@ export async function confirmTicketAndNotify(
       venue: ticket.event.venue,
       sectorName: ticket.sector.name,
       qrToken,
+      sponsorName: ticket.event.sponsorName,
     }),
   });
 
@@ -110,9 +121,29 @@ interface EmailParams {
   sectorName: string;
   qrImageUrl: string;
   qrToken: string;
+  sponsorName?: string | null;
+  sponsorLogoUrl?: string | null;
+  sponsorCtaUrl?: string | null;
 }
 
 function buildConfirmationHtml(p: EmailParams): string {
+  const sponsorBlock = p.sponsorName
+    ? `
+  <tr>
+    <td colspan="2" style="padding:16px 8px 8px;border-top:1px solid #e5e7eb;text-align:center">
+      <p style="font-size:11px;color:#6b7280;margin:0 0 8px">Realização</p>
+      ${
+        p.sponsorLogoUrl
+          ? `<a href="${p.sponsorCtaUrl ?? "#"}" style="display:inline-block">
+               <img src="${p.sponsorLogoUrl}" alt="${p.sponsorName}" height="40"
+                    style="max-width:200px;height:40px;object-fit:contain" />
+             </a>`
+          : `<span style="font-weight:600">${p.sponsorName}</span>`
+      }
+    </td>
+  </tr>`
+    : "";
+
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -126,6 +157,7 @@ function buildConfirmationHtml(p: EmailParams): string {
     <tr><td style="padding:8px;border:1px solid #e5e7eb"><strong>Data</strong></td><td style="padding:8px;border:1px solid #e5e7eb">${p.eventDate}</td></tr>
     <tr><td style="padding:8px;border:1px solid #e5e7eb"><strong>Local</strong></td><td style="padding:8px;border:1px solid #e5e7eb">${p.venue}</td></tr>
     <tr><td style="padding:8px;border:1px solid #e5e7eb"><strong>Setor</strong></td><td style="padding:8px;border:1px solid #e5e7eb">${p.sectorName}</td></tr>
+    ${sponsorBlock}
   </table>
   <img src="${p.qrImageUrl}" alt="QR Code do Ingresso" width="250" height="250" style="display:block;margin:24px auto" />
   <p style="font-size:12px;color:#6b7280;text-align:center;word-break:break-all">${p.qrToken}</p>
@@ -140,10 +172,11 @@ interface TextParams {
   venue: string;
   sectorName: string;
   qrToken: string;
+  sponsorName?: string | null;
 }
 
 function buildConfirmationText(p: TextParams): string {
-  return [
+  const lines = [
     `Ingresso Confirmado!`,
     ``,
     `Olá, ${p.fanName}!`,
@@ -156,5 +189,7 @@ function buildConfirmationText(p: TextParams): string {
     `Código QR: ${p.qrToken}`,
     ``,
     `Apresente este código na entrada do evento.`,
-  ].join("\n");
+  ];
+  if (p.sponsorName) lines.push(``, `Patrocinador: ${p.sponsorName}`);
+  return lines.join("\n");
 }

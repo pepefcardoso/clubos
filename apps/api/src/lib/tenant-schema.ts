@@ -1187,6 +1187,12 @@ const TENANT_V25_TICKETS_PAYMENT_PATCH_DDL = `
   ALTER TABLE "tickets" ADD COLUMN IF NOT EXISTS "gatewayMeta" JSONB;
 `;
 
+const TENANT_V25_SPONSOR_PATCH_DDL = `
+  ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "sponsorName"    TEXT;
+  ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "sponsorLogoUrl" TEXT;
+  ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "sponsorCtaUrl"  TEXT;
+`;
+
 export const TENANT_TABLES_DDL_FOR_TESTING = TENANT_TABLES_DDL;
 export const TENANT_INDEXES_DDL_FOR_TESTING = TENANT_INDEXES_DDL;
 export const TENANT_FOREIGN_KEYS_DDL_FOR_TESTING = TENANT_FOREIGN_KEYS_DDL;
@@ -1198,7 +1204,7 @@ export const TENANT_V25_TABLES_DDL_FOR_TESTING = TENANT_V25_TABLES_DDL;
 export const TENANT_V25_INDEXES_DDL_FOR_TESTING = TENANT_V25_INDEXES_DDL;
 export const TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING =
   TENANT_V25_FOREIGN_KEYS_DDL;
-export { TENANT_V25_TICKETS_PAYMENT_PATCH_DDL };
+export { TENANT_V25_TICKETS_PAYMENT_PATCH_DDL, TENANT_V25_SPONSOR_PATCH_DDL };
 
 /**
  * Provisions a complete PostgreSQL tenant schema for a new club.
@@ -1254,6 +1260,7 @@ export async function provisionTenantSchema(
     await tx.$executeRawUnsafe(TENANT_V25_FOREIGN_KEYS_DDL);
 
     await tx.$executeRawUnsafe(TENANT_V25_TICKETS_PAYMENT_PATCH_DDL);
+    await tx.$executeRawUnsafe(TENANT_V25_SPONSOR_PATCH_DDL);
   });
 
   await seedInjuryProtocols(prisma, clubId);

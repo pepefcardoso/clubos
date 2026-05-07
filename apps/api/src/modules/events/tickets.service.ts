@@ -25,6 +25,9 @@ export interface PublicEventDetails {
   venue: string;
   description: string | null;
   status: string;
+  sponsorName: string | null;
+  sponsorLogoUrl: string | null;
+  sponsorCtaUrl: string | null;
   sectors: Array<{
     id: string;
     name: string;
@@ -55,6 +58,9 @@ export async function getPublicEventDetails(
         venue: true,
         description: true,
         status: true,
+        sponsorName: true,
+        sponsorLogoUrl: true,
+        sponsorCtaUrl: true,
         sectors: {
           select: {
             id: true,
@@ -79,6 +85,9 @@ export async function getPublicEventDetails(
     venue: event.venue,
     description: event.description,
     status: String(event.status),
+    sponsorName: event.sponsorName,
+    sponsorLogoUrl: event.sponsorLogoUrl,
+    sponsorCtaUrl: event.sponsorCtaUrl,
     sectors: event.sectors.map((s) => ({
       id: s.id,
       name: s.name,

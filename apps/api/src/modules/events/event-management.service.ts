@@ -1,13 +1,26 @@
+import { randomUUID } from "node:crypto";
+import sharp from "sharp";
 import type { PrismaClient, Prisma } from "../../../generated/prisma/index.js";
 import type { PaginatedResponse } from "@clubos/shared-types";
 import { withTenantSchema } from "../../lib/prisma.js";
-import { ConflictError, NotFoundError } from "../../lib/errors.js";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "../../lib/errors.js";
+import { saveFile } from "../../lib/storage.js";
+import {
+  validateImageMagicBytes,
+  InvalidMagicBytesError,
+} from "../../lib/file-validation.js";
+import { assertEventExists } from "../../lib/assert-tenant-ownership.js";
 import type {
   CreateEventInput,
   EventResponse,
   EventSectorResponse,
   ListEventsQuery,
   UpdateEventInput,
+  UploadSponsorLogoResult,
 } from "./event-management.schema.js";
 
 export class EventNotFoundError extends NotFoundError {
@@ -19,6 +32,12 @@ export class EventNotFoundError extends NotFoundError {
 export class EventAlreadyCancelledError extends ConflictError {
   constructor() {
     super("Evento já foi cancelado");
+  }
+}
+
+export class InvalidSponsorLogoError extends ValidationError {
+  constructor(reason: string) {
+    super(reason);
   }
 }
 
@@ -56,6 +75,9 @@ function toEventResponse(event: {
   venue: string;
   description: string | null;
   status: string;
+  sponsorName: string | null;
+  sponsorLogoUrl: string | null;
+  sponsorCtaUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
   sectors: Array<{
@@ -73,11 +95,33 @@ function toEventResponse(event: {
     venue: event.venue,
     description: event.description,
     status: event.status,
+    sponsorName: event.sponsorName,
+    sponsorLogoUrl: event.sponsorLogoUrl,
+    sponsorCtaUrl: event.sponsorCtaUrl,
     sectors: event.sectors.map(toSectorResponse),
     createdAt: event.createdAt,
     updatedAt: event.updatedAt,
   };
 }
+
+const EVENT_INCLUDE = {
+  sectors: true,
+} as const;
+
+const EVENT_SELECT_SPONSOR = {
+  id: true,
+  opponent: true,
+  eventDate: true,
+  venue: true,
+  description: true,
+  status: true,
+  sponsorName: true,
+  sponsorLogoUrl: true,
+  sponsorCtaUrl: true,
+  createdAt: true,
+  updatedAt: true,
+  sectors: true,
+} as const;
 
 export async function createEvent(
   prisma: PrismaClient,
@@ -91,6 +135,8 @@ export async function createEvent(
         eventDate: new Date(input.eventDate),
         venue: input.venue,
         description: input.description ?? null,
+        sponsorName: input.sponsorName ?? null,
+        sponsorCtaUrl: input.sponsorCtaUrl ?? null,
         sectors: {
           create: input.sectors.map((s) => ({
             name: s.name,
@@ -99,7 +145,7 @@ export async function createEvent(
           })),
         },
       },
-      include: { sectors: true },
+      select: EVENT_SELECT_SPONSOR,
     });
 
     return toEventResponse({ ...event, status: String(event.status) });
@@ -120,7 +166,7 @@ export async function listEvents(
       tx.event.count({ where }),
       tx.event.findMany({
         where,
-        include: { sectors: true },
+        select: EVENT_SELECT_SPONSOR,
         orderBy: { eventDate: "asc" },
         skip: (params.page - 1) * params.limit,
         take: params.limit,
@@ -146,7 +192,7 @@ export async function getEventById(
   return withTenantSchema(prisma, clubId, async (tx) => {
     const event = await tx.event.findUnique({
       where: { id: eventId },
-      include: { sectors: true },
+      select: EVENT_SELECT_SPONSOR,
     });
     if (!event) throw new EventNotFoundError();
 
@@ -169,11 +215,14 @@ export async function updateEvent(
       data.eventDate = new Date(input.eventDate);
     if (input.venue !== undefined) data.venue = input.venue;
     if ("description" in input) data.description = input.description ?? null;
+    if ("sponsorName" in input) data.sponsorName = input.sponsorName ?? null;
+    if ("sponsorCtaUrl" in input)
+      data.sponsorCtaUrl = input.sponsorCtaUrl ?? null;
 
     const event = await tx.event.update({
       where: { id: eventId },
       data,
-      include: { sectors: true },
+      select: EVENT_SELECT_SPONSOR,
     });
 
     return toEventResponse({ ...event, status: String(event.status) });
@@ -199,4 +248,77 @@ export async function cancelEvent(
       data: { status: "CANCELLED" },
     });
   });
+}
+
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
+const MIN_SPONSOR_WIDTH = 200;
+const MIN_SPONSOR_HEIGHT = 60;
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+
+export async function uploadEventSponsorLogo(
+  prisma: PrismaClient,
+  clubId: string,
+  eventId: string,
+  mimetype: string,
+  buffer: Buffer,
+): Promise<UploadSponsorLogoResult> {
+  if (buffer.length > MAX_LOGO_BYTES) {
+    throw new InvalidSponsorLogoError("Arquivo excede o limite de 5 MB");
+  }
+
+  if (!ALLOWED_MIME_TYPES.has(mimetype)) {
+    throw new InvalidSponsorLogoError(
+      "Formato inválido. Envie uma imagem JPG, PNG, WebP ou GIF",
+    );
+  }
+
+  try {
+    await validateImageMagicBytes(buffer);
+  } catch (err) {
+    if (err instanceof InvalidMagicBytesError) {
+      throw new InvalidSponsorLogoError(err.message);
+    }
+    throw err;
+  }
+
+  let meta: sharp.Metadata;
+  try {
+    meta = await sharp(buffer).metadata();
+  } catch {
+    throw new InvalidSponsorLogoError(
+      "Não foi possível processar a imagem enviada",
+    );
+  }
+
+  if (
+    (meta.width ?? 0) < MIN_SPONSOR_WIDTH ||
+    (meta.height ?? 0) < MIN_SPONSOR_HEIGHT
+  ) {
+    throw new InvalidSponsorLogoError(
+      `Logo deve ter no mínimo ${MIN_SPONSOR_WIDTH}×${MIN_SPONSOR_HEIGHT}px. ` +
+        `Enviado: ${meta.width ?? 0}×${meta.height ?? 0}px`,
+    );
+  }
+
+  const processed = await sharp(buffer).webp({ quality: 85 }).toBuffer();
+
+  const filename = `sponsor-logo-${eventId}-${randomUUID()}.webp`;
+  const sponsorLogoUrl = await saveFile(filename, processed);
+
+  await withTenantSchema(prisma, clubId, async (tx) => {
+    await assertEventExists(tx, eventId);
+    await tx.event.update({
+      where: { id: eventId },
+      data: { sponsorLogoUrl },
+      select: { id: true },
+    });
+  });
+
+  return { sponsorLogoUrl };
 }

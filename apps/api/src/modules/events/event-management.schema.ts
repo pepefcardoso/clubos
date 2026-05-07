@@ -17,6 +17,8 @@ export const CreateEventSchema = z.object({
   venue: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   sectors: z.array(EventSectorInputSchema).min(1).max(20),
+  sponsorName: z.string().min(1).max(100).optional(),
+  sponsorCtaUrl: z.url().optional(),
 });
 
 export const UpdateEventSchema = z
@@ -31,6 +33,8 @@ export const UpdateEventSchema = z
       .optional(),
     venue: z.string().min(1).max(200).optional(),
     description: z.string().max(1000).nullable().optional(),
+    sponsorName: z.string().min(1).max(100).nullable().optional(),
+    sponsorCtaUrl: z.url().nullable().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field must be provided",
@@ -61,7 +65,14 @@ export interface EventResponse {
   venue: string;
   description: string | null;
   status: string;
+  sponsorName: string | null;
+  sponsorLogoUrl: string | null;
+  sponsorCtaUrl: string | null;
   sectors: EventSectorResponse[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface UploadSponsorLogoResult {
+  sponsorLogoUrl: string;
 }

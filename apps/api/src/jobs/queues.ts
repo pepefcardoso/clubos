@@ -348,3 +348,34 @@ export const fanFunnelQueue = new Queue("fan-to-member-funnel", {
     },
   },
 });
+
+/**
+ * Queue for game logistics notice emails.
+ *
+ * Not cron-driven — each job is enqueued on-demand with a computed delay by
+ * event-management.service.ts when an event is created or its date changes.
+ * The job fires 48h before eventDate and emails all club ADMIN users with:
+ *   - Match details (opponent, date, venue)
+ *   - Full active athlete roster
+ *
+ * jobId = `game-logistics-{eventId}` — BullMQ deduplication.
+ * Removing + re-adding on date change is handled by the service.
+ *
+ * Email-only delivery: no WhatsApp rate-limit concern.
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 30s → attempt 2 → EXHAUSTED.
+ *   On exhaustion the notice is simply skipped — informational only.
+ */
+export const gameLogisticsNoticeQueue = new Queue("game-logistics-notice", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 200 },
+    attempts: 2,
+    backoff: {
+      type: "exponential",
+      delay: 30_000,
+    },
+  },
+});

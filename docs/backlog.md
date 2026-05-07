@@ -26,7 +26,7 @@
 | T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`) | DONE | MEDIUM | S13 | Full |
 | T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`) | DONE | HIGH | S13 | Jobs |
 | T-148 | Campos de patrocínio em `events` (logo + CTA) | DONE | MEDIUM | S13 | Full |
-| T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento) | TODO | MEDIUM | S14 | Jobs |
+| T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento) | DONE | MEDIUM | S14 | Jobs |
 | T-150 | CRUD de checklist de operações de jogo | TODO | MEDIUM | S14 | API |
 | T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first | TODO | MEDIUM | S14 | Web |
 | T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`) | TODO | MEDIUM | S14 | Full |
@@ -45,23 +45,6 @@
 
 ## In Progress
 
-#### T-149 | [TODO] Job BullMQ `game-logistics-notice`
-
-**Context:** Club captains need an automated WhatsApp notification 48h before each event with squad and logistics details.  
-**Architectural context:** `[ARCH-JOB]` idempotent by `event_id`; `[SEC-JOB]` payload `event_id + clubId` only.  
-**Files:** `apps/api/src/jobs/game-logistics-notice.worker.ts`  
-**Acceptance criteria:**
-- [ ] Job enqueued at `event_date - 48h`
-- [ ] Sends WhatsApp message to captain with squad, time, venue, checklist link
-- [ ] Idempotent by `event_id` — re-enqueue does not send duplicate
-- [ ] Configurable per club; failure → Sentry
-**Out of scope:** Checklist CRUD (T-150), UI (T-151)  
-**Pattern reference:** `apps/api/src/jobs/due-today-notices/` timing pattern
-
-## Todo
-
-### Priority: MEDIUM
-
 #### T-150 | [TODO] CRUD de checklist de operações de jogo
 
 **Context:** Event staff need a structured checklist to track pre-game logistics per event.  
@@ -74,7 +57,9 @@
 **Out of scope:** Checklist UI (T-151), logistics notification (T-149)  
 **Pattern reference:** `apps/api/src/modules/training/` session pattern
 
----
+## Todo
+
+### Priority: MEDIUM
 
 #### T-151 | [TODO] UI de checklist de jogo (`GameOpsChecklist`) offline-first
 
@@ -390,6 +375,19 @@
 - [x] Logo displayed in `confirm-ticket` worker output and public event page
 **Out of scope:** Sponsorship analytics, programmatic ad serving  
 **Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`
+
+#### T-149 | [DONE] Job BullMQ `game-logistics-notice`
+
+**Context:** Club captains need an automated WhatsApp notification 48h before each event with squad and logistics details.  
+**Architectural context:** `[ARCH-JOB]` idempotent by `event_id`; `[SEC-JOB]` payload `event_id + clubId` only.  
+**Files:** `apps/api/src/jobs/game-logistics-notice.worker.ts`  
+**Acceptance criteria:**
+- [x] Job enqueued at `event_date - 48h`
+- [x] Sends WhatsApp message to captain with squad, time, venue, checklist link
+- [x] Idempotent by `event_id` — re-enqueue does not send duplicate
+- [x] Configurable per club; failure → Sentry
+**Out of scope:** Checklist CRUD (T-150), UI (T-151)  
+**Pattern reference:** `apps/api/src/jobs/due-today-notices/` timing pattern
 
 ---
 

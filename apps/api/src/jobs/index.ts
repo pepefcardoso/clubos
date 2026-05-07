@@ -42,6 +42,8 @@ import { startConfirmTicketWorker } from "./confirm-ticket/confirm-ticket.worker
 import { confirmTicketQueue } from "./queues.js";
 import { startFanFunnelWorker } from "./fan-to-member-funnel/fan-to-member-funnel.worker.js";
 import { fanFunnelQueue } from "./queues.js";
+import { startGameLogisticsNoticeWorker } from "./game-logistics-notice/game-logistics-notice.worker.js";
+import { gameLogisticsNoticeQueue } from "./queues.js";
 
 /**
  * Cron expression: 1st of every month at 08:00 UTC.
@@ -222,6 +224,9 @@ const _workers: Worker[] = [];
  *       emails it to all club ADMIN users via Resend with PDF attachment.
  *       Concurrency is 3 (lower than financial workers) because PDF generation
  *       via PDFKit is CPU/memory-intensive.
+ *   18. Game logistics notice worker (concurrency=3) — emails all club ADMIN users
+ *       48h before a match with the active athlete roster and match details.
+ *       No cron — jobs are enqueued on-demand with a delay by event-management.service.ts.
  *
  * Cron registration is **skipped in test environments** (`NODE_ENV=test`) to
  * prevent polluting the test Redis instance with repeatable job entries that
@@ -264,6 +269,7 @@ export async function registerJobs(): Promise<void> {
   _workers.push(startMonthlyReportWorker());
   _workers.push(startConfirmTicketWorker());
   _workers.push(startFanFunnelWorker());
+  _workers.push(startGameLogisticsNoticeWorker());
 
   if (process.env["NODE_ENV"] !== "test") {
     await chargeGenerationQueue.upsertJobScheduler(
@@ -425,5 +431,6 @@ export async function closeJobs(): Promise<void> {
   await monthlyReportQueue.close();
   await confirmTicketQueue.close();
   await fanFunnelQueue.close();
+  await gameLogisticsNoticeQueue.close();
   console.info("[jobs] All workers and queues closed");
 }

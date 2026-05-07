@@ -22,6 +22,9 @@ import type {
   UpdateEventInput,
   UploadSponsorLogoResult,
 } from "./event-management.schema.js";
+import { gameLogisticsNoticeQueue } from "../../jobs/queues.js";
+import { GAME_LOGISTICS_NOTICE_JOB_NAMES } from "../../jobs/game-logistics-notice/game-logistics-notice.types.js";
+import type { GameLogisticsNoticeJobData } from "../../jobs/game-logistics-notice/game-logistics-notice.types.js";
 
 export class EventNotFoundError extends NotFoundError {
   constructor() {
@@ -104,10 +107,6 @@ function toEventResponse(event: {
   };
 }
 
-const EVENT_INCLUDE = {
-  sectors: true,
-} as const;
-
 const EVENT_SELECT_SPONSOR = {
   id: true,
   opponent: true,
@@ -148,7 +147,22 @@ export async function createEvent(
       select: EVENT_SELECT_SPONSOR,
     });
 
-    return toEventResponse({ ...event, status: String(event.status) });
+    const response = toEventResponse({
+      ...event,
+      status: String(event.status),
+    });
+
+    const msUntilEvent = new Date(input.eventDate).getTime() - Date.now();
+    if (msUntilEvent > 0) {
+      const delay = Math.max(0, msUntilEvent - LOGISTICS_NOTICE_OFFSET_MS);
+      await gameLogisticsNoticeQueue.add(
+        GAME_LOGISTICS_NOTICE_JOB_NAMES.SEND_GAME_LOGISTICS_NOTICE,
+        { eventId: event.id, clubId } satisfies GameLogisticsNoticeJobData,
+        { jobId: buildLogisticsJobId(event.id), delay },
+      );
+    }
+
+    return response;
   });
 }
 
@@ -225,6 +239,23 @@ export async function updateEvent(
       select: EVENT_SELECT_SPONSOR,
     });
 
+    if (input.eventDate !== undefined) {
+      const existing = await gameLogisticsNoticeQueue.getJob(
+        buildLogisticsJobId(eventId),
+      );
+      if (existing) await existing.remove().catch(() => {});
+
+      const msUntilEvent = new Date(input.eventDate).getTime() - Date.now();
+      if (msUntilEvent > 0) {
+        const delay = Math.max(0, msUntilEvent - LOGISTICS_NOTICE_OFFSET_MS);
+        await gameLogisticsNoticeQueue.add(
+          GAME_LOGISTICS_NOTICE_JOB_NAMES.SEND_GAME_LOGISTICS_NOTICE,
+          { eventId, clubId } satisfies GameLogisticsNoticeJobData,
+          { jobId: buildLogisticsJobId(eventId), delay },
+        );
+      }
+    }
+
     return toEventResponse({ ...event, status: String(event.status) });
   });
 }
@@ -247,6 +278,11 @@ export async function cancelEvent(
       where: { id: eventId },
       data: { status: "CANCELLED" },
     });
+
+    const pendingJob = await gameLogisticsNoticeQueue.getJob(
+      buildLogisticsJobId(eventId),
+    );
+    if (pendingJob) await pendingJob.remove().catch(() => {});
   });
 }
 
@@ -321,4 +357,10 @@ export async function uploadEventSponsorLogo(
   });
 
   return { sponsorLogoUrl };
+}
+
+const LOGISTICS_NOTICE_OFFSET_MS = 48 * 60 * 60 * 1_000;
+
+function buildLogisticsJobId(eventId: string): string {
+  return `game-logistics-${eventId}`;
 }

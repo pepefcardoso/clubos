@@ -11,33 +11,33 @@
 
 ## Status Board
 
-| ID | Title | Status | Priority | Sprint | Area |
-|----|-------|--------|----------|--------|------|
-| T-136 | Schema Prisma + DDL tenant (events, tickets, fan_profiles, pos_sales) | DONE | HIGH | S12 | Infra |
-| T-137 | CRUD de eventos (`/api/events`) | DONE | HIGH | S12 | API |
-| T-138 | UI de configuração de evento (`EventFormModal` + `EventsPage`) | DONE | HIGH | S12 | Web |
-| T-139 | Geração de cobrança PIX por ingresso | DONE | HIGH | S12 | API |
-| T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256 | DONE | HIGH | S12 | Jobs |
-| T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`) | DONE | HIGH | S12 | Web |
-| T-142 | Cancelamento de ingresso com reembolso | DONE | HIGH | S12 | API |
-| T-143 | Backend de validação de ingresso (HMAC + Redis dedup) | DONE | HIGH | S13 | API |
-| T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first | DONE | HIGH | S13 | Web |
-| T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`) | DONE | HIGH | S13 | API |
-| T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`) | DONE | MEDIUM | S13 | Full |
-| T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`) | DONE | HIGH | S13 | Jobs |
-| T-148 | Campos de patrocínio em `events` (logo + CTA) | DONE | MEDIUM | S13 | Full |
-| T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento) | DONE | MEDIUM | S14 | Jobs |
-| T-150 | CRUD de checklist de operações de jogo | TODO | MEDIUM | S14 | API |
-| T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first | TODO | MEDIUM | S14 | Web |
-| T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`) | TODO | MEDIUM | S14 | Full |
-| T-153 | Integração mPOS Stone/SumUp com fallback PIX | DONE | HIGH | S14 | API |
-| T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first | TODO | HIGH | S14 | Web |
-| T-155 | Provisionamento DDL tenant v2.5 (idempotente) | DONE | HIGH | S12 | Infra |
-| T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | DONE | HIGH | S12 | Infra |
-| T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório) | TODO | HIGH | S15 | Test |
-| T-158 | Rate limiting PDV e tickets (Redis) | TODO | MEDIUM | S15 | Infra |
-| T-159 | Matriz RBAC v2.5 (testes unitários dos novos endpoints) | TODO | HIGH | S15 | Test |
-| T-160 | Checklist de deploy ArenaPass (env vars + `validateEnv()`) | TODO | HIGH | S15 | Infra |
+| ID    | Title                                                                         | Status | Priority | Sprint | Area  |
+| ----- | ----------------------------------------------------------------------------- | ------ | -------- | ------ | ----- |
+| T-136 | Schema Prisma + DDL tenant (events, tickets, fan_profiles, pos_sales)         | DONE   | HIGH     | S12    | Infra |
+| T-137 | CRUD de eventos (`/api/events`)                                               | DONE   | HIGH     | S12    | API   |
+| T-138 | UI de configuração de evento (`EventFormModal` + `EventsPage`)                | DONE   | HIGH     | S12    | Web   |
+| T-139 | Geração de cobrança PIX por ingresso                                          | DONE   | HIGH     | S12    | API   |
+| T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256                              | DONE   | HIGH     | S12    | Jobs  |
+| T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`)          | DONE   | HIGH     | S12    | Web   |
+| T-142 | Cancelamento de ingresso com reembolso                                        | DONE   | HIGH     | S12    | API   |
+| T-143 | Backend de validação de ingresso (HMAC + Redis dedup)                         | DONE   | HIGH     | S13    | API   |
+| T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first               | DONE   | HIGH     | S13    | Web   |
+| T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`)                   | DONE   | HIGH     | S13    | API   |
+| T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`)                          | DONE   | MEDIUM   | S13    | Full  |
+| T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`)                        | DONE   | HIGH     | S13    | Jobs  |
+| T-148 | Campos de patrocínio em `events` (logo + CTA)                                 | DONE   | MEDIUM   | S13    | Full  |
+| T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento)                      | DONE   | MEDIUM   | S14    | Jobs  |
+| T-150 | CRUD de checklist de operações de jogo                                        | DONE   | MEDIUM   | S14    | API   |
+| T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first                    | TODO   | MEDIUM   | S14    | Web   |
+| T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`)                   | TODO   | MEDIUM   | S14    | Full  |
+| T-153 | Integração mPOS Stone/SumUp com fallback PIX                                  | DONE   | HIGH     | S14    | API   |
+| T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first                            | TODO   | HIGH     | S14    | Web   |
+| T-155 | Provisionamento DDL tenant v2.5 (idempotente)                                 | DONE   | HIGH     | S12    | Infra |
+| T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | DONE   | HIGH     | S12    | Infra |
+| T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório)             | TODO   | HIGH     | S15    | Test  |
+| T-158 | Rate limiting PDV e tickets (Redis)                                           | TODO   | MEDIUM   | S15    | Infra |
+| T-159 | Matriz RBAC v2.5 (testes unitários dos novos endpoints)                       | TODO   | HIGH     | S15    | Test  |
+| T-160 | Checklist de deploy ArenaPass (env vars + `validateEnv()`)                    | TODO   | HIGH     | S15    | Infra |
 
 > v3.0 tasks (T-161 → T-184): listed in **Icebox** below. DO NOT start before v2.5 go/no-go.
 
@@ -45,35 +45,22 @@
 
 ## In Progress
 
-#### T-150 | [TODO] CRUD de checklist de operações de jogo
-
-**Context:** Event staff need a structured checklist to track pre-game logistics per event.  
-**Architectural context:** `[SEC-TEN]`; `[SEC-OBJ]` `assertEventBelongsToClub`; guard `requireRole('ADMIN')`.  
-**Files:** `apps/api/src/modules/events/checklist/checklist.routes.ts`  
-**Acceptance criteria:**
-- [ ] `GET /api/events/:id/checklist` returns items pre-populated by category
-- [ ] `PATCH /api/events/:id/checklist/:itemId` toggles `completed` and records `completed_by`
-- [ ] `assertEventBelongsToClub` required
-**Out of scope:** Checklist UI (T-151), logistics notification (T-149)  
-**Pattern reference:** `apps/api/src/modules/training/` session pattern
-
-## Todo
-
-### Priority: MEDIUM
-
 #### T-151 | [TODO] UI de checklist de jogo (`GameOpsChecklist`) offline-first
 
 **Context:** Staff need to work through the game-day checklist even without connectivity at the venue.  
 **Architectural context:** Offline Dexie.js with dedup by `itemId`; `[UI-A11Y]`.  
 **Files:** `apps/web/src/app/(app)/access/GameOpsChecklist.tsx`  
 **Acceptance criteria:**
+
 - [ ] List grouped by category with toggle, progress indicator (e.g. 7/10), and completion timestamp
 - [ ] Visible to `ADMIN` only
 - [ ] Works offline with Dexie.js queue; dedup by `itemId` on sync
-**Out of scope:** Backend CRUD (T-150)  
-**Pattern reference:** attendance list in `apps/web/src/app/(app)/training/`
+      **Out of scope:** Backend CRUD (T-150)  
+       **Pattern reference:** attendance list in `apps/web/src/app/(app)/training/`
 
----
+## Todo
+
+### Priority: MEDIUM
 
 #### T-152 | [TODO] Catálogo de produtos do PDV
 
@@ -81,11 +68,12 @@
 **Architectural context:** `[FIN]` `price_cents` integer; `[UI-BRL]` `formatBRL()`; guard `requireRole('ADMIN')`.  
 **Files:** `apps/api/src/modules/events/pos/products.routes.ts`, `apps/web/src/app/(app)/access/PosProductsPage.tsx`  
 **Acceptance criteria:**
+
 - [ ] `GET/POST/PUT/DELETE /api/clubs/:id/pos-products` with `name`, `price_cents`, `category`, `stock`
 - [ ] `PosProductsPage` with `formatBRL(price_cents)` and `font-mono`
 - [ ] Guard `requireRole('ADMIN')`
-**Out of scope:** mPOS integration (T-153), PDV terminal UI (T-154)  
-**Pattern reference:** `apps/api/src/modules/plans/` CRUD pattern
+      **Out of scope:** mPOS integration (T-153), PDV terminal UI (T-154)  
+       **Pattern reference:** `apps/api/src/modules/plans/` CRUD pattern
 
 ---
 
@@ -95,11 +83,12 @@
 **Architectural context:** `[UI-BRL]` `formatBRL()` + `font-mono` on all values; offline Dexie.js queue; visible to `ADMIN | TREASURER`.  
 **Files:** `apps/web/src/app/(app)/access/PosTerminalPage.tsx`  
 **Acceptance criteria:**
+
 - [ ] Product grid, charge button, event sales history, total revenue with `formatBRL()` + `font-mono`
 - [ ] Offline: Dexie.js queue with sync on reconnect
 - [ ] Visible to `ADMIN` and `TREASURER`
-**Out of scope:** mPOS SDK integration (T-153)  
-**Pattern reference:** attendance board in `apps/web/src/app/(app)/training/`
+      **Out of scope:** mPOS SDK integration (T-153)  
+       **Pattern reference:** attendance board in `apps/web/src/app/(app)/training/`
 
 ---
 
@@ -108,11 +97,12 @@
 **Context:** Popular event ticket sales can spike; rate limiting prevents gateway and DB overload.  
 **Files:** `apps/api/src/plugins/rate-limit.ts`  
 **Acceptance criteria:**
+
 - [ ] Redis key `pos:{clubId}` limited to 200 req/min
 - [ ] Redis key `ticket-purchase:{eventId}` limited to 50 req/min
 - [ ] Added to `@fastify/rate-limit` configuration
-**Out of scope:** Adjustable limits per club tier (future)  
-**Pattern reference:** existing rate-limit plugin configuration
+      **Out of scope:** Adjustable limits per club tier (future)  
+       **Pattern reference:** existing rate-limit plugin configuration
 
 ---
 
@@ -124,12 +114,13 @@
 **Architectural context:** `[PR-FIN]` ≥ 2 approvals; ≥ 80% coverage on `events`, `tickets`, `pos_sales`.  
 **Files:** `apps/api/src/modules/events/__tests__/`, Playwright specs  
 **Acceptance criteria:**
+
 - [ ] Full flow covered: create event → PIX purchase → QR Code generated → gate check-in → billing report
 - [ ] Idempotency: duplicate check-in attempt returns 409
 - [ ] Coverage ≥ 80% on `events`, `tickets`, `pos_sales` modules
 - [ ] All RBAC rows for new endpoints covered by unit tests with exact HTTP status codes
-**Out of scope:** Load/stress testing  
-**Pattern reference:** `apps/api/src/modules/charges/__tests__/`
+      **Out of scope:** Load/stress testing  
+       **Pattern reference:** `apps/api/src/modules/charges/__tests__/`
 
 ---
 
@@ -138,12 +129,13 @@
 **Context:** New endpoints introduced in v2.5 need documented and tested access control.  
 **Files:** `apps/api/src/modules/events/__tests__/rbac.test.ts`  
 **Acceptance criteria:**
+
 - [ ] `TREASURER` can access billing report (read-only)
 - [ ] `ADMIN` has full CRUD on events
 - [ ] `COACH` cannot access events module (403)
 - [ ] Each RBAC row covered by a unit test with exact HTTP status code
-**Out of scope:** Role changes for existing v1/v2 endpoints  
-**Pattern reference:** `apps/api/src/modules/members/__tests__/rbac.test.ts`
+      **Out of scope:** Role changes for existing v1/v2 endpoints  
+       **Pattern reference:** `apps/api/src/modules/members/__tests__/rbac.test.ts`
 
 ---
 
@@ -152,12 +144,13 @@
 **Context:** New env vars for PDV integration must be validated at bootstrap to prevent silent failures.  
 **Files:** `apps/api/src/lib/env.ts`, `apps/api/.env.example`  
 **Acceptance criteria:**
+
 - [ ] `POS_PROVIDER`, `STONE_API_KEY` / `SUMUP_API_KEY` added to Zod schema in `lib/env.ts`
 - [ ] `validateEnv()` is the first call in bootstrap (no change needed if already so)
 - [ ] `.env.example` updated with new vars
 - [ ] Manual PDV smoke test: 3 sales in staging before enabling in production
-**Out of scope:** Automated PDV integration tests (requires physical device)  
-**Pattern reference:** existing `apps/api/src/lib/env.ts` Zod schema
+      **Out of scope:** Automated PDV integration tests (requires physical device)  
+       **Pattern reference:** existing `apps/api/src/lib/env.ts` Zod schema
 
 ---
 
@@ -167,10 +160,11 @@
 
 **Files:** `apps/api/src/lib/provision-tenant-schema.ts`, Prisma schema  
 **Acceptance criteria:**
+
 - [x] Tables `events`, `event_sectors`, `tickets`, `fan_profiles`, `pos_sales`, `game_checklists` created
 - [x] Index on `event_date` and `status`; trigger on `event_sector.capacity`
 - [x] DDL idempotent; all monetary fields as integer cents
-**Completed:** 2026-04-22
+      **Completed:** 2026-04-22
 
 #### T-137 | [DONE] CRUD de eventos (`/api/events`)
 
@@ -178,14 +172,15 @@
 **Architectural context:** `[SEC-TEN]` `withTenantSchema` + `assertValidClubId`; `clubId` from JWT only; soft-delete via `status = CANCELLED`; `[FIN]` `price_cents` as integer.  
 **Files:** `apps/api/src/modules/events/events.routes.ts`, `apps/api/src/modules/events/events.service.ts`  
 **Acceptance criteria:**
+
 - [x] `POST /api/events` creates event with `opponent`, `event_date`, `venue`, `description` and nested `event_sectors`
 - [x] `GET /api/events` returns paginated list with `page` + `limit`
 - [x] `PUT /api/events/:id` updates event; `assertEventBelongsToClub` required
 - [x] `DELETE /api/events/:id` soft-deletes via `status = CANCELLED`
 - [x] Zod validation on all inputs; guard `requireRole('ADMIN')`
-**Out of scope:** Ticket purchase flow (T-139), UI (T-138)  
-**Pattern reference:** `apps/api/src/modules/members/members.routes.ts`
-**Completed:** 2026-04-30
+      **Out of scope:** Ticket purchase flow (T-139), UI (T-138)  
+       **Pattern reference:** `apps/api/src/modules/members/members.routes.ts`
+      **Completed:** 2026-04-30
 
 #### T-138 | [DONE] UI de configuração de evento (`EventFormModal` + `EventsPage`)
 
@@ -193,13 +188,14 @@
 **Architectural context:** `[UI-BRL]` `formatBRL()` + `font-mono` on all price displays; `[UI-A11Y]` status badge with text + color; visible to `ADMIN` only.  
 **Files:** `apps/web/src/app/(app)/access/page.tsx`, `apps/web/src/app/(app)/access/components/EventFormModal.tsx`, `EventSectorsTable.tsx`  
 **Acceptance criteria:**
+
 - [x] `EventsPage` accessible at `/access`
 - [x] `EventFormModal` with opponent, date, venue fields and inline editable sectors table
 - [x] Sector prices displayed with `formatBRL()` + `font-mono`
 - [x] Status badge includes text label (not color only)
 - [x] Visible to `ADMIN` only; other roles see 403
-**Out of scope:** Ticket sales UI (T-141), gate scanner (T-144)  
-**Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern
+      **Out of scope:** Ticket sales UI (T-141), gate scanner (T-144)  
+       **Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern
 
 #### T-139 | [DONE] Geração de cobrança PIX por ingresso
 
@@ -207,13 +203,14 @@
 **Architectural context:** `[ARCH-GW]` via `GatewayRegistry.forMethod('PIX')`; `[FIN]` `price_cents` integer; `[SEC-OBJ]` `assertEventBelongsToClub`; `[SEC-TEN]`; `[PR-FIN]` ≥ 2 approvals.  
 **Files:** `apps/api/src/modules/events/tickets/tickets.routes.ts`, `tickets.service.ts`  
 **Acceptance criteria:**
+
 - [x] `POST /api/events/:id/tickets/purchase` creates `Ticket` (status `PENDING`) and PIX charge
 - [x] Idempotent by `fan_email + event_id + sector_id`
 - [x] Rejects purchase when `event_sector.sold >= event_sector.capacity`
 - [x] `assertEventBelongsToClub` called before any mutation
 - [x] No concrete gateway import — `GatewayRegistry.forMethod('PIX')` only
-**Out of scope:** QR Code delivery (T-140), cancellation (T-142)  
-**Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`
+      **Out of scope:** QR Code delivery (T-140), cancellation (T-142)  
+       **Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`
 
 #### T-140 | [DONE] Worker BullMQ `confirm-ticket` + QR Code SHA-256
 
@@ -221,14 +218,15 @@
 **Architectural context:** `[SEC-JOB]` payload IDs only — fetch PII inside worker; `[ARCH-JOB]` idempotent; rate limit 30 msg/min via Redis; failure → Sentry.  
 **Files:** `apps/api/src/jobs/confirm-ticket.worker.ts`, `apps/api/src/modules/events/tickets/tickets.service.ts`  
 **Acceptance criteria:**
+
 - [x] Worker triggered by webhook payment confirmation
 - [x] Sets `Ticket.status = PAID`, generates QR Code via HMAC-SHA256 (`ticket_id + event_id + secret`)
 - [x] Job payload contains `ticketId`, `eventId`, `clubId` only — no email, no name
 - [x] Rate limit 30 msg/min per club enforced via Redis
 - [x] Idempotent — reprocessing does not generate duplicate QR or messages
 - [x] Exceptions logged to Sentry
-**Out of scope:** Webhook pipeline itself (T-142), gate validation (T-143)  
-**Pattern reference:** `apps/api/src/jobs/webhook-events/` worker pattern
+      **Out of scope:** Webhook pipeline itself (T-142), gate validation (T-143)  
+       **Pattern reference:** `apps/api/src/jobs/webhook-events/` worker pattern
 
 #### T-141 | [DONE] Página pública de compra de ingresso
 
@@ -236,13 +234,14 @@
 **Architectural context:** Route group `(marketing)` — no auth, no imports from `(app)/`; `[UI-BRL]` `formatBRL(price_cents)`; polling every 10s for availability.  
 **Files:** `apps/web/src/app/(marketing)/eventos/[clubSlug]/[eventId]/page.tsx`  
 **Acceptance criteria:**
+
 - [x] Page accessible without authentication
 - [x] Displays event name, opponent, date, sectors with `formatBRL(price_cents)` and remaining capacity
 - [x] Purchase form with `name`, `email`, `phone`, sector selection, PIX integration inline
 - [x] Availability updates via polling every 10s
 - [x] Zero imports from `(app)/` — shared components in `packages/ui/` only
-**Out of scope:** Authenticated management UI (T-138), QR Code delivery (T-140)  
-**Pattern reference:** `apps/web/src/app/(marketing)/peneiras/page.tsx`
+      **Out of scope:** Authenticated management UI (T-138), QR Code delivery (T-140)  
+       **Pattern reference:** `apps/web/src/app/(marketing)/peneiras/page.tsx`
 
 #### T-142 | [DONE] Cancelamento de ingresso com reembolso
 
@@ -250,13 +249,14 @@
 **Architectural context:** `[FIN]` confirmed payment cannot be deleted — cancel with recorded reason; `[PR-FIN]` ≥ 2 approvals; `[SEC-OBJ]` `assertTicketBelongsToClub`.  
 **Files:** `apps/api/src/modules/events/tickets/tickets.routes.ts`, `tickets.service.ts`  
 **Acceptance criteria:**
+
 - [x] `DELETE /api/tickets/:id` reverses gateway charge, sets `Ticket.status = CANCELLED`, records reason in `audit_log`
 - [x] Returns 400 if `ticket.checkedIn = true`
 - [x] Rejects cancellation if event is within 24h
 - [x] Payment is cancelled with reason — never deleted
 - [x] `assertTicketBelongsToClub` required
-**Out of scope:** Bulk cancellation (future scope)  
-**Pattern reference:** Payment cancellation pattern in `apps/api/src/modules/payments/`
+      **Out of scope:** Bulk cancellation (future scope)  
+       **Pattern reference:** Payment cancellation pattern in `apps/api/src/modules/payments/`
 
 #### T-143 | [DONE] Backend de validação de ingresso (HMAC + Redis dedup)
 
@@ -264,13 +264,14 @@
 **Architectural context:** `[SEC-WH]` HMAC-SHA256 + `timingSafeEqual`; Redis `SET NX` dedup TTL 24h; `[SEC-TEN]`; `[SEC-OBJ]` `assertEventBelongsToClub`.  
 **Files:** `apps/api/src/modules/events/tickets/validate.routes.ts`, `validate.service.ts`  
 **Acceptance criteria:**
+
 - [x] `POST /api/events/:id/tickets/validate` verifies HMAC-SHA256 signature via `timingSafeEqual`
 - [x] Rejects duplicate scans via Redis `SET NX` (TTL 24h) — returns 409
 - [x] Sets `Ticket.checked_in = true`, records in `field_access_logs` with `actor_id`, `timestamp`, `ip`
 - [x] `assertEventBelongsToClub` required
 - [x] SSE event `CHECKIN_CONFIRMED` emitted after successful validation
-**Out of scope:** Scanner UI (T-144)  
-**Pattern reference:** `apps/api/src/modules/webhooks/` HMAC validation pattern
+      **Out of scope:** Scanner UI (T-144)  
+       **Pattern reference:** `apps/api/src/modules/webhooks/` HMAC validation pattern
 
 #### T-147 | [DONE] Funil torcedor → sócio (BullMQ `fan-to-member-funnel`)
 
@@ -278,13 +279,14 @@
 **Architectural context:** `[SEC-JOB]` payload `fan_id + event_id` only — fetch name/contact inside worker; `[ARCH-JOB]` idempotent 1 message per `fan_id + event_id`; results recorded in `messages`.  
 **Files:** `apps/api/src/jobs/fan-to-member-funnel.worker.ts`  
 **Acceptance criteria:**
+
 - [x] Job enqueued after `CHECKIN_CONFIRMED` event
 - [x] Payload contains `fanId`, `eventId`, `clubId` only
 - [x] Sends conversion message once per `fan_id + event_id` combination (idempotent)
 - [x] Result recorded in `messages` table for audit
 - [x] Failure logged to Sentry
-**Out of scope:** Message templates (managed separately), CRM UI (T-146)  
-**Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern
+      **Out of scope:** Message templates (managed separately), CRM UI (T-146)  
+       **Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern
 
 #### T-153 | [DONE] Integração mPOS Stone/SumUp com fallback PIX
 
@@ -292,12 +294,13 @@
 **Architectural context:** `[ARCH-GW]` fallback via `GatewayRegistry.forMethod('PIX')` — never direct import; `[FIN]` `amount_cents` as integer; `[PR-FIN]` ≥ 2 approvals.  
 **Files:** `apps/api/src/modules/events/pos/pos.routes.ts`, `pos.service.ts`  
 **Acceptance criteria:**
+
 - [x] `POST /api/events/:id/pos/charge` creates charge via `POS_PROVIDER` SDK (Stone or SumUp)
 - [x] Records sale in `pos_sales` with `amount_cents` as integer
 - [x] Falls back to `GatewayRegistry.forMethod('PIX')` if terminal unavailable
 - [x] `POS_PROVIDER` resolved from env — no hardcoded provider name
-**Out of scope:** PDV UI (T-154), product catalog (T-152)  
-**Pattern reference:** `apps/api/src/modules/payments/gateways/` registry pattern
+      **Out of scope:** PDV UI (T-154), product catalog (T-152)  
+       **Pattern reference:** `apps/api/src/modules/payments/gateways/` registry pattern
 
 #### T-155 | [DONE] Provisionamento DDL tenant v2.5 (idempotente)
 
@@ -305,11 +308,12 @@
 **Architectural context:** `[SEC-TEN]` DDL must be idempotent; `provisionTenantSchema` is the only place for tenant DDL changes.  
 **Files:** `apps/api/src/lib/provision-tenant-schema.ts`  
 **Acceptance criteria:**
+
 - [x] `events`, `event_sectors`, `tickets`, `fan_profiles`, `pos_sales`, `game_checklists` added to `provisionTenantSchema`
 - [x] Existing clubs receive tables on next execution without errors
 - [x] DDL wrapped in `IF NOT EXISTS` guards
-**Out of scope:** Data migration, seeding  
-**Pattern reference:** existing `provisionTenantSchema` implementation
+      **Out of scope:** Data migration, seeding  
+       **Pattern reference:** existing `provisionTenantSchema` implementation
 
 #### T-156 | [DONE] Rotas SSE v2.5
 
@@ -317,11 +321,12 @@
 **Architectural context:** `sse-bus.ts` coupling — React Query invalidation keys must be updated in matching web modules.  
 **Files:** `apps/api/src/modules/events/sse-bus.ts`, matching web query files  
 **Acceptance criteria:**
+
 - [x] `TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED` events added to `sse-bus.ts`
 - [x] `EVENT_QUERY_KEY` and `TICKETS_QUERY_KEY` invalidated in `queryClient` on receipt
 - [x] Scaling note in code: replace `EventEmitter` with `redis.publish/subscribe` when > 1 process
-**Out of scope:** New SSE transport implementation (scaling concern)  
-**Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
+      **Out of scope:** New SSE transport implementation (scaling concern)  
+       **Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
 
 #### T-144 | [DONE] UI de portaria mobile-first (`TicketScannerPage`) offline-first
 
@@ -329,13 +334,14 @@
 **Architectural context:** Offline queue via Dexie.js + Background Sync; dedup by `ticket_id` in local queue; `[UI-A11Y]` check-in status badge with text.  
 **Files:** `apps/web/src/app/(app)/access/TicketScannerPage.tsx`  
 **Acceptance criteria:**
+
 - [x] Camera scans QR Code and displays result in < 1s
 - [x] Works offline: local Dexie.js queue with Background Sync on reconnect
 - [x] Deduplicates by `ticket_id` — no duplicate check-in submissions
 - [x] Check-in counter per sector via SSE `CHECKIN_CONFIRMED`
 - [x] Status badge includes text label beyond color
-**Out of scope:** Backend validation (T-143)  
-**Pattern reference:** offline attendance pattern in `apps/web/src/app/(app)/training/`
+      **Out of scope:** Backend validation (T-143)  
+       **Pattern reference:** offline attendance pattern in `apps/web/src/app/(app)/training/`
 
 #### T-145 | [TODO] Relatório de bilheteria pós-jogo
 
@@ -343,12 +349,13 @@
 **Architectural context:** `[FIN]` revenue = `price_cents × sold` as integer; `[PR-FIN]` ≥ 2 approvals; guard `requireRole('ADMIN', 'TREASURER')`.  
 **Files:** `apps/api/src/modules/events/reports/reports.routes.ts`, `reports.service.ts`  
 **Acceptance criteria:**
+
 - [x] `GET /api/events/:id/report` returns total revenue by sector, occupancy rate, check-ins, no-shows
 - [x] All revenue in integer cents — no floats
 - [x] PDF generation via `react-pdf` with club logo; SHA-256 hash recorded in `audit_log`
 - [x] Requires `ADMIN` or `TREASURER` role
-**Out of scope:** CRM data (T-146), CSV export of fans  
-**Pattern reference:** `apps/api/src/jobs/monthly-report/` PDF pattern
+      **Out of scope:** CRM data (T-146), CSV export of fans  
+       **Pattern reference:** `apps/api/src/jobs/monthly-report/` PDF pattern
 
 #### T-146 | [DONE] CRM de torcedor
 
@@ -356,12 +363,13 @@
 **Architectural context:** `[FIN]` `total_spent_cents` as integer; `[SEC]` CSV export must sanitize injection characters.  
 **Files:** `apps/api/src/modules/events/fans/fans.routes.ts`, `apps/web/src/app/(app)/access/FanProfilesPage.tsx`  
 **Acceptance criteria:**
+
 - [x] `GET /api/fans` with search by email/phone, pagination, sort by `total_spent_cents`
 - [x] `FanProfilesPage` with filters and CSV export
 - [x] CSV export prefixes `=`, `+`, `-`, `@` fields with `'` to prevent injection
 - [x] `total_spent_cents` stored and displayed as integer cents with `formatBRL()`
-**Out of scope:** Fan-to-member conversion messaging (T-147)  
-**Pattern reference:** `apps/web/src/app/(app)/members/MembersPage.tsx`
+      **Out of scope:** Fan-to-member conversion messaging (T-147)  
+       **Pattern reference:** `apps/web/src/app/(app)/members/MembersPage.tsx`
 
 #### T-148 | [DONE] Campos de patrocínio em `events`
 
@@ -369,12 +377,13 @@
 **Architectural context:** `[SEC-FILE]` logo validated by magic bytes — never trust `Content-Type`; filename via `randomUUID()`.  
 **Files:** `apps/api/src/modules/events/events.service.ts`, Prisma schema  
 **Acceptance criteria:**
+
 - [x] `sponsor_name`, `sponsor_logo_url`, `sponsor_cta_url` fields added to `events`
 - [x] Logo validated by magic bytes via `file-type`; filename = `randomUUID()`
 - [x] Minimum logo dimensions 200×60px enforced via Sharp
 - [x] Logo displayed in `confirm-ticket` worker output and public event page
-**Out of scope:** Sponsorship analytics, programmatic ad serving  
-**Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`
+      **Out of scope:** Sponsorship analytics, programmatic ad serving  
+       **Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`
 
 #### T-149 | [DONE] Job BullMQ `game-logistics-notice`
 
@@ -382,12 +391,26 @@
 **Architectural context:** `[ARCH-JOB]` idempotent by `event_id`; `[SEC-JOB]` payload `event_id + clubId` only.  
 **Files:** `apps/api/src/jobs/game-logistics-notice.worker.ts`  
 **Acceptance criteria:**
+
 - [x] Job enqueued at `event_date - 48h`
 - [x] Sends WhatsApp message to captain with squad, time, venue, checklist link
 - [x] Idempotent by `event_id` — re-enqueue does not send duplicate
 - [x] Configurable per club; failure → Sentry
-**Out of scope:** Checklist CRUD (T-150), UI (T-151)  
-**Pattern reference:** `apps/api/src/jobs/due-today-notices/` timing pattern
+      **Out of scope:** Checklist CRUD (T-150), UI (T-151)  
+       **Pattern reference:** `apps/api/src/jobs/due-today-notices/` timing pattern
+
+#### T-150 | [DONE] CRUD de checklist de operações de jogo
+
+**Context:** Event staff need a structured checklist to track pre-game logistics per event.  
+**Architectural context:** `[SEC-TEN]`; `[SEC-OBJ]` `assertEventBelongsToClub`; guard `requireRole('ADMIN')`.  
+**Files:** `apps/api/src/modules/events/checklist/checklist.routes.ts`  
+**Acceptance criteria:**
+
+- [x] `GET /api/events/:id/checklist` returns items pre-populated by category
+- [x] `PATCH /api/events/:id/checklist/:itemId` toggles `completed` and records `completed_by`
+- [x] `assertEventBelongsToClub` required
+      **Out of scope:** Checklist UI (T-151), logistics notification (T-149)  
+       **Pattern reference:** `apps/api/src/modules/training/` session pattern
 
 ---
 

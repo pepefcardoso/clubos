@@ -25,6 +25,7 @@ import type {
 import { gameLogisticsNoticeQueue } from "../../jobs/queues.js";
 import { GAME_LOGISTICS_NOTICE_JOB_NAMES } from "../../jobs/game-logistics-notice/game-logistics-notice.types.js";
 import type { GameLogisticsNoticeJobData } from "../../jobs/game-logistics-notice/game-logistics-notice.types.js";
+import { seedChecklistItems } from "./checklist/checklist.service.js";
 
 export class EventNotFoundError extends NotFoundError {
   constructor() {
@@ -146,6 +147,8 @@ export async function createEvent(
       },
       select: EVENT_SELECT_SPONSOR,
     });
+
+    await seedChecklistItems(tx, event.id);
 
     const response = toEventResponse({
       ...event,

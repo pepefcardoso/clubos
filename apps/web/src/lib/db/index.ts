@@ -5,6 +5,7 @@ import type {
   CachedExercise,
   MetaEntry,
   FieldAccessQueueEntry,
+  ChecklistQueueEntry,
 } from "./types";
 
 /**
@@ -20,7 +21,8 @@ import type {
  *   v1 — athletes + trainingSessions stores
  *   v2 — exercises store added
  *   v3 — meta store added (key-value, used by SW Background Sync for activeClubId)
- *   v4 — fieldAccessQueue store added (offline QR Code scan queue for T-132)
+ *   v4 — fieldAccessQueue store added
+ *   v5 — checklistQueue store added
  */
 export class ClubOSDatabase extends Dexie {
   athletes!: EntityTable<CachedAthlete, "id">;
@@ -28,7 +30,7 @@ export class ClubOSDatabase extends Dexie {
   exercises!: EntityTable<CachedExercise, "id">;
   meta!: EntityTable<MetaEntry, "key">;
   fieldAccessQueue!: EntityTable<FieldAccessQueueEntry, "localId">;
-
+  checklistQueue!: EntityTable<ChecklistQueueEntry, "localId">;
   constructor() {
     if (typeof window === "undefined") {
       throw new Error(
@@ -52,6 +54,10 @@ export class ClubOSDatabase extends Dexie {
     this.version(4).stores({
       fieldAccessQueue:
         "localId, clubId, eventId, syncStatus, [clubId+syncStatus], [clubId+eventId], createdAt",
+    });
+    this.version(5).stores({
+      checklistQueue:
+        "localId, clubId, eventId, itemId, syncStatus, [clubId+syncStatus], [eventId+itemId], createdAt",
     });
   }
 }

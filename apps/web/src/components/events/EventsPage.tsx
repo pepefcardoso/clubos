@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, CalendarX, Pencil, XCircle } from "lucide-react";
+import { Plus, CalendarX, Pencil, XCircle, ClipboardList } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useEvents } from "@/hooks/use-events";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { type EventResponse, type EventStatus } from "@/lib/api/events";
 import { EventStatusBadge } from "./EventStatusBadge";
 import { EventFormModal } from "./EventFormModal";
 import { CancelEventDialog } from "./CancelEventDialog";
+import { useRouter } from "next/navigation";
 
 const STATUS_OPTIONS: Array<{ value: EventStatus | ""; label: string }> = [
     { value: "", label: "Todos os status" },
@@ -101,6 +102,7 @@ function Pagination({
 
 export function EventsPage() {
     const { user } = useAuth();
+    const router = useRouter();
     const isAdmin = user?.role === "ADMIN";
 
     const [statusFilter, setStatusFilter] = useState<EventStatus | "">("");
@@ -238,6 +240,16 @@ export function EventsPage() {
                                                         >
                                                             <Pencil size={15} aria-hidden="true" />
                                                         </button>
+                                                        {isAdmin && !isCancelled && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => router.push(`/events/${event.id}/checklist`)}
+                                                                className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
+                                                                aria-label={`Checklist do evento ${event.opponent}`}
+                                                            >
+                                                                <ClipboardList size={15} aria-hidden="true" />
+                                                            </button>
+                                                        )}
                                                         {!isCancelled && (
                                                             <button
                                                                 type="button"

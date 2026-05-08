@@ -143,3 +143,17 @@ export interface FieldAccessQueueEntry {
   /** Date.now() at last status transition */
   updatedAt: number;
 }
+
+export interface ChecklistQueueEntry {
+  /** Client-generated UUID — idempotency key on sync */
+  localId: string;
+  clubId: string;
+  eventId: string;
+  itemId: string;
+  /** Last intended state — dedup: only final state per itemId matters */
+  completed: boolean;
+  syncStatus: "pending" | "syncing" | "synced" | "error";
+  syncError: string | null;
+  createdAt: number;
+  updatedAt: number;
+}

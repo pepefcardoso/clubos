@@ -28,7 +28,7 @@
 | T-148 | Campos de patrocínio em `events` (logo + CTA)                                 | DONE   | MEDIUM   | S13    | Full  |
 | T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento)                      | DONE   | MEDIUM   | S14    | Jobs  |
 | T-150 | CRUD de checklist de operações de jogo                                        | DONE   | MEDIUM   | S14    | API   |
-| T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first                    | TODO   | MEDIUM   | S14    | Web   |
+| T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first                    | DONE   | MEDIUM   | S14    | Web   |
 | T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`)                   | TODO   | MEDIUM   | S14    | Full  |
 | T-153 | Integração mPOS Stone/SumUp com fallback PIX                                  | DONE   | HIGH     | S14    | API   |
 | T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first                            | TODO   | HIGH     | S14    | Web   |
@@ -45,23 +45,6 @@
 
 ## In Progress
 
-#### T-151 | [TODO] UI de checklist de jogo (`GameOpsChecklist`) offline-first
-
-**Context:** Staff need to work through the game-day checklist even without connectivity at the venue.  
-**Architectural context:** Offline Dexie.js with dedup by `itemId`; `[UI-A11Y]`.  
-**Files:** `apps/web/src/app/(app)/access/GameOpsChecklist.tsx`  
-**Acceptance criteria:**
-
-- [ ] List grouped by category with toggle, progress indicator (e.g. 7/10), and completion timestamp
-- [ ] Visible to `ADMIN` only
-- [ ] Works offline with Dexie.js queue; dedup by `itemId` on sync
-      **Out of scope:** Backend CRUD (T-150)  
-       **Pattern reference:** attendance list in `apps/web/src/app/(app)/training/`
-
-## Todo
-
-### Priority: MEDIUM
-
 #### T-152 | [TODO] Catálogo de produtos do PDV
 
 **Context:** Clubs need to configure the products available at the venue point-of-sale before events.  
@@ -75,7 +58,9 @@
       **Out of scope:** mPOS integration (T-153), PDV terminal UI (T-154)  
        **Pattern reference:** `apps/api/src/modules/plans/` CRUD pattern
 
----
+## Todo
+
+### Priority: MEDIUM
 
 #### T-154 | [TODO] UI de PDV mobile (`PosTerminalPage`) offline-first
 
@@ -411,6 +396,19 @@
 - [x] `assertEventBelongsToClub` required
       **Out of scope:** Checklist UI (T-151), logistics notification (T-149)  
        **Pattern reference:** `apps/api/src/modules/training/` session pattern
+
+#### T-151 | [DONE] UI de checklist de jogo (`GameOpsChecklist`) offline-first
+
+**Context:** Staff need to work through the game-day checklist even without connectivity at the venue.  
+**Architectural context:** Offline Dexie.js with dedup by `itemId`; `[UI-A11Y]`.  
+**Files:** `apps/web/src/app/(app)/access/GameOpsChecklist.tsx`  
+**Acceptance criteria:**
+
+- [x] List grouped by category with toggle, progress indicator (e.g. 7/10), and completion timestamp
+- [x] Visible to `ADMIN` only
+- [x] Works offline with Dexie.js queue; dedup by `itemId` on sync
+      **Out of scope:** Backend CRUD (T-150)  
+       **Pattern reference:** attendance list in `apps/web/src/app/(app)/training/`
 
 ---
 

@@ -29,7 +29,7 @@
 | T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento)                      | DONE   | MEDIUM   | S14    | Jobs  |
 | T-150 | CRUD de checklist de operações de jogo                                        | DONE   | MEDIUM   | S14    | API   |
 | T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first                    | DONE   | MEDIUM   | S14    | Web   |
-| T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`)                   | TODO   | MEDIUM   | S14    | Full  |
+| T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`)                   | DONE   | MEDIUM   | S14    | Full  |
 | T-153 | Integração mPOS Stone/SumUp com fallback PIX                                  | DONE   | HIGH     | S14    | API   |
 | T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first                            | TODO   | HIGH     | S14    | Web   |
 | T-155 | Provisionamento DDL tenant v2.5 (idempotente)                                 | DONE   | HIGH     | S12    | Infra |
@@ -45,23 +45,6 @@
 
 ## In Progress
 
-#### T-152 | [TODO] Catálogo de produtos do PDV
-
-**Context:** Clubs need to configure the products available at the venue point-of-sale before events.  
-**Architectural context:** `[FIN]` `price_cents` integer; `[UI-BRL]` `formatBRL()`; guard `requireRole('ADMIN')`.  
-**Files:** `apps/api/src/modules/events/pos/products.routes.ts`, `apps/web/src/app/(app)/access/PosProductsPage.tsx`  
-**Acceptance criteria:**
-
-- [ ] `GET/POST/PUT/DELETE /api/clubs/:id/pos-products` with `name`, `price_cents`, `category`, `stock`
-- [ ] `PosProductsPage` with `formatBRL(price_cents)` and `font-mono`
-- [ ] Guard `requireRole('ADMIN')`
-      **Out of scope:** mPOS integration (T-153), PDV terminal UI (T-154)  
-       **Pattern reference:** `apps/api/src/modules/plans/` CRUD pattern
-
-## Todo
-
-### Priority: MEDIUM
-
 #### T-154 | [TODO] UI de PDV mobile (`PosTerminalPage`) offline-first
 
 **Context:** Venue staff need a mobile POS interface to register product sales during events.  
@@ -75,7 +58,9 @@
       **Out of scope:** mPOS SDK integration (T-153)  
        **Pattern reference:** attendance board in `apps/web/src/app/(app)/training/`
 
----
+## Todo
+
+### Priority: MEDIUM
 
 #### T-158 | [TODO] Rate limiting PDV e tickets
 
@@ -409,6 +394,19 @@
 - [x] Works offline with Dexie.js queue; dedup by `itemId` on sync
       **Out of scope:** Backend CRUD (T-150)  
        **Pattern reference:** attendance list in `apps/web/src/app/(app)/training/`
+
+#### T-152 | [DONE] Catálogo de produtos do PDV
+
+**Context:** Clubs need to configure the products available at the venue point-of-sale before events.  
+**Architectural context:** `[FIN]` `price_cents` integer; `[UI-BRL]` `formatBRL()`; guard `requireRole('ADMIN')`.  
+**Files:** `apps/api/src/modules/events/pos/products.routes.ts`, `apps/web/src/app/(app)/access/PosProductsPage.tsx`  
+**Acceptance criteria:**
+
+- [x] `GET/POST/PUT/DELETE /api/clubs/:id/pos-products` with `name`, `price_cents`, `category`, `stock`
+- [x] `PosProductsPage` with `formatBRL(price_cents)` and `font-mono`
+- [x] Guard `requireRole('ADMIN')`
+      **Out of scope:** mPOS integration (T-153), PDV terminal UI (T-154)  
+       **Pattern reference:** `apps/api/src/modules/plans/` CRUD pattern
 
 ---
 

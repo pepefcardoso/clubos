@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     Store,
@@ -23,30 +23,30 @@ import { Spinner } from "@/components/ui/spinner";
 import type { PosQueueEntry } from "@/lib/db/types";
 
 function SyncBadge({ status }: { status: PosQueueEntry["syncStatus"] }) {
-    const map: Record
-    PosQueueEntry["syncStatus"],
-        { icon: React.ReactNode; label: string; className: string }
-        > = {
+    const map: Record<
+        PosQueueEntry["syncStatus"],
+        { icon: ReactNode; label: string; className: string }
+    > = {
         pending: {
             icon: <Clock size={11} aria-hidden="true" />,
-                label: "Pendente",
-                    className: "bg-amber-50 text-amber-700",
-    },
+            label: "Pendente",
+            className: "bg-amber-50 text-amber-700",
+        },
         syncing: {
             icon: <Loader2 size={11} className="animate-spin" aria-hidden="true" />,
-                label: "Sincronizando",
-                    className: "bg-primary-50 text-primary-700",
-    },
+            label: "Sincronizando",
+            className: "bg-primary-50 text-primary-700",
+        },
         synced: {
             icon: <CheckCircle2 size={11} aria-hidden="true" />,
-                label: "Sincronizado",
-                    className: "bg-primary-50 text-primary-700",
-    },
+            label: "Sincronizado",
+            className: "bg-primary-50 text-primary-700",
+        },
         error: {
             icon: <XCircle size={11} aria-hidden="true" />,
-                label: "Erro",
-                    className: "bg-red-50 text-red-700",
-    },
+            label: "Erro",
+            className: "bg-red-50 text-red-700",
+        },
     };
 
     const { icon, label, className } = map[status];

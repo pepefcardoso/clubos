@@ -2,9 +2,15 @@ import { getDb } from "./index";
 import type { PosQueueEntry } from "./types";
 
 export async function createPosEntry(
-  entry: Omit
+  entry: Omit<
     PosQueueEntry,
-    "localId" | "syncStatus" | "syncError" | "serverId" | "gatewayMeta" | "createdAt" | "updatedAt"
+    | "localId"
+    | "syncStatus"
+    | "syncError"
+    | "serverId"
+    | "gatewayMeta"
+    | "createdAt"
+    | "updatedAt"
   >,
 ): Promise<PosQueueEntry> {
   const now = Date.now();

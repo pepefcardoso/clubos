@@ -1,5 +1,3 @@
-// apps/web/src/hooks/use-pos-terminal.ts — NEW
-
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -68,8 +66,8 @@ export function usePosTerminal(eventId: string): UsePosTerminalReturn {
   useEffect(() => {
     if (!clubId) return;
     void resetStuckPosSales(clubId);
-    void reloadEntries();
-  }, [clubId, reloadEntries]);
+    void getPosSalesForEvent(clubId, eventId).then(setEntries);
+  }, [clubId, eventId]);
 
   const flush = useCallback(async () => {
     if (isFlushing.current || !clubId) return;

@@ -31,7 +31,7 @@
 | T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first                    | DONE   | MEDIUM   | S14    | Web   |
 | T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`)                   | DONE   | MEDIUM   | S14    | Full  |
 | T-153 | Integração mPOS Stone/SumUp com fallback PIX                                  | DONE   | HIGH     | S14    | API   |
-| T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first                            | TODO   | HIGH     | S14    | Web   |
+| T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first                            | DONE   | HIGH     | S14    | Web   |
 | T-155 | Provisionamento DDL tenant v2.5 (idempotente)                                 | DONE   | HIGH     | S12    | Infra |
 | T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | DONE   | HIGH     | S12    | Infra |
 | T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório)             | TODO   | HIGH     | S15    | Test  |
@@ -45,23 +45,6 @@
 
 ## In Progress
 
-#### T-154 | [TODO] UI de PDV mobile (`PosTerminalPage`) offline-first
-
-**Context:** Venue staff need a mobile POS interface to register product sales during events.  
-**Architectural context:** `[UI-BRL]` `formatBRL()` + `font-mono` on all values; offline Dexie.js queue; visible to `ADMIN | TREASURER`.  
-**Files:** `apps/web/src/app/(app)/access/PosTerminalPage.tsx`  
-**Acceptance criteria:**
-
-- [ ] Product grid, charge button, event sales history, total revenue with `formatBRL()` + `font-mono`
-- [ ] Offline: Dexie.js queue with sync on reconnect
-- [ ] Visible to `ADMIN` and `TREASURER`
-      **Out of scope:** mPOS SDK integration (T-153)  
-       **Pattern reference:** attendance board in `apps/web/src/app/(app)/training/`
-
-## Todo
-
-### Priority: MEDIUM
-
 #### T-158 | [TODO] Rate limiting PDV e tickets
 
 **Context:** Popular event ticket sales can spike; rate limiting prevents gateway and DB overload.  
@@ -74,7 +57,9 @@
       **Out of scope:** Adjustable limits per club tier (future)  
        **Pattern reference:** existing rate-limit plugin configuration
 
----
+## Todo
+
+### Priority: MEDIUM
 
 ### Priority: HIGH — Test & Hardening (Sprint 15)
 
@@ -407,6 +392,19 @@
 - [x] Guard `requireRole('ADMIN')`
       **Out of scope:** mPOS integration (T-153), PDV terminal UI (T-154)  
        **Pattern reference:** `apps/api/src/modules/plans/` CRUD pattern
+
+#### T-154 | [DONE] UI de PDV mobile (`PosTerminalPage`) offline-first
+
+**Context:** Venue staff need a mobile POS interface to register product sales during events.  
+**Architectural context:** `[UI-BRL]` `formatBRL()` + `font-mono` on all values; offline Dexie.js queue; visible to `ADMIN | TREASURER`.  
+**Files:** `apps/web/src/app/(app)/access/PosTerminalPage.tsx`  
+**Acceptance criteria:**
+
+- [x] Product grid, charge button, event sales history, total revenue with `formatBRL()` + `font-mono`
+- [x] Offline: Dexie.js queue with sync on reconnect
+- [x] Visible to `ADMIN` and `TREASURER`
+      **Out of scope:** mPOS SDK integration (T-153)  
+       **Pattern reference:** attendance board in `apps/web/src/app/(app)/training/`
 
 ---
 

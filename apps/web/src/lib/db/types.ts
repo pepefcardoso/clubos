@@ -157,3 +157,19 @@ export interface ChecklistQueueEntry {
   createdAt: number;
   updatedAt: number;
 }
+
+export interface PosQueueEntry {
+  /** UUID — doubles as idempotencyKey on the API */
+  localId: string;
+  clubId: string;
+  eventId: string;
+  productName: string;
+  amountCents: number;
+  method: "CARD" | "PIX";
+  syncStatus: "pending" | "syncing" | "synced" | "error";
+  syncError: string | null;
+  serverId: string | null;
+  gatewayMeta: Record<string, unknown> | null;
+  createdAt: number;
+  updatedAt: number;
+}

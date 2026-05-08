@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, CalendarX, Pencil, XCircle, ClipboardList } from "lucide-react";
+import { Plus, CalendarX, Pencil, XCircle, ClipboardList, Store } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useEvents } from "@/hooks/use-events";
 import { Button } from "@/components/ui/button";
@@ -104,6 +104,7 @@ export function EventsPage() {
     const { user } = useAuth();
     const router = useRouter();
     const isAdmin = user?.role === "ADMIN";
+    const isTreasurer = user?.role === "TREASURER";
 
     const [statusFilter, setStatusFilter] = useState<EventStatus | "">("");
     const [page, setPage] = useState(1);
@@ -175,7 +176,7 @@ export function EventsPage() {
                                         {h}
                                     </th>
                                 ))}
-                                {isAdmin && (
+                                {(isAdmin || isTreasurer) && (
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wide">
                                         Ações
                                     </th>
@@ -229,17 +230,19 @@ export function EventsPage() {
                                             <td className="px-4 py-3">
                                                 <EventStatusBadge status={event.status} />
                                             </td>
-                                            {isAdmin && (
+                                            {(isAdmin || isTreasurer) && (
                                                 <td className="px-4 py-3">
                                                     <div className="flex justify-end items-center gap-1">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setFormTarget(event)}
-                                                            className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
-                                                            aria-label={`Editar evento ${event.opponent}`}
-                                                        >
-                                                            <Pencil size={15} aria-hidden="true" />
-                                                        </button>
+                                                        {isAdmin && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setFormTarget(event)}
+                                                                className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
+                                                                aria-label={`Editar evento ${event.opponent}`}
+                                                            >
+                                                                <Pencil size={15} aria-hidden="true" />
+                                                            </button>
+                                                        )}
                                                         {isAdmin && !isCancelled && (
                                                             <button
                                                                 type="button"
@@ -251,6 +254,16 @@ export function EventsPage() {
                                                             </button>
                                                         )}
                                                         {!isCancelled && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => router.push(`/events/${event.id}/pos`)}
+                                                                className="p-1.5 text-neutral-400 hover:text-primary-600 transition-colors rounded"
+                                                                aria-label={`PDV do evento ${event.opponent}`}
+                                                            >
+                                                                <Store size={15} aria-hidden="true" />
+                                                            </button>
+                                                        )}
+                                                        {isAdmin && !isCancelled && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setCancelTarget(event)}

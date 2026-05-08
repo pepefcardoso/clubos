@@ -6,6 +6,7 @@ import type {
   MetaEntry,
   FieldAccessQueueEntry,
   ChecklistQueueEntry,
+  PosQueueEntry,
 } from "./types";
 
 /**
@@ -31,6 +32,7 @@ export class ClubOSDatabase extends Dexie {
   meta!: EntityTable<MetaEntry, "key">;
   fieldAccessQueue!: EntityTable<FieldAccessQueueEntry, "localId">;
   checklistQueue!: EntityTable<ChecklistQueueEntry, "localId">;
+  posQueue!: EntityTable<PosQueueEntry, "localId">;
   constructor() {
     if (typeof window === "undefined") {
       throw new Error(
@@ -58,6 +60,10 @@ export class ClubOSDatabase extends Dexie {
     this.version(5).stores({
       checklistQueue:
         "localId, clubId, eventId, itemId, syncStatus, [clubId+syncStatus], [eventId+itemId], createdAt",
+    });
+    this.version(6).stores({
+      posQueue:
+        "localId, clubId, eventId, syncStatus, [clubId+syncStatus], [clubId+eventId], createdAt",
     });
   }
 }

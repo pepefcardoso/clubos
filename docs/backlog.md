@@ -35,7 +35,7 @@
 | T-155 | Provisionamento DDL tenant v2.5 (idempotente)                                 | DONE   | HIGH     | S12    | Infra |
 | T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | DONE   | HIGH     | S12    | Infra |
 | T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório)             | TODO   | HIGH     | S15    | Test  |
-| T-158 | Rate limiting PDV e tickets (Redis)                                           | TODO   | MEDIUM   | S15    | Infra |
+| T-158 | Rate limiting PDV e tickets (Redis)                                           | DONE   | MEDIUM   | S15    | Infra |
 | T-159 | Matriz RBAC v2.5 (testes unitários dos novos endpoints)                       | TODO   | HIGH     | S15    | Test  |
 | T-160 | Checklist de deploy ArenaPass (env vars + `validateEnv()`)                    | TODO   | HIGH     | S15    | Infra |
 
@@ -44,24 +44,6 @@
 ---
 
 ## In Progress
-
-#### T-158 | [TODO] Rate limiting PDV e tickets
-
-**Context:** Popular event ticket sales can spike; rate limiting prevents gateway and DB overload.  
-**Files:** `apps/api/src/plugins/rate-limit.ts`  
-**Acceptance criteria:**
-
-- [ ] Redis key `pos:{clubId}` limited to 200 req/min
-- [ ] Redis key `ticket-purchase:{eventId}` limited to 50 req/min
-- [ ] Added to `@fastify/rate-limit` configuration
-      **Out of scope:** Adjustable limits per club tier (future)  
-       **Pattern reference:** existing rate-limit plugin configuration
-
-## Todo
-
-### Priority: MEDIUM
-
-### Priority: HIGH — Test & Hardening (Sprint 15)
 
 #### T-157 | [TODO] Testes E2E ArenaPass
 
@@ -77,7 +59,9 @@
       **Out of scope:** Load/stress testing  
        **Pattern reference:** `apps/api/src/modules/charges/__tests__/`
 
----
+## Todo
+
+### Priority: HIGH — Test & Hardening (Sprint 15)
 
 #### T-159 | [TODO] Matriz RBAC v2.5
 
@@ -405,6 +389,18 @@
 - [x] Visible to `ADMIN` and `TREASURER`
       **Out of scope:** mPOS SDK integration (T-153)  
        **Pattern reference:** attendance board in `apps/web/src/app/(app)/training/`
+
+#### T-158 | [DONE] Rate limiting PDV e tickets
+
+**Context:** Popular event ticket sales can spike; rate limiting prevents gateway and DB overload.  
+**Files:** `apps/api/src/plugins/rate-limit.ts`  
+**Acceptance criteria:**
+
+- [x] Redis key `pos:{clubId}` limited to 200 req/min
+- [x] Redis key `ticket-purchase:{eventId}` limited to 50 req/min
+- [x] Added to `@fastify/rate-limit` configuration
+      **Out of scope:** Adjustable limits per club tier (future)  
+       **Pattern reference:** existing rate-limit plugin configuration
 
 ---
 

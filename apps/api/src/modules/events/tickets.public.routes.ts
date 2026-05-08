@@ -6,6 +6,10 @@ import {
   ValidationError,
   ConflictError,
 } from "../../lib/errors.js";
+import { checkRouteRateLimit } from "../../lib/route-rate-limit.js";
+
+const TICKET_PURCHASE_RATE_LIMIT_MAX = 50;
+const TICKET_PURCHASE_RATE_LIMIT_WINDOW_MS = 60_000;
 
 export async function ticketPublicRoutes(
   fastify: FastifyInstance,
@@ -51,12 +55,37 @@ export async function ticketPublicRoutes(
 
   /**
    * POST /api/events/:clubSlug/:eventId/tickets/purchase
-   * (unchanged — see original file)
+   *
+   * Rate limit: 50 req/min per eventId to protect gateway throughput and
+   * the capacity guard inside purchaseTicket (sold >= capacity check).
+   * Bucket is per-event so a spike on one event does not block others.
+   *
+   * Error codes:
+   *   201 — ticket created
+   *   400 — invalid body
+   *   404 — unknown club or event
+   *   409 — duplicate purchase (same fan + event + sector)
+   *   422 — event not available or sector sold out
+   *   429 — rate limit exceeded
    */
   fastify.post<{
     Params: { clubSlug: string; eventId: string };
   }>("/:clubSlug/:eventId/tickets/purchase", async (request, reply) => {
     const { clubSlug, eventId } = request.params;
+
+    const rl = await checkRouteRateLimit(
+      fastify.redis,
+      `ticket-purchase:${eventId}`,
+      TICKET_PURCHASE_RATE_LIMIT_MAX,
+      TICKET_PURCHASE_RATE_LIMIT_WINDOW_MS,
+    );
+    if (!rl.allowed) {
+      return reply.status(429).send({
+        statusCode: 429,
+        error: "Too Many Requests",
+        message: `Rate limit exceeded. Retry in ${Math.ceil(rl.retryAfterMs / 1000)}s.`,
+      });
+    }
 
     const parsed = PurchaseTicketInputSchema.safeParse(request.body);
     if (!parsed.success) {

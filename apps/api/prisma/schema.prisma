@@ -815,3 +815,18 @@ model GameChecklist {
   @@index([eventId])
   @@map("game_checklists")
 }
+
+model PosProduct {
+  id         String   @id @default(cuid())
+  name       String
+  priceCents Int
+  category   String?
+  stock      Int?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([category])
+  @@map("pos_products")
+}

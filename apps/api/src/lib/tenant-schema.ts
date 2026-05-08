@@ -1193,6 +1193,27 @@ const TENANT_V25_SPONSOR_PATCH_DDL = `
   ALTER TABLE "events" ADD COLUMN IF NOT EXISTS "sponsorCtaUrl"  TEXT;
 `;
 
+const TENANT_V152_TABLES_DDL = `
+  CREATE TABLE IF NOT EXISTS "pos_products" (
+    "id"         TEXT         NOT NULL,
+    "name"       TEXT         NOT NULL,
+    "priceCents" INTEGER      NOT NULL,
+    "category"   TEXT,
+    "stock"      INTEGER,
+    "isActive"   BOOLEAN      NOT NULL DEFAULT true,
+    "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt"  TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "pos_products_pkey" PRIMARY KEY ("id")
+  );
+`;
+
+const TENANT_V152_INDEXES_DDL = `
+  CREATE INDEX IF NOT EXISTS "pos_products_isActive_idx"
+    ON "pos_products" ("isActive");
+  CREATE INDEX IF NOT EXISTS "pos_products_category_idx"
+    ON "pos_products" ("category");
+`;
+
 export const TENANT_TABLES_DDL_FOR_TESTING = TENANT_TABLES_DDL;
 export const TENANT_INDEXES_DDL_FOR_TESTING = TENANT_INDEXES_DDL;
 export const TENANT_FOREIGN_KEYS_DDL_FOR_TESTING = TENANT_FOREIGN_KEYS_DDL;
@@ -1205,6 +1226,8 @@ export const TENANT_V25_INDEXES_DDL_FOR_TESTING = TENANT_V25_INDEXES_DDL;
 export const TENANT_V25_FOREIGN_KEYS_DDL_FOR_TESTING =
   TENANT_V25_FOREIGN_KEYS_DDL;
 export { TENANT_V25_TICKETS_PAYMENT_PATCH_DDL, TENANT_V25_SPONSOR_PATCH_DDL };
+export const TENANT_V152_TABLES_DDL_FOR_TESTING = TENANT_V152_TABLES_DDL;
+export const TENANT_V152_INDEXES_DDL_FOR_TESTING = TENANT_V152_INDEXES_DDL;
 
 /**
  * Provisions a complete PostgreSQL tenant schema for a new club.
@@ -1261,6 +1284,9 @@ export async function provisionTenantSchema(
 
     await tx.$executeRawUnsafe(TENANT_V25_TICKETS_PAYMENT_PATCH_DDL);
     await tx.$executeRawUnsafe(TENANT_V25_SPONSOR_PATCH_DDL);
+
+    await tx.$executeRawUnsafe(TENANT_V152_TABLES_DDL);
+    await tx.$executeRawUnsafe(TENANT_V152_INDEXES_DDL);
   });
 
   await seedInjuryProtocols(prisma, clubId);

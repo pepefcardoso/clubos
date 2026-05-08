@@ -175,3 +175,14 @@ export async function assertTicketExists(
   });
   if (!found) throw new NotFoundError("Ingresso não encontrado.");
 }
+
+export async function assertPosProductExists(
+  prisma: PrismaClient,
+  productId: string,
+): Promise<void> {
+  const found = await prisma.posProduct.findUnique({
+    where: { id: productId },
+    select: { id: true },
+  });
+  if (!found) throw new NotFoundError("Produto não encontrado.");
+}

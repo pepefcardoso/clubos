@@ -30,6 +30,7 @@ import { posRoutes } from "./events/pos/pos.routes.js";
 import { eventReportRoutes } from "./events/reports/reports.routes.js";
 import { fansRoutes } from "./events/fans/fans.routes.js";
 import { checklistRoutes } from "./events/checklist/checklist.routes.js";
+import { posProductRoutes } from "./events/pos/products.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -105,4 +106,5 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(eventReportRoutes, { prefix: "/events" });
   await fastify.register(fansRoutes, { prefix: "/fans" });
   await fastify.register(checklistRoutes, { prefix: "/events" });
+  await fastify.register(posProductRoutes, { prefix: "/clubs" });
 }

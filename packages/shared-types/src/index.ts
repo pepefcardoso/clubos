@@ -80,3 +80,7 @@ export interface ApiError {
   error: string;
   message: string;
 }
+
+export type ShowcaseTier = "FREE" | "PREMIUM";
+export type ContactRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED";
+export type ScoutSubscriptionStatus = "ACTIVE" | "INACTIVE";

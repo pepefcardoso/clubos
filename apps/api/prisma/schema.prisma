@@ -192,6 +192,22 @@ enum AuditAction {
   EVENT_REPORT_GENERATED
 }
 
+enum ShowcaseTier {
+  FREE
+  PREMIUM
+}
+
+enum ContactRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ScoutSubscriptionStatus {
+  ACTIVE
+  INACTIVE
+}
+
 /// Tenant registry. Each Club corresponds to one PostgreSQL schema: clube_{id}.
 model Club {
   id             String   @id @default(cuid())
@@ -206,6 +222,10 @@ model Club {
 
   users              User[]
   physioClubAccesses PhysioClubAccess[]
+  showcases          ScoutShowcase[]
+  showcaseVideos     ShowcaseVideo[]
+  contactRequests    ContactRequest[]
+  parentalConsents   ParentalConsent[]
 
   @@map("clubs")
 }
@@ -829,4 +849,125 @@ model PosProduct {
   @@index([isActive])
   @@index([category])
   @@map("pos_products")
+}
+
+model ScoutProfile {
+  id                    String                  @id @default(cuid())
+  name                  String
+  email                 String                  @unique
+  password              String
+  subscriptionStatus    ScoutSubscriptionStatus @default(INACTIVE)
+  subscriptionExpiresAt DateTime?
+  specialization        String?
+  targetPositions       String[]
+  targetAgeRanges       String[]
+  crmNumber             String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  contactRequests ContactRequest[]
+
+  @@index([email])
+  @@map("scout_profiles")
+}
+
+/// Athlete showcase snapshot created by club ADMIN.
+/// athleteId references clube_{clubId}.athletes — no cross-schema FK. [SEC-TEN]
+/// snapshot JSONB must never contain clinicalNotes, diagnosis, treatmentDetails. [SEC]
+model ScoutShowcase {
+  id            String       @id @default(cuid())
+  clubId        String
+  athleteId     String
+  tier          ShowcaseTier @default(FREE)
+  snapshot      Json
+  snapshotHash  String
+  isPublished   Boolean      @default(false)
+  publishedAt   DateTime?
+  transferredAt DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  club Club @relation(fields: [clubId], references: [id])
+
+  @@unique([clubId, athleteId])
+  @@index([athleteId])
+  @@index([tier])
+  @@index([isPublished])
+  @@map("scout_showcases")
+}
+
+/// Max 5 videos per athlete enforced at app layer (T-166).
+/// r2Key = Cloudflare R2 object key (randomUUID — never original filename). [SEC-FILE]
+model ShowcaseVideo {
+  id              String   @id @default(cuid())
+  athleteId       String
+  clubId          String
+  r2Key           String   @unique
+  durationSeconds Int
+  thumbnailUrl    String?
+  order           Int      @default(0)
+  uploadedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  club Club @relation(fields: [clubId], references: [id])
+
+  @@index([athleteId, clubId])
+  @@map("showcase_videos")
+}
+
+/// 30-day dedup (scoutId + athleteId) enforced at app layer — not via UNIQUE constraint
+/// because the constraint would block re-request after the dedup window closes. [T-172]
+model ContactRequest {
+  id        String               @id @default(cuid())
+  scoutId   String
+  clubId    String
+  athleteId String
+  status    ContactRequestStatus @default(PENDING)
+  reason    String?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  scout ScoutProfile @relation(fields: [scoutId], references: [id])
+  club  Club         @relation(fields: [clubId], references: [id])
+
+  @@index([scoutId, athleteId])
+  @@index([clubId])
+  @@index([status])
+  @@map("contact_requests")
+}
+
+/// Append-only — DB trigger prevents UPDATE/DELETE. [SEC]
+/// metadata must never contain CPF, phone, or email — Zod enforcement in T-174.
+model CommunicationLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actorRole String
+  targetId  String
+  eventType String
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([targetId])
+  @@map("communication_log")
+}
+
+/// Immutable after INSERT — DB trigger prevents UPDATE/DELETE. [SEC]
+/// guardianCpf stored as BYTEA via pgp_sym_encrypt (MEMBER_ENCRYPTION_KEY). [SEC]
+model ParentalConsent {
+  id           String   @id @default(cuid())
+  athleteId    String
+  clubId       String
+  guardianName String
+  guardianCpf  Bytes
+  consentHash  String
+  ip           String?
+  createdAt    DateTime @default(now())
+
+  club Club @relation(fields: [clubId], references: [id])
+
+  @@index([athleteId, clubId])
+  @@map("parental_consents")
 }

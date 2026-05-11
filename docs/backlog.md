@@ -44,31 +44,27 @@
 
 ---
 
-// docs/backlog.md — replace ## In Progress and ## Todo sections
-
 ## In Progress
 
----
-
-## Todo
-
-### T-161 | [TODO] Schema `public` cross-tenant (ScoutLink tables)
+### T-161 | [DONE] Schema `public` cross-tenant (ScoutLink tables)
 
 **Context:** ScoutLink operates across tenant boundaries — scout profiles, showcase snapshots, and contact logs live in the `public` schema, not in `clube_{id}`.  
 **Architectural context:** DDL idempotent; `public` schema only for cross-tenant entities; `clube_{id}` athlete identity linked via composite `club_id + athlete_id` — no cross-schema FK, enforced at application layer; `[SEC]` no PII in showcase snapshot — aggregated metrics only.  
 **Files:** `apps/api/src/lib/provision-public-schema.ts`, Prisma schema  
 **Acceptance criteria:**
 
-- [ ] Tables `scout_profiles`, `scout_showcases`, `showcase_videos`, `contact_requests`, `communication_log`, `parental_consents` created in `public` schema
-- [ ] `showcase_tier` enum: `FREE | PREMIUM`; `contact_request_status` enum: `PENDING | ACCEPTED | REJECTED`
-- [ ] All monetary fields as integer cents; DDL wrapped in `IF NOT EXISTS`
-- [ ] `communication_log` append-only enforced via DB trigger — UPDATE/DELETE raise exception
-- [ ] `parental_consents` immutable after INSERT — same trigger pattern
+- [x] Tables `scout_profiles`, `scout_showcases`, `showcase_videos`, `contact_requests`, `communication_log`, `parental_consents` created in `public` schema
+- [x] `showcase_tier` enum: `FREE | PREMIUM`; `contact_request_status` enum: `PENDING | ACCEPTED | REJECTED`
+- [x] All monetary fields as integer cents; DDL wrapped in `IF NOT EXISTS`
+- [x] `communication_log` append-only enforced via DB trigger — UPDATE/DELETE raise exception
+- [x] `parental_consents` immutable after INSERT — same trigger pattern
 
 **Out of scope:** Scout auth (T-162), showcase API (T-164)  
 **Pattern reference:** `apps/api/src/lib/provision-tenant-schema.ts`
 
 ---
+
+## Todo
 
 ### T-162 | [TODO] Auth e onboarding de scout (role `SCOUT` + JWT)
 

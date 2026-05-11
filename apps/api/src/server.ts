@@ -30,6 +30,7 @@ import { integrationIngestRoutes } from "./modules/integrations/integrations.ing
 import { clubPublicRoutes } from "./modules/clubs/clubs.public.routes.js";
 import { tryoutConsentRoutes } from "./modules/tryout/tryout-consent.routes.js";
 import { ticketPublicRoutes } from "./modules/events/tickets.public.routes.js";
+import { provisionPublicSchema } from "./lib/provision-public-schema.js";
 
 export async function buildApp() {
   validateEnv();
@@ -62,6 +63,9 @@ export async function buildApp() {
 
   registerGateways();
   registerWhatsAppProvider();
+
+  await provisionPublicSchema(prisma);
+  await registerJobs();
 
   const webhookQueue = new Queue<WebhookJobData>("webhook-events", {
     connection: redis,

@@ -34,7 +34,7 @@
 | T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first                            | DONE   | HIGH     | S14    | Web   |
 | T-155 | Provisionamento DDL tenant v2.5 (idempotente)                                 | DONE   | HIGH     | S12    | Infra |
 | T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | DONE   | HIGH     | S12    | Infra |
-| T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório)             | TODO   | HIGH     | S15    | Test  |
+| T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório)             | DONE   | HIGH     | S15    | Test  |
 | T-158 | Rate limiting PDV e tickets (Redis)                                           | DONE   | MEDIUM   | S15    | Infra |
 | T-159 | Matriz RBAC v2.5 (testes unitários dos novos endpoints)                       | TODO   | HIGH     | S15    | Test  |
 | T-160 | Checklist de deploy ArenaPass (env vars + `validateEnv()`)                    | TODO   | HIGH     | S15    | Infra |
@@ -44,24 +44,6 @@
 ---
 
 ## In Progress
-
-#### T-157 | [TODO] Testes E2E ArenaPass
-
-**Context:** Full ArenaPass flow must be validated end-to-end before release.  
-**Architectural context:** `[PR-FIN]` ≥ 2 approvals; ≥ 80% coverage on `events`, `tickets`, `pos_sales`.  
-**Files:** `apps/api/src/modules/events/__tests__/`, Playwright specs  
-**Acceptance criteria:**
-
-- [ ] Full flow covered: create event → PIX purchase → QR Code generated → gate check-in → billing report
-- [ ] Idempotency: duplicate check-in attempt returns 409
-- [ ] Coverage ≥ 80% on `events`, `tickets`, `pos_sales` modules
-- [ ] All RBAC rows for new endpoints covered by unit tests with exact HTTP status codes
-      **Out of scope:** Load/stress testing  
-       **Pattern reference:** `apps/api/src/modules/charges/__tests__/`
-
-## Todo
-
-### Priority: HIGH — Test & Hardening (Sprint 15)
 
 #### T-159 | [TODO] Matriz RBAC v2.5
 
@@ -76,7 +58,9 @@
       **Out of scope:** Role changes for existing v1/v2 endpoints  
        **Pattern reference:** `apps/api/src/modules/members/__tests__/rbac.test.ts`
 
----
+## Todo
+
+### Priority: HIGH — Test & Hardening (Sprint 15)
 
 #### T-160 | [TODO] Checklist de deploy ArenaPass
 
@@ -401,6 +385,20 @@
 - [x] Added to `@fastify/rate-limit` configuration
       **Out of scope:** Adjustable limits per club tier (future)  
        **Pattern reference:** existing rate-limit plugin configuration
+
+#### T-157 | [DONE] Testes E2E ArenaPass
+
+**Context:** Full ArenaPass flow must be validated end-to-end before release.  
+**Architectural context:** `[PR-FIN]` ≥ 2 approvals; ≥ 80% coverage on `events`, `tickets`, `pos_sales`.  
+**Files:** `apps/api/src/modules/events/__tests__/`, Playwright specs  
+**Acceptance criteria:**
+
+- [x] Full flow covered: create event → PIX purchase → QR Code generated → gate check-in → billing report
+- [x] Idempotency: duplicate check-in attempt returns 409
+- [x] Coverage ≥ 80% on `events`, `tickets`, `pos_sales` modules
+- [x] All RBAC rows for new endpoints covered by unit tests with exact HTTP status codes
+      **Out of scope:** Load/stress testing  
+       **Pattern reference:** `apps/api/src/modules/charges/__tests__/`
 
 ---
 

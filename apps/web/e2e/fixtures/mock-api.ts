@@ -414,3 +414,133 @@ export async function mockGetInjuryProtocols(page: Page): Promise<void> {
     }),
   );
 }
+
+export function buildFakeEventsResponse(
+  overrides: { completed?: boolean; includeCancel?: boolean } = {},
+) {
+  let status = "SCHEDULED";
+  if (overrides.completed) status = "COMPLETED";
+  else if (overrides.includeCancel) status = "CANCELLED";
+
+  return {
+    data: [
+      {
+        id: "evt-e2e-001",
+        opponent: "Flamengo",
+        eventDate: "2025-08-10T18:00:00Z",
+        venue: "Estádio Municipal",
+        status,
+        sectors: [
+          {
+            id: "sec-01",
+            name: "Arquibancada",
+            capacity: 200,
+            sold: 10,
+            priceCents: 2000,
+          },
+        ],
+      },
+    ],
+    total: 1,
+    page: 1,
+    limit: 20,
+  };
+}
+
+export async function mockGetEvents(
+  page: Page,
+  responseOverrides?: unknown,
+): Promise<void> {
+  await page.route(`${API_BASE}/api/events*`, (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(responseOverrides ?? buildFakeEventsResponse()),
+    });
+  });
+}
+
+export async function mockCreateEvent(page: Page): Promise<void> {
+  await page.route(`${API_BASE}/api/events`, (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ id: "evt-new", status: "SCHEDULED" }),
+    });
+  });
+}
+
+export async function mockCancelEvent(page: Page): Promise<void> {
+  await page.route(`${API_BASE}/api/events/*`, (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    route.fulfill({ status: 204 });
+  });
+}
+
+export async function mockGetEventReport(page: Page): Promise<void> {
+  await page.route(`${API_BASE}/api/events/*/report`, (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: "application/pdf",
+      body: "fake-pdf-content",
+    });
+  });
+}
+
+export async function mockPurchaseTicket(
+  page: Page,
+  overrides: { status?: number } = {},
+): Promise<void> {
+  await page.route(`${API_BASE}/api/events/*/*/tickets/purchase`, (route) => {
+    route.fulfill({
+      status: overrides.status ?? 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ticketId: "tkt-e2e-001",
+        status: "PENDING",
+        fanEmail: "joao@example.com",
+        sectorName: "Arquibancada",
+        amountCents: 2000,
+        gatewayMeta: { qrCodeBase64: "...", pixCopyPaste: "..." },
+      }),
+    });
+  });
+}
+
+export async function mockValidateTicket(page: Page): Promise<void> {
+  await page.route(`${API_BASE}/api/events/*/tickets/validate`, (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ticketId: "tkt-e2e-001",
+        fanName: "João",
+        sectorName: "Arquibancada",
+        eventId: "evt-e2e-001",
+        checkedInAt: new Date().toISOString(),
+      }),
+    });
+  });
+}
+
+export async function mockValidateTicketDuplicate(page: Page): Promise<void> {
+  await page.route(`${API_BASE}/api/events/*/tickets/validate`, (route) => {
+    route.fulfill({
+      status: 409,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "Ingresso já utilizado" }),
+    });
+  });
+}
+
+export async function mockValidateTicketInvalid(page: Page): Promise<void> {
+  await page.route(`${API_BASE}/api/events/*/tickets/validate`, (route) => {
+    route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "QR Code inválido." }),
+    });
+  });
+}

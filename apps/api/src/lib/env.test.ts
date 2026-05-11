@@ -50,6 +50,9 @@ const VALID_PROD_ENV: Record<string, string> = {
   JWT_SECRET: "a".repeat(32),
   JWT_REFRESH_SECRET: "b".repeat(32),
   MEMBER_ENCRYPTION_KEY: "c".repeat(32),
+  MEMBER_CARD_SECRET: "d".repeat(32),
+  ACCESS_QR_SECRET: "e".repeat(32),
+  CONSENT_HMAC_SECRET: "f".repeat(32),
   ALLOWED_ORIGINS: "https://app.clubos.com.br",
 };
 
@@ -926,6 +929,121 @@ describe("_resetEnvCache()", () => {
       validateEnv();
       _resetEnvCache();
       expect(() => getEnv()).toThrow(/validateEnv/);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("validateEnv() — POS_PROVIDER", () => {
+  beforeEach(() => _resetEnvCache());
+  afterEach(() => _resetEnvCache());
+
+  it("succeeds when POS_PROVIDER is absent (mPOS disabled)", () => {
+    const restore = withEnv({ POS_PROVIDER: undefined });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("succeeds when POS_PROVIDER=stone and STONE_API_KEY is present", () => {
+    const restore = withEnv({
+      POS_PROVIDER: "stone",
+      STONE_API_KEY: "sk_test_stone_key_value",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when POS_PROVIDER=stone and STONE_API_KEY is absent", () => {
+    const restore = withEnv({
+      POS_PROVIDER: "stone",
+      STONE_API_KEY: undefined,
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/STONE_API_KEY/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("succeeds when POS_PROVIDER=sumup and SUMUP_API_KEY is present", () => {
+    const restore = withEnv({
+      POS_PROVIDER: "sumup",
+      SUMUP_API_KEY: "sk_test_sumup_key_value",
+    });
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when POS_PROVIDER=sumup and SUMUP_API_KEY is absent", () => {
+    const restore = withEnv({
+      POS_PROVIDER: "sumup",
+      SUMUP_API_KEY: undefined,
+    });
+    try {
+      let msg = "";
+      try {
+        validateEnv();
+      } catch (e) {
+        msg = (e as Error).message;
+      }
+      expect(msg).toMatch(/SUMUP_API_KEY/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when POS_PROVIDER is an unsupported value", () => {
+    const restore = withEnv({ POS_PROVIDER: "paypal" });
+    try {
+      expect(() => validateEnv()).toThrow();
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("validateEnv() — CONSENT_HMAC_SECRET", () => {
+  beforeEach(() => _resetEnvCache());
+  afterEach(() => _resetEnvCache());
+
+  it("throws when CONSENT_HMAC_SECRET is missing", () => {
+    const restore = withEnv({ CONSENT_HMAC_SECRET: undefined });
+    try {
+      expect(() => validateEnv()).toThrow(/CONSENT_HMAC_SECRET/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("throws when CONSENT_HMAC_SECRET is shorter than 32 chars", () => {
+    const restore = withEnv({ CONSENT_HMAC_SECRET: "tooshort" });
+    try {
+      expect(() => validateEnv()).toThrow(/CONSENT_HMAC_SECRET/);
+    } finally {
+      restore();
+    }
+  });
+
+  it("succeeds when CONSENT_HMAC_SECRET is exactly 32 chars (boundary)", () => {
+    const restore = withEnv({ CONSENT_HMAC_SECRET: "g".repeat(32) });
+    try {
+      expect(() => validateEnv()).not.toThrow();
     } finally {
       restore();
     }

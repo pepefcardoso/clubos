@@ -37,7 +37,7 @@
 | T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório)             | DONE   | HIGH     | S15    | Test  |
 | T-158 | Rate limiting PDV e tickets (Redis)                                           | DONE   | MEDIUM   | S15    | Infra |
 | T-159 | Matriz RBAC v2.5 (testes unitários dos novos endpoints)                       | DONE   | HIGH     | S15    | Test  |
-| T-160 | Checklist de deploy ArenaPass (env vars + `validateEnv()`)                    | TODO   | HIGH     | S15    | Infra |
+| T-160 | Checklist de deploy ArenaPass (env vars + `validateEnv()`)                    | DONE   | HIGH     | S15    | Infra |
 
 > v3.0 tasks (T-161 → T-184): listed in **Icebox** below. DO NOT start before v2.5 go/no-go.
 
@@ -45,18 +45,7 @@
 
 ## In Progress
 
-#### T-160 | [TODO] Checklist de deploy ArenaPass
-
-**Context:** New env vars for PDV integration must be validated at bootstrap to prevent silent failures.  
-**Files:** `apps/api/src/lib/env.ts`, `apps/api/.env.example`  
-**Acceptance criteria:**
-
-- [ ] `POS_PROVIDER`, `STONE_API_KEY` / `SUMUP_API_KEY` added to Zod schema in `lib/env.ts`
-- [ ] `validateEnv()` is the first call in bootstrap (no change needed if already so)
-- [ ] `.env.example` updated with new vars
-- [ ] Manual PDV smoke test: 3 sales in staging before enabling in production
-      **Out of scope:** Automated PDV integration tests (requires physical device)  
-       **Pattern reference:** existing `apps/api/src/lib/env.ts` Zod schema
+---
 
 ## Todo
 
@@ -397,6 +386,19 @@
 - [x] Each RBAC row covered by a unit test with exact HTTP status code
       **Out of scope:** Role changes for existing v1/v2 endpoints  
        **Pattern reference:** `apps/api/src/modules/members/__tests__/rbac.test.ts`
+
+#### T-160 | [DONE] Checklist de deploy ArenaPass
+
+**Context:** New env vars for PDV integration must be validated at bootstrap to prevent silent failures.  
+**Files:** `apps/api/src/lib/env.ts`, `apps/api/.env.example`  
+**Acceptance criteria:**
+
+- [x] `POS_PROVIDER`, `STONE_API_KEY` / `SUMUP_API_KEY` added to Zod schema in `lib/env.ts`
+- [x] `validateEnv()` is the first call in bootstrap (no change needed if already so)
+- [x] `.env.example` updated with new vars
+- [x] Manual PDV smoke test: 3 sales in staging before enabling in production
+      **Out of scope:** Automated PDV integration tests (requires physical device)  
+       **Pattern reference:** existing `apps/api/src/lib/env.ts` Zod schema
 
 ---
 

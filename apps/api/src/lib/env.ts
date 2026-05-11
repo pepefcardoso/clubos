@@ -215,6 +215,10 @@ export const EnvSchema = z
       .string()
       .min(32, "ACCESS_QR_SECRET must be at least 32 characters"),
 
+    CONSENT_HMAC_SECRET: z
+      .string()
+      .min(32, "CONSENT_HMAC_SECRET must be at least 32 characters"),
+
     PORT: z.coerce.number().int().positive().default(3001),
     HOST: z.string().default("0.0.0.0"),
     LOG_LEVEL: z

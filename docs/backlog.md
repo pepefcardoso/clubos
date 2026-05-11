@@ -4,44 +4,47 @@
 
 - **Repo:** github.com/[org]/clubos
 - **Stack:** Node 20 / Fastify 5 / Next.js 16 / PostgreSQL 16 / Redis 7
-- **Last updated:** 2026-04-28
-- **Active version:** v2.5 "A Arquibancada" (Sprints 12–15, Weeks 21–28)
+- **Last updated:** 2026-05-11
+- **Active version:** v3.0 "A Vitrine" (Sprints 16–21, Weeks 29–40)
+- **Pre-requisite gate:** ≥ 6 months of continuous `workload_metrics` + `medical_records` data in production before PREMIUM showcase unlock (enforced in T-163)
 
 ---
 
 ## Status Board
 
-| ID    | Title                                                                         | Status | Priority | Sprint | Area  |
-| ----- | ----------------------------------------------------------------------------- | ------ | -------- | ------ | ----- |
-| T-136 | Schema Prisma + DDL tenant (events, tickets, fan_profiles, pos_sales)         | DONE   | HIGH     | S12    | Infra |
-| T-137 | CRUD de eventos (`/api/events`)                                               | DONE   | HIGH     | S12    | API   |
-| T-138 | UI de configuração de evento (`EventFormModal` + `EventsPage`)                | DONE   | HIGH     | S12    | Web   |
-| T-139 | Geração de cobrança PIX por ingresso                                          | DONE   | HIGH     | S12    | API   |
-| T-140 | Worker BullMQ `confirm-ticket` + QR Code SHA-256                              | DONE   | HIGH     | S12    | Jobs  |
-| T-141 | Página pública de compra de ingresso (`/eventos/:clubSlug/:eventId`)          | DONE   | HIGH     | S12    | Web   |
-| T-142 | Cancelamento de ingresso com reembolso                                        | DONE   | HIGH     | S12    | API   |
-| T-143 | Backend de validação de ingresso (HMAC + Redis dedup)                         | DONE   | HIGH     | S13    | API   |
-| T-144 | UI de portaria mobile-first (`TicketScannerPage`) offline-first               | DONE   | HIGH     | S13    | Web   |
-| T-145 | Relatório de bilheteria pós-jogo (`/api/events/:id/report`)                   | DONE   | HIGH     | S13    | API   |
-| T-146 | CRM de torcedor (`fan_profiles` + `FanProfilesPage`)                          | DONE   | MEDIUM   | S13    | Full  |
-| T-147 | Funil torcedor → sócio (BullMQ `fan-to-member-funnel`)                        | DONE   | HIGH     | S13    | Jobs  |
-| T-148 | Campos de patrocínio em `events` (logo + CTA)                                 | DONE   | MEDIUM   | S13    | Full  |
-| T-149 | Job BullMQ `game-logistics-notice` (48h antes do evento)                      | DONE   | MEDIUM   | S14    | Jobs  |
-| T-150 | CRUD de checklist de operações de jogo                                        | DONE   | MEDIUM   | S14    | API   |
-| T-151 | UI de checklist de jogo (`GameOpsChecklist`) offline-first                    | DONE   | MEDIUM   | S14    | Web   |
-| T-152 | Catálogo de produtos do PDV (`/api/clubs/:id/pos-products`)                   | DONE   | MEDIUM   | S14    | Full  |
-| T-153 | Integração mPOS Stone/SumUp com fallback PIX                                  | DONE   | HIGH     | S14    | API   |
-| T-154 | UI de PDV mobile (`PosTerminalPage`) offline-first                            | DONE   | HIGH     | S14    | Web   |
-| T-155 | Provisionamento DDL tenant v2.5 (idempotente)                                 | DONE   | HIGH     | S12    | Infra |
-| T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | DONE   | HIGH     | S12    | Infra |
-| T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório)             | DONE   | HIGH     | S15    | Test  |
-| T-158 | Rate limiting PDV e tickets (Redis)                                           | DONE   | MEDIUM   | S15    | Infra |
-| T-159 | Matriz RBAC v2.5 (testes unitários dos novos endpoints)                       | DONE   | HIGH     | S15    | Test  |
-| T-160 | Checklist de deploy ArenaPass (env vars + `validateEnv()`)                    | DONE   | HIGH     | S15    | Infra |
+| ID    | Title                                                           | Status | Priority | Sprint | Area  |
+| ----- | --------------------------------------------------------------- | ------ | -------- | ------ | ----- |
+| T-161 | Schema `public` cross-tenant (ScoutLink tables)                 | TODO   | HIGH     | S16    | Infra |
+| T-162 | Auth e onboarding de scout (role `SCOUT` + JWT)                 | TODO   | HIGH     | S16    | API   |
+| T-163 | Guard de pré-requisito de dados longitudinais                   | TODO   | HIGH     | S16    | API   |
+| T-174 | Log imutável de comunicação (`communication_log`)               | TODO   | HIGH     | S16    | Infra |
+| T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | TODO   | HIGH     | S17    | API   |
+| T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | TODO   | HIGH     | S17    | Web   |
+| T-181 | Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`) | TODO   | HIGH     | S17    | Infra |
+| T-166 | Backend de upload de vídeos (Cloudflare R2 + magic bytes)       | TODO   | HIGH     | S18    | API   |
+| T-167 | UI de gestão de vídeos (`AthleteVideoManager`)                  | TODO   | MEDIUM   | S18    | Web   |
+| T-168 | API de busca filtrada de atletas (freemium enforced)            | TODO   | HIGH     | S18    | API   |
+| T-169 | UI de busca ScoutLink (`ScoutSearchPage`)                       | TODO   | HIGH     | S18    | Web   |
+| T-170 | Perfil público de atleta (`/scout/athletes/:id`)                | TODO   | HIGH     | S19    | Web   |
+| T-171 | Job BullMQ `scout-curation-report` (curadoria mensal PDF)       | TODO   | MEDIUM   | S19    | Jobs  |
+| T-172 | API de solicitação de contato mediada (hard stop menores)       | TODO   | HIGH     | S19    | API   |
+| T-173 | Fluxo de resposta do clube (accept/reject)                      | TODO   | HIGH     | S19    | API   |
+| T-175 | UI de inbox mediada para scouts (`ScoutInboxPage`)              | TODO   | HIGH     | S20    | Web   |
+| T-176 | UI de gestão de contatos para o clube                           | TODO   | HIGH     | S20    | Web   |
+| T-177 | Consentimento parental para contato scout (< 18 anos)           | TODO   | HIGH     | S20    | API   |
+| T-178 | Transferência de histórico de showcase                          | TODO   | MEDIUM   | S20    | API   |
+| T-179 | Modelo freemium no showcase (`showcase_tier`)                   | TODO   | HIGH     | S21    | Full  |
+| T-180 | Billing mensal de scout (R$ 299/mês via GatewayRegistry)        | TODO   | HIGH     | S21    | API   |
+| T-182 | Matriz RBAC v3.0 (testes + hard stop menores em CI)             | TODO   | HIGH     | S21    | Test  |
+| T-183 | Testes E2E ScoutLink                                            | TODO   | HIGH     | S21    | Test  |
+| T-184 | Checklist de deploy ScoutLink (env vars + `validateEnv()`)      | TODO   | HIGH     | S21    | Infra |
 
-> v3.0 tasks (T-161 → T-184): listed in **Icebox** below. DO NOT start before v2.5 go/no-go.
+> v3.5 tasks (T-185+): listed in **Icebox** below. DO NOT start before v3.0 go/no-go.
+> Pre-requisite: ≥ 3 scouts with active subscription; ≥ 1 formal contact mediated; zero LGPD incidents.
 
 ---
+
+// docs/backlog.md — replace ## In Progress and ## Todo sections
 
 ## In Progress
 
@@ -49,393 +52,476 @@
 
 ## Todo
 
+### T-161 | [TODO] Schema `public` cross-tenant (ScoutLink tables)
+
+**Context:** ScoutLink operates across tenant boundaries — scout profiles, showcase snapshots, and contact logs live in the `public` schema, not in `clube_{id}`.  
+**Architectural context:** DDL idempotent; `public` schema only for cross-tenant entities; `clube_{id}` athlete identity linked via composite `club_id + athlete_id` — no cross-schema FK, enforced at application layer; `[SEC]` no PII in showcase snapshot — aggregated metrics only.  
+**Files:** `apps/api/src/lib/provision-public-schema.ts`, Prisma schema  
+**Acceptance criteria:**
+
+- [ ] Tables `scout_profiles`, `scout_showcases`, `showcase_videos`, `contact_requests`, `communication_log`, `parental_consents` created in `public` schema
+- [ ] `showcase_tier` enum: `FREE | PREMIUM`; `contact_request_status` enum: `PENDING | ACCEPTED | REJECTED`
+- [ ] All monetary fields as integer cents; DDL wrapped in `IF NOT EXISTS`
+- [ ] `communication_log` append-only enforced via DB trigger — UPDATE/DELETE raise exception
+- [ ] `parental_consents` immutable after INSERT — same trigger pattern
+
+**Out of scope:** Scout auth (T-162), showcase API (T-164)  
+**Pattern reference:** `apps/api/src/lib/provision-tenant-schema.ts`
+
 ---
 
-## Done
+### T-162 | [TODO] Auth e onboarding de scout (role `SCOUT` + JWT)
 
-### T-136 | [DONE] Schema Prisma + DDL tenant v2.5
-
-**Files:** `apps/api/src/lib/provision-tenant-schema.ts`, Prisma schema  
+**Context:** Scouts are external subscribers who auth independently of club staff.  
+**Architectural context:** `[SEC-AUTH]` role `SCOUT` in JWT payload; `clubId` absent from SCOUT token — `withTenantSchema` must never be called in scout handlers; `BCRYPT_ROUNDS = 12`; refresh token rotation identical to club auth.  
+**Files:** `apps/api/src/modules/auth/auth.routes.ts`, `apps/api/src/modules/scoutlink/scouts/scouts.routes.ts`, `apps/web/src/app/(auth)/scout-login/page.tsx`, `apps/web/src/app/(onboarding)/scout-onboarding/page.tsx`  
 **Acceptance criteria:**
 
-- [x] Tables `events`, `event_sectors`, `tickets`, `fan_profiles`, `pos_sales`, `game_checklists` created
-- [x] Index on `event_date` and `status`; trigger on `event_sector.capacity`
-- [x] DDL idempotent; all monetary fields as integer cents
-      **Completed:** 2026-04-22
+- [ ] `POST /api/auth/scout/register` creates `scout_profiles` row + issues JWT with `role: SCOUT`, no `clubId`
+- [ ] `POST /api/auth/scout/login` validates credentials; same refresh token rotation as club auth
+- [ ] `requireRole('SCOUT')` guard blocks club staff from scout routes; club roles blocked from scout routes (403)
+- [ ] `clubId` is `null` in SCOUT JWT — any handler calling `withTenantSchema` with a SCOUT token must throw immediately
+- [ ] Scout onboarding wizard: name, CRM number (optional), specialization, target positions, target age ranges
 
-#### T-137 | [DONE] CRUD de eventos (`/api/events`)
+**Out of scope:** Billing/subscription status (T-180), longitudinal data guard (T-163)  
+**Pattern reference:** `apps/api/src/modules/auth/auth.routes.ts`
 
-**Context:** Admins need to create and manage events with configurable sectors before tickets can be sold.  
-**Architectural context:** `[SEC-TEN]` `withTenantSchema` + `assertValidClubId`; `clubId` from JWT only; soft-delete via `status = CANCELLED`; `[FIN]` `price_cents` as integer.  
-**Files:** `apps/api/src/modules/events/events.routes.ts`, `apps/api/src/modules/events/events.service.ts`  
+---
+
+### T-163 | [TODO] Guard de pré-requisito de dados longitudinais
+
+**Context:** A showcase with fewer than 6 months of workload data provides no analytical value and would erode scout trust. FREE tier has no minimum — only PREMIUM tier requires the gate.  
+**Architectural context:** Gate enforced at service layer only — `assertLongitudinalDataSufficient` reads `workload_metrics` date range via `withTenantSchema`; FREE tier bypasses entirely.  
+**Files:** `apps/api/src/modules/scoutlink/showcases/showcase.service.ts`  
 **Acceptance criteria:**
 
-- [x] `POST /api/events` creates event with `opponent`, `event_date`, `venue`, `description` and nested `event_sectors`
-- [x] `GET /api/events` returns paginated list with `page` + `limit`
-- [x] `PUT /api/events/:id` updates event; `assertEventBelongsToClub` required
-- [x] `DELETE /api/events/:id` soft-deletes via `status = CANCELLED`
-- [x] Zod validation on all inputs; guard `requireRole('ADMIN')`
-      **Out of scope:** Ticket purchase flow (T-139), UI (T-138)  
-       **Pattern reference:** `apps/api/src/modules/members/members.routes.ts`
-      **Completed:** 2026-04-30
+- [ ] `assertLongitudinalDataSufficient(prisma, clubId, athleteId)` throws `409` if `workload_metrics` span < 180 days for `tier = PREMIUM` requests
+- [ ] FREE tier bypasses guard unconditionally
+- [ ] Guard called before any `INSERT` or `UPDATE` on `scout_showcases` with `tier = PREMIUM`
+- [ ] Unit test: 179 days → 409; 180 days → passes; FREE with 0 days → passes
 
-#### T-138 | [DONE] UI de configuração de evento (`EventFormModal` + `EventsPage`)
+**Out of scope:** Showcase API itself (T-164)  
+**Pattern reference:** `assertMemberBelongsToClub` guard pattern
 
-**Context:** Admins need a UI to create events and configure sectors with inline pricing.  
-**Architectural context:** `[UI-BRL]` `formatBRL()` + `font-mono` on all price displays; `[UI-A11Y]` status badge with text + color; visible to `ADMIN` only.  
-**Files:** `apps/web/src/app/(app)/access/page.tsx`, `apps/web/src/app/(app)/access/components/EventFormModal.tsx`, `EventSectorsTable.tsx`  
+---
+
+### T-174 | [TODO] Log imutável de comunicação (`communication_log`)
+
+**Context:** LGPD compliance requires an immutable record of every scout–club interaction; any mutation attempt must fail at the DB level, not only the application layer.  
+**Architectural context:** `[SEC]` append-only; `actorId`, `actorRole`, `targetId`, `eventType`, `ip`, `timestamp` always recorded; `metadata` JSONB must never contain CPF, phone, or email.  
+**Files:** `apps/api/src/lib/provision-public-schema.ts` (trigger DDL), `apps/api/src/modules/scoutlink/communication/communication-log.service.ts`  
 **Acceptance criteria:**
 
-- [x] `EventsPage` accessible at `/access`
-- [x] `EventFormModal` with opponent, date, venue fields and inline editable sectors table
-- [x] Sector prices displayed with `formatBRL()` + `font-mono`
-- [x] Status badge includes text label (not color only)
-- [x] Visible to `ADMIN` only; other roles see 403
-      **Out of scope:** Ticket sales UI (T-141), gate scanner (T-144)  
-       **Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern
+- [ ] `appendCommunicationLog(entry)` inserts row — service layer has no UPDATE/DELETE methods
+- [ ] DB trigger `prevent_communication_log_mutation` raises exception on UPDATE or DELETE at DB level
+- [ ] Fields: `id`, `actor_id`, `actor_role`, `target_id`, `event_type`, `metadata` (JSONB), `ip`, `created_at`
+- [ ] Unit test verifies trigger fires and rolls back on mutation attempt
+- [ ] `metadata` schema validated by Zod before insert — rejects keys `cpf`, `phone`, `email`
 
-#### T-139 | [DONE] Geração de cobrança PIX por ingresso
+**Out of scope:** Contact request flow (T-172), parental consent (T-177)  
+**Pattern reference:** `audit_log` immutability pattern in `apps/api/src/modules/`
 
-**Context:** Fans need to purchase tickets via PIX; the system must create a charge and a pending ticket atomically.  
-**Architectural context:** `[ARCH-GW]` via `GatewayRegistry.forMethod('PIX')`; `[FIN]` `price_cents` integer; `[SEC-OBJ]` `assertEventBelongsToClub`; `[SEC-TEN]`; `[PR-FIN]` ≥ 2 approvals.  
-**Files:** `apps/api/src/modules/events/tickets/tickets.routes.ts`, `tickets.service.ts`  
+---
+
+### T-164 | [TODO] API de showcase de atleta verificado (ACWR + SHA-256)
+
+**Context:** Clubs publish verified athlete snapshots — ACWR trends, RTP status, evaluation scores — signed with SHA-256 to prevent tampering after publication. Clinical data is never included.  
+**Architectural context:** `[SEC]` snapshot excludes `clinicalNotes`, `diagnosis`, `treatmentDetails`; ACWR from `acwr_weekly_view` materialized view; SHA-256 of serialized snapshot JSON stored as `snapshot_hash`; `[SEC-TEN]` `withTenantSchema` for all source data reads; `[PR-FIN]` ≥ 2 approvals (athlete data publication).  
+**Files:** `apps/api/src/modules/scoutlink/showcases/showcases.routes.ts`, `showcases.service.ts`  
 **Acceptance criteria:**
 
-- [x] `POST /api/events/:id/tickets/purchase` creates `Ticket` (status `PENDING`) and PIX charge
-- [x] Idempotent by `fan_email + event_id + sector_id`
-- [x] Rejects purchase when `event_sector.sold >= event_sector.capacity`
-- [x] `assertEventBelongsToClub` called before any mutation
-- [x] No concrete gateway import — `GatewayRegistry.forMethod('PIX')` only
-      **Out of scope:** QR Code delivery (T-140), cancellation (T-142)  
-       **Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`
+- [ ] `POST /api/athletes/:id/showcase` creates/updates snapshot: position, age, dominant foot, ACWR 4-week array, RTP status, evaluation scores — zero clinical fields
+- [ ] Snapshot serialized → SHA-256 → stored as `snapshot_hash`; scouts can verify hash client-side
+- [ ] `GET /api/athletes/:id/showcase` returns snapshot + `snapshot_hash` + `tier`
+- [ ] `assertMemberBelongsToClub` required; `requireRole('ADMIN')` for write; `requireRole('SCOUT', 'ADMIN')` for read
+- [ ] `appendCommunicationLog` called on every publish with `event_type: SHOWCASE_PUBLISHED`
+- [ ] `assertLongitudinalDataSufficient` called before PREMIUM tier publish (T-163)
 
-#### T-140 | [DONE] Worker BullMQ `confirm-ticket` + QR Code SHA-256
+**Out of scope:** Video attachments (T-166), freemium projection (T-179)  
+**Pattern reference:** `apps/api/src/modules/charges/charges.service.ts` for atomic write pattern; SHA-256 pattern from `balance_sheets`
 
-**Context:** On payment confirmation, the ticket must be activated and a QR code delivered to the fan.  
-**Architectural context:** `[SEC-JOB]` payload IDs only — fetch PII inside worker; `[ARCH-JOB]` idempotent; rate limit 30 msg/min via Redis; failure → Sentry.  
-**Files:** `apps/api/src/jobs/confirm-ticket.worker.ts`, `apps/api/src/modules/events/tickets/tickets.service.ts`  
+---
+
+### T-165 | [TODO] UI de gestão de showcase (`ShowcaseManagerPage`)
+
+**Context:** ADMINs preview, configure, and publish athlete showcases with tier selection and visibility control.  
+**Architectural context:** `[UI-A11Y]`; tier badge with text label; PREMIUM locked behind longitudinal guard — show inline warning if data < 180 days; confirmation modal before publish; one primary action per context.  
+**Files:** `apps/web/src/app/(app)/athletes/[id]/showcase/page.tsx`, `ShowcaseManagerPage.tsx`  
 **Acceptance criteria:**
 
-- [x] Worker triggered by webhook payment confirmation
-- [x] Sets `Ticket.status = PAID`, generates QR Code via HMAC-SHA256 (`ticket_id + event_id + secret`)
-- [x] Job payload contains `ticketId`, `eventId`, `clubId` only — no email, no name
-- [x] Rate limit 30 msg/min per club enforced via Redis
-- [x] Idempotent — reprocessing does not generate duplicate QR or messages
-- [x] Exceptions logged to Sentry
-      **Out of scope:** Webhook pipeline itself (T-142), gate validation (T-143)  
-       **Pattern reference:** `apps/api/src/jobs/webhook-events/` worker pattern
+- [ ] Snapshot preview: ACWR 4-week Recharts line chart, RTP badge (text + color), evaluation score grid
+- [ ] Tier selector (FREE / PREMIUM); inline warning banner if `workload_metrics` span < 180 days
+- [ ] Publish/unpublish toggle with confirmation modal; unpublish requires reason
+- [ ] `snapshot_hash` displayed as monospace string post-publish
+- [ ] Visible to `ADMIN` only; other roles → 403
 
-#### T-141 | [DONE] Página pública de compra de ingresso
+**Out of scope:** Video management (T-167), contact request responses (T-176)  
+**Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern; `apps/web/src/app/(app)/saf/` hash display pattern
 
-**Context:** Fans without an account need to purchase tickets via a public link shared by the club.  
-**Architectural context:** Route group `(marketing)` — no auth, no imports from `(app)/`; `[UI-BRL]` `formatBRL(price_cents)`; polling every 10s for availability.  
-**Files:** `apps/web/src/app/(marketing)/eventos/[clubSlug]/[eventId]/page.tsx`  
-**Acceptance criteria:**
+---
 
-- [x] Page accessible without authentication
-- [x] Displays event name, opponent, date, sectors with `formatBRL(price_cents)` and remaining capacity
-- [x] Purchase form with `name`, `email`, `phone`, sector selection, PIX integration inline
-- [x] Availability updates via polling every 10s
-- [x] Zero imports from `(app)/` — shared components in `packages/ui/` only
-      **Out of scope:** Authenticated management UI (T-138), QR Code delivery (T-140)  
-       **Pattern reference:** `apps/web/src/app/(marketing)/peneiras/page.tsx`
+### T-181 | [TODO] Rotas SSE v3.0
 
-#### T-142 | [DONE] Cancelamento de ingresso com reembolso
-
-**Context:** Admins and fans need to cancel tickets within the allowed window; confirmed payments must be cancelled, never deleted.  
-**Architectural context:** `[FIN]` confirmed payment cannot be deleted — cancel with recorded reason; `[PR-FIN]` ≥ 2 approvals; `[SEC-OBJ]` `assertTicketBelongsToClub`.  
-**Files:** `apps/api/src/modules/events/tickets/tickets.routes.ts`, `tickets.service.ts`  
-**Acceptance criteria:**
-
-- [x] `DELETE /api/tickets/:id` reverses gateway charge, sets `Ticket.status = CANCELLED`, records reason in `audit_log`
-- [x] Returns 400 if `ticket.checkedIn = true`
-- [x] Rejects cancellation if event is within 24h
-- [x] Payment is cancelled with reason — never deleted
-- [x] `assertTicketBelongsToClub` required
-      **Out of scope:** Bulk cancellation (future scope)  
-       **Pattern reference:** Payment cancellation pattern in `apps/api/src/modules/payments/`
-
-#### T-143 | [DONE] Backend de validação de ingresso (HMAC + Redis dedup)
-
-**Context:** Gate staff need to validate tickets in real-time; duplicate scan attempts must return 409.  
-**Architectural context:** `[SEC-WH]` HMAC-SHA256 + `timingSafeEqual`; Redis `SET NX` dedup TTL 24h; `[SEC-TEN]`; `[SEC-OBJ]` `assertEventBelongsToClub`.  
-**Files:** `apps/api/src/modules/events/tickets/validate.routes.ts`, `validate.service.ts`  
-**Acceptance criteria:**
-
-- [x] `POST /api/events/:id/tickets/validate` verifies HMAC-SHA256 signature via `timingSafeEqual`
-- [x] Rejects duplicate scans via Redis `SET NX` (TTL 24h) — returns 409
-- [x] Sets `Ticket.checked_in = true`, records in `field_access_logs` with `actor_id`, `timestamp`, `ip`
-- [x] `assertEventBelongsToClub` required
-- [x] SSE event `CHECKIN_CONFIRMED` emitted after successful validation
-      **Out of scope:** Scanner UI (T-144)  
-       **Pattern reference:** `apps/api/src/modules/webhooks/` HMAC validation pattern
-
-#### T-147 | [DONE] Funil torcedor → sócio (BullMQ `fan-to-member-funnel`)
-
-**Context:** After check-in, a conversion message should be sent to the fan with a membership offer.  
-**Architectural context:** `[SEC-JOB]` payload `fan_id + event_id` only — fetch name/contact inside worker; `[ARCH-JOB]` idempotent 1 message per `fan_id + event_id`; results recorded in `messages`.  
-**Files:** `apps/api/src/jobs/fan-to-member-funnel.worker.ts`  
-**Acceptance criteria:**
-
-- [x] Job enqueued after `CHECKIN_CONFIRMED` event
-- [x] Payload contains `fanId`, `eventId`, `clubId` only
-- [x] Sends conversion message once per `fan_id + event_id` combination (idempotent)
-- [x] Result recorded in `messages` table for audit
-- [x] Failure logged to Sentry
-      **Out of scope:** Message templates (managed separately), CRM UI (T-146)  
-       **Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern
-
-#### T-153 | [DONE] Integração mPOS Stone/SumUp com fallback PIX
-
-**Context:** Event staff need to accept card payments at the venue; fallback to PIX if terminal is unavailable.  
-**Architectural context:** `[ARCH-GW]` fallback via `GatewayRegistry.forMethod('PIX')` — never direct import; `[FIN]` `amount_cents` as integer; `[PR-FIN]` ≥ 2 approvals.  
-**Files:** `apps/api/src/modules/events/pos/pos.routes.ts`, `pos.service.ts`  
-**Acceptance criteria:**
-
-- [x] `POST /api/events/:id/pos/charge` creates charge via `POS_PROVIDER` SDK (Stone or SumUp)
-- [x] Records sale in `pos_sales` with `amount_cents` as integer
-- [x] Falls back to `GatewayRegistry.forMethod('PIX')` if terminal unavailable
-- [x] `POS_PROVIDER` resolved from env — no hardcoded provider name
-      **Out of scope:** PDV UI (T-154), product catalog (T-152)  
-       **Pattern reference:** `apps/api/src/modules/payments/gateways/` registry pattern
-
-#### T-155 | [DONE] Provisionamento DDL tenant v2.5 (idempotente)
-
-**Context:** Existing clubs must automatically receive the new v2.5 tables on next provisioning run.  
-**Architectural context:** `[SEC-TEN]` DDL must be idempotent; `provisionTenantSchema` is the only place for tenant DDL changes.  
-**Files:** `apps/api/src/lib/provision-tenant-schema.ts`  
-**Acceptance criteria:**
-
-- [x] `events`, `event_sectors`, `tickets`, `fan_profiles`, `pos_sales`, `game_checklists` added to `provisionTenantSchema`
-- [x] Existing clubs receive tables on next execution without errors
-- [x] DDL wrapped in `IF NOT EXISTS` guards
-      **Out of scope:** Data migration, seeding  
-       **Pattern reference:** existing `provisionTenantSchema` implementation
-
-#### T-156 | [DONE] Rotas SSE v2.5
-
-**Context:** Clients need real-time updates for ticket sales and check-ins without polling.  
-**Architectural context:** `sse-bus.ts` coupling — React Query invalidation keys must be updated in matching web modules.  
+**Context:** Scout clients need real-time updates when showcases change or contact requests receive a response; club clients need real-time incoming contact request notifications.  
+**Architectural context:** `sse-bus.ts` coupling — add events without renaming existing; React Query keys must be invalidated in matching web modules; SCOUT token must not receive club-scoped events; scaling note required in code.  
 **Files:** `apps/api/src/modules/events/sse-bus.ts`, matching web query files  
 **Acceptance criteria:**
 
-- [x] `TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED` events added to `sse-bus.ts`
-- [x] `EVENT_QUERY_KEY` and `TICKETS_QUERY_KEY` invalidated in `queryClient` on receipt
-- [x] Scaling note in code: replace `EventEmitter` with `redis.publish/subscribe` when > 1 process
-      **Out of scope:** New SSE transport implementation (scaling concern)  
-       **Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
+- [ ] `SHOWCASE_UPDATED` and `CONTACT_REQUEST_RECEIVED` added to `sse-bus.ts`
+- [ ] `SHOWCASE_QUERY_KEY` invalidated on `SHOWCASE_UPDATED`; `CONTACT_REQUESTS_QUERY_KEY` on `CONTACT_REQUEST_RECEIVED`
+- [ ] Scout SSE stream (`GET /api/scout/events`) authenticated by `role: SCOUT` JWT — club-tenant events not forwarded to scout clients
+- [ ] Scaling note in `sse-bus.ts`: replace `EventEmitter` with `redis.publish/subscribe` when > 1 process — interface stays identical
 
-#### T-144 | [DONE] UI de portaria mobile-first (`TicketScannerPage`) offline-first
+**Out of scope:** New SSE transport (scaling concern)  
+**Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
 
-**Context:** Gate staff need a fast QR scanner that works without internet connectivity during events.  
-**Architectural context:** Offline queue via Dexie.js + Background Sync; dedup by `ticket_id` in local queue; `[UI-A11Y]` check-in status badge with text.  
-**Files:** `apps/web/src/app/(app)/access/TicketScannerPage.tsx`  
+---
+
+### T-166 | [TODO] Backend de upload de vídeos (Cloudflare R2 + magic bytes)
+
+**Context:** Clubs upload short clips (≤ 90s) to enrich showcases; strict validation at every layer prevents malicious or oversized uploads.  
+**Architectural context:** `[SEC-FILE]` magic bytes via `file-type` — never trust `Content-Type`; filename = `randomUUID()`; duration enforced via FFprobe (not client metadata); Cloudflare R2 via S3-compatible SDK; max 5 videos per athlete.  
+**Files:** `apps/api/src/modules/scoutlink/videos/videos.routes.ts`, `videos.service.ts`  
 **Acceptance criteria:**
 
-- [x] Camera scans QR Code and displays result in < 1s
-- [x] Works offline: local Dexie.js queue with Background Sync on reconnect
-- [x] Deduplicates by `ticket_id` — no duplicate check-in submissions
-- [x] Check-in counter per sector via SSE `CHECKIN_CONFIRMED`
-- [x] Status badge includes text label beyond color
-      **Out of scope:** Backend validation (T-143)  
-       **Pattern reference:** offline attendance pattern in `apps/web/src/app/(app)/training/`
+- [ ] `POST /api/athletes/:id/videos` accepts `multipart/form-data`; validates magic bytes for `video/mp4` or `video/webm` only — rejects all other types with 415
+- [ ] FFprobe enforces ≤ 90s duration — rejects with 422 if exceeded; client-supplied duration metadata ignored
+- [ ] Filename = `randomUUID()` — original filename discarded and never stored
+- [ ] Stores `{ r2Key, durationSeconds, thumbnailUrl, athleteId, clubId, uploadedAt }` in `showcase_videos`
+- [ ] Returns 409 if athlete already has 5 videos
+- [ ] `assertMemberBelongsToClub` + `requireRole('ADMIN')`
 
-#### T-145 | [TODO] Relatório de bilheteria pós-jogo
+**Out of scope:** Video reorder (T-167), showcase publication (T-164)  
+**Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`; `CLOUDFLARE_R2_*` env vars added in T-184
 
-**Context:** Admins and treasurers need a post-event revenue report with sector breakdown.  
-**Architectural context:** `[FIN]` revenue = `price_cents × sold` as integer; `[PR-FIN]` ≥ 2 approvals; guard `requireRole('ADMIN', 'TREASURER')`.  
-**Files:** `apps/api/src/modules/events/reports/reports.routes.ts`, `reports.service.ts`  
+---
+
+### T-167 | [TODO] UI de gestão de vídeos (`AthleteVideoManager`)
+
+**Context:** ADMINs manage the athlete video gallery — upload, reorder, and delete clips — from within the showcase manager.  
+**Architectural context:** `[UI-A11Y]`; upload progress bar; duration badge per card; delete requires confirmation modal; upload button disabled at 5-video limit.  
+**Files:** `apps/web/src/app/(app)/athletes/[id]/showcase/AthleteVideoManager.tsx`  
 **Acceptance criteria:**
 
-- [x] `GET /api/events/:id/report` returns total revenue by sector, occupancy rate, check-ins, no-shows
-- [x] All revenue in integer cents — no floats
-- [x] PDF generation via `react-pdf` with club logo; SHA-256 hash recorded in `audit_log`
-- [x] Requires `ADMIN` or `TREASURER` role
-      **Out of scope:** CRM data (T-146), CSV export of fans  
-       **Pattern reference:** `apps/api/src/jobs/monthly-report/` PDF pattern
+- [ ] Drag-to-reorder grid; order persisted via `PATCH /api/athletes/:id/videos/order`
+- [ ] Upload progress bar; error state shown inline for duration > 90s or rejected file type
+- [ ] Delete requires confirmation modal; optimistic removal reverted on API error
+- [ ] "5/5 vídeos" badge shown; upload button disabled and tooltip shown at limit
+- [ ] Duration badge on each card in `MM:SS` format
 
-#### T-146 | [DONE] CRM de torcedor
+**Out of scope:** Video backend (T-166)  
+**Pattern reference:** attendance board drag pattern in `apps/web/src/app/(app)/training/`
 
-**Context:** Clubs need a database of fans built from ticket purchases to enable re-engagement campaigns.  
-**Architectural context:** `[FIN]` `total_spent_cents` as integer; `[SEC]` CSV export must sanitize injection characters.  
-**Files:** `apps/api/src/modules/events/fans/fans.routes.ts`, `apps/web/src/app/(app)/access/FanProfilesPage.tsx`  
+---
+
+### T-168 | [TODO] API de busca filtrada de atletas (freemium enforced)
+
+**Context:** Scouts filter the athlete database by technical criteria; data depth is gated by the combination of showcase tier and scout subscription status. Clinical data is never returned under any combination.  
+**Architectural context:** `[SEC]` `clinicalNotes`, `diagnosis`, `treatmentDetails` excluded unconditionally; freemium projection via `projectShowcase()` (T-179); subscription status from `scout_profiles.subscription_status`; pagination max 50.  
+**Files:** `apps/api/src/modules/scoutlink/search/search.routes.ts`, `search.service.ts`  
 **Acceptance criteria:**
 
-- [x] `GET /api/fans` with search by email/phone, pagination, sort by `total_spent_cents`
-- [x] `FanProfilesPage` with filters and CSV export
-- [x] CSV export prefixes `=`, `+`, `-`, `@` fields with `'` to prevent injection
-- [x] `total_spent_cents` stored and displayed as integer cents with `formatBRL()`
-      **Out of scope:** Fan-to-member conversion messaging (T-147)  
-       **Pattern reference:** `apps/web/src/app/(app)/members/MembersPage.tsx`
+- [ ] `GET /api/scout/athletes` accepts filters: `position`, `minAge`, `maxAge`, `state`, `rtpStatus`, `minAcwr`, `maxAcwr`
+- [ ] FREE scout projection: `{ nameInitials, position, age, state, rtpStatus, upgrade_required: true }` — `acwrTrend`, `evaluationScores`, `videoCount` returned as `null`
+- [ ] PREMIUM scout + PREMIUM showcase: full projection including `acwrTrend[]`, `evaluationScores`, `videoCount`
+- [ ] Active subscription check: `subscription_status = ACTIVE` AND `subscription_expires_at > now()` — lapsed treated as FREE
+- [ ] Pagination: `page` + `limit`; max 50 per page; `requireRole('SCOUT')`
 
-#### T-148 | [DONE] Campos de patrocínio em `events`
+**Out of scope:** Public profile detail (T-170), freemium projection logic (T-179)  
+**Pattern reference:** `apps/api/src/modules/members/members.routes.ts` pagination pattern
 
-**Context:** Clubs want to display sponsor branding on ticket confirmation and the public event page.  
-**Architectural context:** `[SEC-FILE]` logo validated by magic bytes — never trust `Content-Type`; filename via `randomUUID()`.  
-**Files:** `apps/api/src/modules/events/events.service.ts`, Prisma schema  
+---
+
+### T-169 | [TODO] UI de busca ScoutLink (`ScoutSearchPage`)
+
+**Context:** Scouts need a fast, filterable search interface that clearly communicates the freemium boundary with a non-blocking upgrade path.  
+**Architectural context:** `[UI-A11Y]`; locked PREMIUM fields rendered as blurred placeholders — never omitted — so layout remains stable; `[UI-BRL]` subscription price in `font-mono`; `requireRole('SCOUT')`.  
+**Files:** `apps/web/src/app/(scout)/search/page.tsx`, `ScoutSearchPage.tsx`  
 **Acceptance criteria:**
 
-- [x] `sponsor_name`, `sponsor_logo_url`, `sponsor_cta_url` fields added to `events`
-- [x] Logo validated by magic bytes via `file-type`; filename = `randomUUID()`
-- [x] Minimum logo dimensions 200×60px enforced via Sharp
-- [x] Logo displayed in `confirm-ticket` worker output and public event page
-      **Out of scope:** Sponsorship analytics, programmatic ad serving  
-       **Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`
+- [ ] Filter panel: position multi-select, age range slider, state select, RTP status, ACWR min/max
+- [ ] Result cards: FREE fields visible; `null` PREMIUM fields rendered as blurred `████` placeholders with "Assine para ver" overlay
+- [ ] Upgrade CTA in overlay links to billing flow (T-180); price shown as `font-mono`
+- [ ] Click on any result navigates to public athlete profile (T-170)
+- [ ] `requireRole('SCOUT')` guard on route
 
-#### T-149 | [DONE] Job BullMQ `game-logistics-notice`
+**Out of scope:** Billing flow (T-180), public profile (T-170)  
+**Pattern reference:** `apps/web/src/app/(app)/members/MembersPage.tsx` filter pattern
 
-**Context:** Club captains need an automated WhatsApp notification 48h before each event with squad and logistics details.  
-**Architectural context:** `[ARCH-JOB]` idempotent by `event_id`; `[SEC-JOB]` payload `event_id + clubId` only.  
-**Files:** `apps/api/src/jobs/game-logistics-notice.worker.ts`  
+---
+
+### T-170 | [TODO] Perfil público de atleta (`/scout/athletes/:id`)
+
+**Context:** Each published showcase has a profile page accessible to authenticated scouts; depth gated by subscription and showcase tier. Snapshot hash is displayed for verification.  
+**Architectural context:** Route group `(scout)` — authenticated scout only, no `(marketing)` exposure; ACWR chart via Recharts; video gallery visible to PREMIUM scouts only.  
+**Files:** `apps/web/src/app/(scout)/athletes/[id]/page.tsx`  
 **Acceptance criteria:**
 
-- [x] Job enqueued at `event_date - 48h`
-- [x] Sends WhatsApp message to captain with squad, time, venue, checklist link
-- [x] Idempotent by `event_id` — re-enqueue does not send duplicate
-- [x] Configurable per club; failure → Sentry
-      **Out of scope:** Checklist CRUD (T-150), UI (T-151)  
-       **Pattern reference:** `apps/api/src/jobs/due-today-notices/` timing pattern
+- [ ] Displays: position, age, dominant foot, RTP badge (text + color), ACWR 4-week Recharts line chart
+- [ ] Video gallery section: visible only to PREMIUM scouts with active subscription; blurred placeholder otherwise
+- [ ] `snapshot_hash` displayed in `font-mono` with "Verificar integridade" tooltip explaining SHA-256
+- [ ] "Solicitar contato" button triggers contact request flow (T-172); disabled if scout has pending request for this athlete
+- [ ] `requireRole('SCOUT')`
 
-#### T-150 | [DONE] CRUD de checklist de operações de jogo
+**Out of scope:** Contact request API (T-172), billing gate (T-180)  
+**Pattern reference:** `apps/web/src/app/(marketing)/eventos/` for public-facing layout; ACWR chart in `apps/web/src/app/(app)/workload/`
 
-**Context:** Event staff need a structured checklist to track pre-game logistics per event.  
-**Architectural context:** `[SEC-TEN]`; `[SEC-OBJ]` `assertEventBelongsToClub`; guard `requireRole('ADMIN')`.  
-**Files:** `apps/api/src/modules/events/checklist/checklist.routes.ts`  
+---
+
+### T-171 | [TODO] Job BullMQ `scout-curation-report`
+
+**Context:** PREMIUM scouts receive a monthly curated PDF of the top 20 athletes matching their saved search criteria; idempotency prevents duplicate sends on retry.  
+**Architectural context:** `[SEC-JOB]` payload `scoutId + yearMonth` only — fetch preferences and contact details inside worker; `[ARCH-JOB]` idempotent by `scoutId + yearMonth`; active subscription verified inside worker before generation; failure → Sentry.  
+**Files:** `apps/api/src/jobs/scout-curation-report.worker.ts`  
 **Acceptance criteria:**
 
-- [x] `GET /api/events/:id/checklist` returns items pre-populated by category
-- [x] `PATCH /api/events/:id/checklist/:itemId` toggles `completed` and records `completed_by`
-- [x] `assertEventBelongsToClub` required
-      **Out of scope:** Checklist UI (T-151), logistics notification (T-149)  
-       **Pattern reference:** `apps/api/src/modules/training/` session pattern
+- [ ] Job enqueued via cron on 1st of each month for each `scout_profiles` row with `subscription_status = ACTIVE`
+- [ ] Payload: `{ scoutId, yearMonth }` only — no name, email, filter criteria in payload
+- [ ] Worker fetches saved filters, queries top 20 athletes, generates PDF via `react-pdf`
+- [ ] Sent via Resend SDK; result recorded in `messages` table
+- [ ] Idempotent by `scoutId + yearMonth` — re-enqueue does not send duplicate
+- [ ] Skips silently (logs to Sentry at `info` level) if `subscription_status` lapsed between enqueue and execution
 
-#### T-151 | [DONE] UI de checklist de jogo (`GameOpsChecklist`) offline-first
+**Out of scope:** PDF template design (separate concern), email template (managed by `templates` module)  
+**Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern; `apps/api/src/jobs/monthly-report/` PDF pattern
 
-**Context:** Staff need to work through the game-day checklist even without connectivity at the venue.  
-**Architectural context:** Offline Dexie.js with dedup by `itemId`; `[UI-A11Y]`.  
-**Files:** `apps/web/src/app/(app)/access/GameOpsChecklist.tsx`  
+---
+
+### T-172 | [TODO] API de solicitação de contato mediada (hard stop menores)
+
+**Context:** Scouts request contact with a club about an athlete via the platform only; direct contact with athletes — especially minors — is unconditionally blocked. Every attempt, including blocked ones, is logged.  
+**Architectural context:** `[SEC]` hard stop: athlete age < 18 AND no `parental_consents` row → 403 unconditionally; `appendCommunicationLog` on every outcome including blocked attempts; `[PR-FIN]` ≥ 2 approvals (LGPD critical path); duplicate window 30 days.  
+**Files:** `apps/api/src/modules/scoutlink/contact/contact.routes.ts`, `contact.service.ts`  
 **Acceptance criteria:**
 
-- [x] List grouped by category with toggle, progress indicator (e.g. 7/10), and completion timestamp
-- [x] Visible to `ADMIN` only
-- [x] Works offline with Dexie.js queue; dedup by `itemId` on sync
-      **Out of scope:** Backend CRUD (T-150)  
-       **Pattern reference:** attendance list in `apps/web/src/app/(app)/training/`
+- [ ] `POST /api/scout/contact-requests` creates `contact_requests` row with `status = PENDING`
+- [ ] Hard stop: athlete `date_of_birth` → age < 18 AND no `parental_consents` row → 403; `appendCommunicationLog` records blocked attempt with `event_type: CONTACT_BLOCKED_MINOR`
+- [ ] Active PREMIUM subscription required — FREE scouts receive 403
+- [ ] Duplicate request (`scoutId + athleteId`) within 30 days → 409; `appendCommunicationLog` records duplicate attempt
+- [ ] `appendCommunicationLog` called on every outcome: created, blocked (minor), blocked (no subscription), duplicate
+- [ ] `requireRole('SCOUT')`
 
-#### T-152 | [DONE] Catálogo de produtos do PDV
+**Out of scope:** Club response flow (T-173), parental consent creation (T-177)  
+**Pattern reference:** HMAC hard stop pattern in `apps/api/src/modules/webhooks/`; `audit_log` write pattern
 
-**Context:** Clubs need to configure the products available at the venue point-of-sale before events.  
-**Architectural context:** `[FIN]` `price_cents` integer; `[UI-BRL]` `formatBRL()`; guard `requireRole('ADMIN')`.  
-**Files:** `apps/api/src/modules/events/pos/products.routes.ts`, `apps/web/src/app/(app)/access/PosProductsPage.tsx`  
+---
+
+### T-173 | [TODO] Fluxo de resposta do clube (accept/reject)
+
+**Context:** Club ADMIN reviews and responds to incoming contact requests; acceptance opens a mediated thread; rejection notifies the scout. PII is never included in response payloads.  
+**Architectural context:** `[SEC]` scout receives club name and specialization only — no phone/email/CPF; `appendCommunicationLog` on every state transition; SSE `CONTACT_REQUEST_RECEIVED` emitted to scout on ACCEPT.  
+**Files:** `apps/api/src/modules/scoutlink/contact/contact.routes.ts`, `contact.service.ts`  
 **Acceptance criteria:**
 
-- [x] `GET/POST/PUT/DELETE /api/clubs/:id/pos-products` with `name`, `price_cents`, `category`, `stock`
-- [x] `PosProductsPage` with `formatBRL(price_cents)` and `font-mono`
-- [x] Guard `requireRole('ADMIN')`
-      **Out of scope:** mPOS integration (T-153), PDV terminal UI (T-154)  
-       **Pattern reference:** `apps/api/src/modules/plans/` CRUD pattern
+- [ ] `PATCH /api/contact-requests/:id` with `{ action: 'ACCEPT' | 'REJECT', reason?: string }` updates `contact_request_status`
+- [ ] On `ACCEPT`: creates `communication_thread` record; emits SSE `CONTACT_REQUEST_RECEIVED` to scout's stream
+- [ ] On `REJECT`: scout receives rejection notification via `messages`; `reason` recorded in `communication_log`
+- [ ] `appendCommunicationLog` on every state transition with `event_type: CONTACT_ACCEPTED | CONTACT_REJECTED`
+- [ ] `assertContactRequestBelongsToClub` required before any mutation
+- [ ] `requireRole('ADMIN')`
 
-#### T-154 | [DONE] UI de PDV mobile (`PosTerminalPage`) offline-first
+**Out of scope:** Scout inbox UI (T-175), club contact management UI (T-176)  
+**Pattern reference:** ticket cancellation flow in `apps/api/src/modules/events/tickets/`
 
-**Context:** Venue staff need a mobile POS interface to register product sales during events.  
-**Architectural context:** `[UI-BRL]` `formatBRL()` + `font-mono` on all values; offline Dexie.js queue; visible to `ADMIN | TREASURER`.  
-**Files:** `apps/web/src/app/(app)/access/PosTerminalPage.tsx`  
+---
+
+### T-175 | [TODO] UI de inbox mediada para scouts (`ScoutInboxPage`)
+
+**Context:** Scouts manage all outgoing contact requests and responses from a single inbox; no athlete PII is ever displayed.  
+**Architectural context:** `[UI-A11Y]`; status badge with text label; no phone/email/CPF visible — club name and sport role only; `requireRole('SCOUT')`.  
+**Files:** `apps/web/src/app/(scout)/inbox/page.tsx`, `ScoutInboxPage.tsx`  
 **Acceptance criteria:**
 
-- [x] Product grid, charge button, event sales history, total revenue with `formatBRL()` + `font-mono`
-- [x] Offline: Dexie.js queue with sync on reconnect
-- [x] Visible to `ADMIN` and `TREASURER`
-      **Out of scope:** mPOS SDK integration (T-153)  
-       **Pattern reference:** attendance board in `apps/web/src/app/(app)/training/`
+- [ ] Lists contact requests grouped by status: PENDING / ACCEPTED / REJECTED with text badge (not color only)
+- [ ] ACCEPTED requests show club name, response timestamp, and link to message thread
+- [ ] REJECTED requests show reason if provided by club
+- [ ] "Nova solicitação" button navigates to search (T-169)
+- [ ] Real-time updates via SSE `CONTACT_REQUEST_RECEIVED` → `queryClient.invalidateQueries(CONTACT_REQUESTS_QUERY_KEY)`
 
-#### T-158 | [DONE] Rate limiting PDV e tickets
+**Out of scope:** Contact request creation (T-172), billing (T-180)  
+**Pattern reference:** `apps/web/src/app/(app)/messages/` list pattern
 
-**Context:** Popular event ticket sales can spike; rate limiting prevents gateway and DB overload.  
-**Files:** `apps/api/src/plugins/rate-limit.ts`  
+---
+
+### T-176 | [TODO] UI de gestão de contatos para o clube
+
+**Context:** Club ADMINs review and respond to incoming scout contact requests within the existing app shell.  
+**Architectural context:** `[UI-A11Y]`; reject (danger) requires confirmation modal with optional reason field; one primary action per context; visible to `ADMIN` only.  
+**Files:** `apps/web/src/app/(app)/athletes/contact-requests/page.tsx`, `ContactRequestsPage.tsx`  
 **Acceptance criteria:**
 
-- [x] Redis key `pos:{clubId}` limited to 200 req/min
-- [x] Redis key `ticket-purchase:{eventId}` limited to 50 req/min
-- [x] Added to `@fastify/rate-limit` configuration
-      **Out of scope:** Adjustable limits per club tier (future)  
-       **Pattern reference:** existing rate-limit plugin configuration
+- [ ] Lists incoming requests with scout name, specialization, target athlete name — no scout CPF/phone displayed
+- [ ] Accept button (primary); Reject button (danger) shows confirmation modal with optional reason `<textarea>`
+- [ ] Badge per request: PENDING / ACCEPTED / REJECTED with text label
+- [ ] Real-time badge update via SSE invalidation
+- [ ] Visible to `ADMIN` only; other roles → 403
 
-#### T-157 | [DONE] Testes E2E ArenaPass
+**Out of scope:** Contact request API (T-173), parental consent UI (T-177)  
+**Pattern reference:** `apps/web/src/app/(app)/members/` table + modal pattern
 
-**Context:** Full ArenaPass flow must be validated end-to-end before release.  
-**Architectural context:** `[PR-FIN]` ≥ 2 approvals; ≥ 80% coverage on `events`, `tickets`, `pos_sales`.  
-**Files:** `apps/api/src/modules/events/__tests__/`, Playwright specs  
+---
+
+### T-177 | [TODO] Consentimento parental para contato scout (< 18 anos)
+
+**Context:** Any scout contact request targeting an athlete under 18 requires verifiable parental consent before the club can accept. The consent record is immutable after creation.  
+**Architectural context:** `[SEC]` consent hash = SHA-256(`guardianName + athleteId + timestamp + CONSENT_SECRET`); `guardianCpf` stored as `BYTEA` via `pgp_sym_encrypt`; IP recorded; row immutable via DB trigger (same pattern as `communication_log`).  
+**Files:** `apps/api/src/modules/scoutlink/contact/parental-consent.routes.ts`, `parental-consent.service.ts`, `apps/web/src/app/(app)/athletes/[id]/parental-consent/page.tsx`  
 **Acceptance criteria:**
 
-- [x] Full flow covered: create event → PIX purchase → QR Code generated → gate check-in → billing report
-- [x] Idempotency: duplicate check-in attempt returns 409
-- [x] Coverage ≥ 80% on `events`, `tickets`, `pos_sales` modules
-- [x] All RBAC rows for new endpoints covered by unit tests with exact HTTP status codes
-      **Out of scope:** Load/stress testing  
-       **Pattern reference:** `apps/api/src/modules/charges/__tests__/`
+- [ ] `POST /api/athletes/:id/parental-consent` creates `parental_consents` row: `guardian_name`, `guardian_cpf` (BYTEA AES-256), `consent_hash`, `ip`, `timestamp`
+- [ ] `consent_hash` = SHA-256(`guardianName + athleteId + isoTimestamp + CONSENT_SECRET`) — computed server-side only
+- [ ] Row immutable — DB trigger prevents UPDATE/DELETE (reuse `prevent_communication_log_mutation` pattern)
+- [ ] `assertMemberBelongsToClub` required; `requireRole('ADMIN')`
+- [ ] UI: form with guardian name, CPF input, explicit consent checkbox; `consent_hash` displayed post-submit in `font-mono` for guardian's records
 
-#### T-159 | [DONE] Matriz RBAC v2.5
+**Out of scope:** Contact request hard stop itself (T-172)  
+**Pattern reference:** aceite parental in `apps/api/src/modules/athletes/` (v1.5 peneiras pattern)
 
-**Context:** New endpoints introduced in v2.5 need documented and tested access control.  
-**Files:** `apps/api/src/modules/events/__tests__/rbac.test.ts`  
+---
+
+### T-178 | [TODO] Transferência de histórico de showcase
+
+**Context:** When an athlete transfers clubs, their showcase history can follow them with explicit digital consent from the source club; source club retains a read-only copy.  
+**Architectural context:** `[SEC-TEN]` `assertValidClubId(targetClubId)`; `appendCommunicationLog` on transfer with both club IDs; source row gets `transferred_at` — never deleted; consent hash validated before any mutation.  
+**Files:** `apps/api/src/modules/scoutlink/showcases/showcase-transfer.routes.ts`, `showcase-transfer.service.ts`  
 **Acceptance criteria:**
 
-- [x] `TREASURER` can access billing report (read-only)
-- [x] `ADMIN` has full CRUD on events
-- [x] `COACH` cannot access events module (403)
-- [x] Each RBAC row covered by a unit test with exact HTTP status code
-      **Out of scope:** Role changes for existing v1/v2 endpoints  
-       **Pattern reference:** `apps/api/src/modules/members/__tests__/rbac.test.ts`
+- [ ] `POST /api/athletes/:id/showcase/transfer` accepts `{ targetClubId, consentHash }`
+- [ ] Validates `consentHash` matches stored `parental_consents` or admin consent record before proceeding — rejects with 403 if mismatch
+- [ ] Copies `scout_showcases` snapshot reference to `targetClubId`; source row updated with `transferred_at` timestamp — never deleted
+- [ ] `assertValidClubId(targetClubId)` called; `assertMemberBelongsToClub` on source
+- [ ] `appendCommunicationLog` records `event_type: SHOWCASE_TRANSFERRED` with `metadata: { sourceClubId, targetClubId }`
+- [ ] `requireRole('ADMIN')`
 
-#### T-160 | [DONE] Checklist de deploy ArenaPass
+**Out of scope:** Athlete contract transfer (separate `contracts` module concern)  
+**Pattern reference:** `balance_sheets` immutability pattern for source row preservation
 
-**Context:** New env vars for PDV integration must be validated at bootstrap to prevent silent failures.  
+---
+
+### T-179 | [TODO] Modelo freemium no showcase (`showcase_tier`)
+
+**Context:** The freemium projection must be the single source of truth used by search (T-168), profile (T-170), and curation (T-171) — no duplication of gating logic across routes.  
+**Architectural context:** `null` returned for gated fields — never omitted — so frontend can render blurred placeholders consistently; `upgrade_required` flag present whenever any field is gated.  
+**Files:** `apps/api/src/modules/scoutlink/showcases/showcase.service.ts`  
+**Acceptance criteria:**
+
+- [ ] `projectShowcase(snapshot, scoutSubscriptionStatus, showcaseTier)` handles all 4 combinations:
+  - FREE scout + FREE tier → initials only, no ACWR, `upgrade_required: true`
+  - FREE scout + PREMIUM tier → same as above (scout tier is binding ceiling)
+  - PREMIUM scout + FREE tier → full identity fields visible, no ACWR (showcase tier is binding floor)
+  - PREMIUM scout + PREMIUM tier → full projection, `upgrade_required: false`
+- [ ] Gated fields returned as `null`, not omitted — Zod output schema enforces this
+- [ ] Unit tests cover all 4 combinations with snapshot assertions
+- [ ] `projectShowcase` imported and used in search service (T-168) — no inline projection logic in routes
+
+**Out of scope:** Billing/subscription management (T-180)  
+**Pattern reference:** conditional projection pattern in `apps/api/src/modules/athletes/` RTP status service
+
+---
+
+### T-180 | [TODO] Billing mensal de scout (R$ 299/mês via GatewayRegistry)
+
+**Context:** Scout PREMIUM subscription charged monthly via PIX; lapsed subscription immediately gates to FREE tier without manual intervention.  
+**Architectural context:** `[ARCH-GW]` `GatewayRegistry.forMethod('PIX')` — no concrete gateway import; `[FIN]` `29900` cents; `[PR-FIN]` ≥ 2 approvals; webhook confirmation updates `subscription_status`; lapsed gate enforced by cron — not lazily on read.  
+**Files:** `apps/api/src/modules/scoutlink/billing/scout-billing.routes.ts`, `scout-billing.service.ts`, `apps/api/src/jobs/scout-subscription-renewal.worker.ts`  
+**Acceptance criteria:**
+
+- [ ] `POST /api/scout/billing/subscribe` generates PIX charge of `29900` cents via `GatewayRegistry.forMethod('PIX')`
+- [ ] Webhook confirmation sets `subscription_status = ACTIVE`, `subscription_expires_at = now() + 30d`
+- [ ] Job `scout-subscription-renewal` enqueued 3 days before `subscription_expires_at`; idempotent by `scoutId + billingCycle`
+- [ ] Daily cron: sets `subscription_status = INACTIVE` for all rows where `subscription_expires_at < now()` — runs before business hours
+- [ ] `GET /api/scout/billing/status` returns `{ status, expiresAt, nextRenewalAt }`
+- [ ] All amounts as integer cents; `requireRole('SCOUT')`
+
+**Out of scope:** Card payment for scouts (future); multi-currency (WON'T HAVE)  
+**Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`; `apps/api/src/jobs/billing-reminders/` cron pattern
+
+---
+
+### T-182 | [TODO] Matriz RBAC v3.0 (testes + hard stop menores em CI)
+
+**Context:** The SCOUT role and all new v3.0 endpoints require full RBAC coverage; the minor hard stop must be an explicit CI assertion that fails the build if removed.  
+**Files:** `apps/api/src/modules/scoutlink/__tests__/rbac.test.ts`  
+**Acceptance criteria:**
+
+- [ ] `SCOUT` receives 403 on all `(app)/` routes (members, charges, dashboard, medical, events, etc.)
+- [ ] `ADMIN`, `TREASURER`, `COACH`, `PHYSIO` receive 403 on all `/api/scout/` routes
+- [ ] Minor hard stop CI assertion: athlete age < 18 + no `parental_consents` → `POST /api/scout/contact-requests` returns 403; `communication_log` contains blocked attempt
+- [ ] CI step runs `rbac.test.ts` with `--bail`; removing the minor hard stop test causes build failure via required test count assertion
+- [ ] Every RBAC row covered by unit test with exact HTTP status code
+
+**Out of scope:** Role changes for v1/v2 endpoints  
+**Pattern reference:** `apps/api/src/modules/members/__tests__/rbac.test.ts`
+
+---
+
+### T-183 | [TODO] Testes E2E ScoutLink
+
+**Context:** Full ScoutLink flow must be validated end-to-end before release.  
+**Architectural context:** `[PR-FIN]` ≥ 2 approvals; ≥ 80% coverage on all `scoutlink/` modules.  
+**Files:** `apps/api/src/modules/scoutlink/__tests__/`, Playwright specs  
+**Acceptance criteria:**
+
+- [ ] Full happy path: publish showcase (ADMIN) → scout search → view profile → contact request → club accept → `communication_log` entry verified
+- [ ] Minor hard stop: contact attempt without parental consent → 403; `communication_log` contains `CONTACT_BLOCKED_MINOR` entry
+- [ ] Freemium: FREE scout receives `null` on PREMIUM fields; `upgrade_required: true` in response
+- [ ] Duplicate contact request within 30 days → 409
+- [ ] Longitudinal guard: PREMIUM showcase publish with < 180 days data → 409
+- [ ] Coverage ≥ 80% on all `scoutlink/` modules; `[PR-FIN]` ≥ 2 approvals required
+
+**Out of scope:** Load/stress testing  
+**Pattern reference:** `apps/api/src/modules/events/__tests__/` E2E pattern
+
+---
+
+### T-184 | [TODO] Checklist de deploy ScoutLink
+
+**Context:** New env vars for Cloudflare R2, FFprobe, and consent hash secret must be validated at bootstrap to prevent silent runtime failures.  
 **Files:** `apps/api/src/lib/env.ts`, `apps/api/.env.example`  
 **Acceptance criteria:**
 
-- [x] `POS_PROVIDER`, `STONE_API_KEY` / `SUMUP_API_KEY` added to Zod schema in `lib/env.ts`
-- [x] `validateEnv()` is the first call in bootstrap (no change needed if already so)
-- [x] `.env.example` updated with new vars
-- [x] Manual PDV smoke test: 3 sales in staging before enabling in production
-      **Out of scope:** Automated PDV integration tests (requires physical device)  
-       **Pattern reference:** existing `apps/api/src/lib/env.ts` Zod schema
+- [ ] `CLOUDFLARE_R2_BUCKET`, `CLOUDFLARE_R2_ENDPOINT`, `CLOUDFLARE_R2_ACCESS_KEY_ID`, `CLOUDFLARE_R2_SECRET_ACCESS_KEY`, `FFPROBE_PATH`, `CONSENT_SECRET` added to Zod schema in `lib/env.ts`
+- [ ] `validateEnv()` remains the first call in bootstrap — verify, do not move
+- [ ] `.env.example` updated with all new vars and inline comments
+- [ ] Manual smoke test before production enable: 1 video upload + 1 showcase publish + 1 contact request (including blocked minor attempt) in staging
+
+**Out of scope:** Automated PDV integration tests (physical device required)  
+**Pattern reference:** `apps/api/src/lib/env.ts` existing Zod schema
+
+---
+
+## Done
 
 ---
 
 ## Icebox
 
-> v3.0 "A Vitrine" (ScoutLink) — Weeks 29–40. DO NOT start before v2.5 go/no-go criteria are met.
-> Pre-requisite: ≥ 6 months of continuous `workload_metrics` and `medical_records` data in production.
+> v3.5 "A Liga" (CampeonatOS) — Months 11–13. DO NOT start before v3.0 go/no-go criteria are met.
+> Pre-requisite: ≥ 1 formal scout–club contact mediated; ≥ 3 scouts with active subscriptions after 60 days; zero LGPD incidents involving minors.
+> Tasks T-185+ will be specced when v3.0 go/no-go is confirmed. Detailing earlier is waste — context will change.
 
-- [ ] [T-161] Schema `public` cross-tenant (ScoutLink tables)
-- [ ] [T-162] Auth e onboarding de scout (role `SCOUT` + JWT)
-- [ ] [T-163] Guard de pré-requisito de dados longitudinais
-- [ ] [T-164] API de showcase de atleta verificado (ACWR + SHA-256)
-- [ ] [T-165] UI de gestão de showcase (`ShowcaseManagerPage`)
-- [ ] [T-166] Backend de upload de vídeos (Cloudflare R2 + magic bytes)
-- [ ] [T-167] UI de gestão de vídeos (`AthleteVideoManager`)
-- [ ] [T-168] API de busca filtrada de atletas (freemium enforced)
-- [ ] [T-169] UI de busca ScoutLink (`ScoutSearchPage`)
-- [ ] [T-170] Perfil público de atleta (`/scout/athletes/:id`)
-- [ ] [T-171] Job BullMQ `scout-curation-report` (curadoria mensal PDF)
-- [ ] [T-172] API de solicitação de contato mediada (hard stop para menores)
-- [ ] [T-173] Fluxo de resposta do clube (accept/reject)
-- [ ] [T-174] Log imutável de comunicação (`communication_log`)
-- [ ] [T-175] UI de inbox mediada para scouts (`ScoutInboxPage`)
-- [ ] [T-176] UI de gestão de contatos para o clube
-- [ ] [T-177] Consentimento parental para contato scout (< 18 anos)
-- [ ] [T-178] Transferência de histórico de showcase
-- [ ] [T-179] Modelo freemium no showcase (`showcase_tier`)
-- [ ] [T-180] Billing mensal de scout (R$ 299/mês via GatewayRegistry)
-- [ ] [T-181] Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`)
-- [ ] [T-182] Matriz RBAC v3.0 (testes + hard stop menores em CI)
-- [ ] [T-183] Testes E2E ScoutLink
-- [ ] [T-184] Checklist de deploy ScoutLink (Cloudflare R2 + FFprobe env vars)
+- [ ] [T-185] Schema de campeonato (times, partidas, rodadas, árbitros) — `public` schema cross-tenant
+- [ ] [T-186] Auth e onboarding de organizador de liga
+- [ ] [T-187] Geração automática de tabela round-robin sem conflito de campo
+- [ ] [T-188] Escalação digital com validação de elegibilidade em tempo real
+- [ ] [T-189] Súmula digital offline-first (árbitro no celular)
+- [ ] [T-190] Controle automático de suspensões por cartão acumulado
+- [ ] [T-191] Portal público por campeonato (URL personalizada, tabela ao vivo)
+- [ ] [T-192] Sistema de protesto com prazo rastreado e log imutável
+- [ ] [T-193] Patrocínio digital no portal com métricas de visualização
+- [ ] [T-194] Relatório final de campeonato exportável em PDF
+- [ ] [T-195] Matriz RBAC v3.5 + testes E2E CampeonatOS
+- [ ] [T-196] Checklist de deploy CampeonatOS
 
 ---
 
 ## Notes & Decisions
 
+- **2026-05-11:** v2.5 go/no-go confirmed — all T-136→T-160 DONE. v3.0 "A Vitrine" sprint S16 unblocked.
+- **2026-05-11:** Pre-requisite gate reminder — `assertLongitudinalDataSufficient` (T-163) must validate ≥ 180 days of `workload_metrics` before PREMIUM tier publish. Gate is per-athlete, not per-club.
+- **Architecture:** SCOUT JWT has no `clubId`. Any path where `withTenantSchema` is called with a SCOUT-originated request is a security defect — must be caught in RBAC unit tests (T-182).
+- **Security:** Minor hard stop in T-172 is unconditional — no role override, no admin bypass. `communication_log` records every blocked attempt. CI must assert this (T-182).
+- **Architecture:** Freemium projection lives exclusively in `projectShowcase()` (T-179) — search (T-168), profile (T-170), and curation (T-171) import it. No inline gating logic in routes.
 - **2026-04-22:** T-136 merged — v2.5 tenant DDL provisioned. Sprints 12–15 now unblocked.
 - **2026-04-22:** v2.0 go/no-go criteria confirmed met (FisioBase + SAF Full 100% ✅).
 - **Architecture:** ScoutLink (v3.0) must not launch before 6 months of BaseForte + FisioBase data in production. A showcase with no longitudinal data does not retain scouts.

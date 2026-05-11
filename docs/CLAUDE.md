@@ -125,18 +125,33 @@ Every RBAC row MUST have a unit test verifying the exact HTTP status code.
 
 Any PR touching `charges/`, `payments/`, `webhooks/`, `jobs/`: ≥ 2 approvals + ≥ 80% coverage on modified modules.
 
-## Current Sprint — v2.5 "A Arquibancada" (S12–S15, Weeks 21–28)
+## Current Sprint — v3.0 "A Vitrine" (S16–S21, Weeks 29–40)
 
-| ID          | Title                                             | Status  | Sprint  |
-| ----------- | ------------------------------------------------- | ------- | ------- |
-| T-136       | Schema Prisma + DDL tenant v2.5                   | ✅ DONE | S12     |
-| T-137       | CRUD de eventos                                   | ✅ DONE | S12     |
-| T-138       | UI de configuração de evento                      | TODO    | S12     |
-| T-139       | Geração de cobrança PIX por ingresso              | TODO    | S12     |
-| T-140       | Worker `confirm-ticket` + QR Code SHA-256         | TODO    | S12     |
-| T-141       | Página pública de compra de ingresso              | TODO    | S12     |
-| T-142       | Cancelamento de ingresso com reembolso            | TODO    | S12     |
-| T-143       | Backend de validação de ingresso (HMAC)           | TODO    | S13     |
-| T-144–T-160 | Gate UI · Relatórios · CRM · PDV · Testes · Infra | TODO    | S13–S15 |
+| ID    | Title                                                           | Status | Sprint |
+| ----- | --------------------------------------------------------------- | ------ | ------ |
+| T-161 | Schema `public` cross-tenant (ScoutLink tables)                 | TODO   | S16    |
+| T-162 | Auth e onboarding de scout (role `SCOUT` + JWT)                 | TODO   | S16    |
+| T-163 | Guard de pré-requisito de dados longitudinais                   | TODO   | S16    |
+| T-174 | Log imutável de comunicação (`communication_log`)               | TODO   | S16    |
+| T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | TODO   | S17    |
+| T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | TODO   | S17    |
+| T-181 | Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`) | TODO   | S17    |
+| T-166 | Backend de upload de vídeos (Cloudflare R2 + magic bytes)       | TODO   | S18    |
+| T-167 | UI de gestão de vídeos (`AthleteVideoManager`)                  | TODO   | S18    |
+| T-168 | API de busca filtrada de atletas (freemium enforced)            | TODO   | S18    |
+| T-169 | UI de busca ScoutLink (`ScoutSearchPage`)                       | TODO   | S18    |
+| T-170 | Perfil público de atleta (`/scout/athletes/:id`)                | TODO   | S19    |
+| T-171 | Job BullMQ `scout-curation-report` (curadoria mensal PDF)       | TODO   | S19    |
+| T-172 | API de solicitação de contato mediada (hard stop menores)       | TODO   | S19    |
+| T-173 | Fluxo de resposta do clube (accept/reject)                      | TODO   | S19    |
+| T-175 | UI de inbox mediada para scouts (`ScoutInboxPage`)              | TODO   | S20    |
+| T-176 | UI de gestão de contatos para o clube                           | TODO   | S20    |
+| T-177 | Consentimento parental para contato scout (< 18 anos)           | TODO   | S20    |
+| T-178 | Transferência de histórico de showcase                          | TODO   | S20    |
+| T-179 | Modelo freemium no showcase (`showcase_tier`)                   | TODO   | S21    |
+| T-180 | Billing mensal de scout (R$ 299/mês via GatewayRegistry)        | TODO   | S21    |
+| T-182 | Matriz RBAC v3.0 (testes + hard stop menores em CI)             | TODO   | S21    |
+| T-183 | Testes E2E ScoutLink                                            | TODO   | S21    |
+| T-184 | Checklist de deploy ScoutLink (env vars + `validateEnv()`)      | TODO   | S21    |
 
 > Full task specs → `docs/backlog.md`

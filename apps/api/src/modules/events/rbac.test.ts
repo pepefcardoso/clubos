@@ -407,3 +407,181 @@ describe("RBAC — GET /api/events/:id/fans", () => {
     expect(res.statusCode).toBe(403);
   });
 });
+
+describe("RBAC — PUT /api/events/:id", () => {
+  const body = { opponent: "Santos" };
+
+  it("ADMIN → 200", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/events/evt_01",
+      headers: { authorization: `Bearer ${token("ADMIN")}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(200);
+  });
+  it("TREASURER → 403", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/events/evt_01",
+      headers: { authorization: `Bearer ${token("TREASURER")}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(403);
+  });
+  it("PHYSIO → 403", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/events/evt_01",
+      headers: { authorization: `Bearer ${token("PHYSIO")}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});
+
+describe("RBAC — DELETE /api/events/:id", () => {
+  it("ADMIN → 204", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/events/evt_01",
+      headers: { authorization: `Bearer ${token("ADMIN")}` },
+    });
+    expect(res.statusCode).toBe(204);
+  });
+  it("TREASURER → 403", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/events/evt_01",
+      headers: { authorization: `Bearer ${token("TREASURER")}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+  it("PHYSIO → 403", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/events/evt_01",
+      headers: { authorization: `Bearer ${token("PHYSIO")}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});
+
+describe("RBAC — POST /api/events/:id/sponsor-logo", () => {
+  it("ADMIN → processes (not 401/403)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/events/evt_01/sponsor-logo",
+      headers: { authorization: `Bearer ${token("ADMIN")}` },
+    });
+    expect(res.statusCode).not.toBe(401);
+    expect(res.statusCode).not.toBe(403);
+  });
+  it("TREASURER → 403", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/events/evt_01/sponsor-logo",
+      headers: { authorization: `Bearer ${token("TREASURER")}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+  it("PHYSIO → 403", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/events/evt_01/sponsor-logo",
+      headers: { authorization: `Bearer ${token("PHYSIO")}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});
+
+describe("RBAC — POST /api/events/:id/pos/charge", () => {
+  const body = { productName: "Água", amountCents: 500, method: "PIX" };
+
+  it("ADMIN → 201", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/events/evt_01/pos/charge",
+      headers: { authorization: `Bearer ${token("ADMIN")}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(201);
+  });
+  it("TREASURER → 201", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/events/evt_01/pos/charge",
+      headers: { authorization: `Bearer ${token("TREASURER")}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(201);
+  });
+  it("PHYSIO → 403", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/events/evt_01/pos/charge",
+      headers: { authorization: `Bearer ${token("PHYSIO")}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});
+
+describe("RBAC — GET /api/events/:id/checklist", () => {
+  it("ADMIN → 200", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/events/evt_01/checklist",
+      headers: { authorization: `Bearer ${token("ADMIN")}` },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+  it("TREASURER → 403", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/events/evt_01/checklist",
+      headers: { authorization: `Bearer ${token("TREASURER")}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+  it("PHYSIO → 403", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/events/evt_01/checklist",
+      headers: { authorization: `Bearer ${token("PHYSIO")}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});
+
+describe("RBAC — PATCH /api/events/:id/checklist/:itemId", () => {
+  const body = { completed: true };
+
+  it("ADMIN → 200", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/events/evt_01/checklist/item_01",
+      headers: { authorization: `Bearer ${token("ADMIN")}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(200);
+  });
+  it("TREASURER → 403", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/events/evt_01/checklist/item_01",
+      headers: { authorization: `Bearer ${token("TREASURER")}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(403);
+  });
+  it("PHYSIO → 403", async () => {
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/events/evt_01/checklist/item_01",
+      headers: { authorization: `Bearer ${token("PHYSIO")}` },
+      payload: body,
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});

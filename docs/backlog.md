@@ -36,7 +36,7 @@
 | T-156 | Rotas SSE v2.5 (`TICKET_SOLD`, `CHECKIN_CONFIRMED`, `EVENT_CAPACITY_UPDATED`) | DONE   | HIGH     | S12    | Infra |
 | T-157 | Testes E2E ArenaPass (evento → venda → QR → check-in → relatório)             | DONE   | HIGH     | S15    | Test  |
 | T-158 | Rate limiting PDV e tickets (Redis)                                           | DONE   | MEDIUM   | S15    | Infra |
-| T-159 | Matriz RBAC v2.5 (testes unitários dos novos endpoints)                       | TODO   | HIGH     | S15    | Test  |
+| T-159 | Matriz RBAC v2.5 (testes unitários dos novos endpoints)                       | DONE   | HIGH     | S15    | Test  |
 | T-160 | Checklist de deploy ArenaPass (env vars + `validateEnv()`)                    | TODO   | HIGH     | S15    | Infra |
 
 > v3.0 tasks (T-161 → T-184): listed in **Icebox** below. DO NOT start before v2.5 go/no-go.
@@ -44,23 +44,6 @@
 ---
 
 ## In Progress
-
-#### T-159 | [TODO] Matriz RBAC v2.5
-
-**Context:** New endpoints introduced in v2.5 need documented and tested access control.  
-**Files:** `apps/api/src/modules/events/__tests__/rbac.test.ts`  
-**Acceptance criteria:**
-
-- [ ] `TREASURER` can access billing report (read-only)
-- [ ] `ADMIN` has full CRUD on events
-- [ ] `COACH` cannot access events module (403)
-- [ ] Each RBAC row covered by a unit test with exact HTTP status code
-      **Out of scope:** Role changes for existing v1/v2 endpoints  
-       **Pattern reference:** `apps/api/src/modules/members/__tests__/rbac.test.ts`
-
-## Todo
-
-### Priority: HIGH — Test & Hardening (Sprint 15)
 
 #### T-160 | [TODO] Checklist de deploy ArenaPass
 
@@ -74,6 +57,8 @@
 - [ ] Manual PDV smoke test: 3 sales in staging before enabling in production
       **Out of scope:** Automated PDV integration tests (requires physical device)  
        **Pattern reference:** existing `apps/api/src/lib/env.ts` Zod schema
+
+## Todo
 
 ---
 
@@ -399,6 +384,19 @@
 - [x] All RBAC rows for new endpoints covered by unit tests with exact HTTP status codes
       **Out of scope:** Load/stress testing  
        **Pattern reference:** `apps/api/src/modules/charges/__tests__/`
+
+#### T-159 | [DONE] Matriz RBAC v2.5
+
+**Context:** New endpoints introduced in v2.5 need documented and tested access control.  
+**Files:** `apps/api/src/modules/events/__tests__/rbac.test.ts`  
+**Acceptance criteria:**
+
+- [x] `TREASURER` can access billing report (read-only)
+- [x] `ADMIN` has full CRUD on events
+- [x] `COACH` cannot access events module (403)
+- [x] Each RBAC row covered by a unit test with exact HTTP status code
+      **Out of scope:** Role changes for existing v1/v2 endpoints  
+       **Pattern reference:** `apps/api/src/modules/members/__tests__/rbac.test.ts`
 
 ---
 

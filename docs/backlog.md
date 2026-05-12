@@ -16,7 +16,7 @@
 | ----- | --------------------------------------------------------------- | ------ | -------- | ------ | ----- |
 | T-161 | Schema `public` cross-tenant (ScoutLink tables)                 | DONE   | HIGH     | S16    | Infra |
 | T-162 | Auth e onboarding de scout (role `SCOUT` + JWT)                 | DONE   | HIGH     | S16    | API   |
-| T-163 | Guard de pré-requisito de dados longitudinais                   | TODO   | HIGH     | S16    | API   |
+| T-163 | Guard de pré-requisito de dados longitudinais                   | DONE   | HIGH     | S16    | API   |
 | T-174 | Log imutável de comunicação (`communication_log`)               | TODO   | HIGH     | S16    | Infra |
 | T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | TODO   | HIGH     | S17    | API   |
 | T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | TODO   | HIGH     | S17    | Web   |
@@ -46,25 +46,6 @@
 
 ## In Progress
 
-### T-163 | [TODO] Guard de pré-requisito de dados longitudinais
-
-**Context:** A showcase with fewer than 6 months of workload data provides no analytical value and would erode scout trust. FREE tier has no minimum — only PREMIUM tier requires the gate.  
-**Architectural context:** Gate enforced at service layer only — `assertLongitudinalDataSufficient` reads `workload_metrics` date range via `withTenantSchema`; FREE tier bypasses entirely.  
-**Files:** `apps/api/src/modules/scoutlink/showcases/showcase.service.ts`  
-**Acceptance criteria:**
-
-- [ ] `assertLongitudinalDataSufficient(prisma, clubId, athleteId)` throws `409` if `workload_metrics` span < 180 days for `tier = PREMIUM` requests
-- [ ] FREE tier bypasses guard unconditionally
-- [ ] Guard called before any `INSERT` or `UPDATE` on `scout_showcases` with `tier = PREMIUM`
-- [ ] Unit test: 179 days → 409; 180 days → passes; FREE with 0 days → passes
-
-**Out of scope:** Showcase API itself (T-164)  
-**Pattern reference:** `assertMemberBelongsToClub` guard pattern
-
----
-
-## Todo
-
 ### T-174 | [TODO] Log imutável de comunicação (`communication_log`)
 
 **Context:** LGPD compliance requires an immutable record of every scout–club interaction; any mutation attempt must fail at the DB level, not only the application layer.  
@@ -82,6 +63,8 @@
 **Pattern reference:** `audit_log` immutability pattern in `apps/api/src/modules/`
 
 ---
+
+## Todo
 
 ### T-164 | [TODO] API de showcase de atleta verificado (ACWR + SHA-256)
 
@@ -483,6 +466,21 @@
 
 **Out of scope:** Billing/subscription status (T-180), longitudinal data guard (T-163)  
 **Pattern reference:** `apps/api/src/modules/auth/auth.routes.ts`
+
+### T-163 | [DONE] Guard de pré-requisito de dados longitudinais
+
+**Context:** A showcase with fewer than 6 months of workload data provides no analytical value and would erode scout trust. FREE tier has no minimum — only PREMIUM tier requires the gate.  
+**Architectural context:** Gate enforced at service layer only — `assertLongitudinalDataSufficient` reads `workload_metrics` date range via `withTenantSchema`; FREE tier bypasses entirely.  
+**Files:** `apps/api/src/modules/scoutlink/showcases/showcase.service.ts`  
+**Acceptance criteria:**
+
+- [x] `assertLongitudinalDataSufficient(prisma, clubId, athleteId)` throws `409` if `workload_metrics` span < 180 days for `tier = PREMIUM` requests
+- [x] FREE tier bypasses guard unconditionally
+- [x] Guard called before any `INSERT` or `UPDATE` on `scout_showcases` with `tier = PREMIUM`
+- [x] Unit test: 179 days → 409; 180 days → passes; FREE with 0 days → passes
+
+**Out of scope:** Showcase API itself (T-164)  
+**Pattern reference:** `assertMemberBelongsToClub` guard pattern
 
 ---
 

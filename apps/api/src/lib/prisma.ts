@@ -28,9 +28,15 @@ export function getPrismaClient(): PrismaClient {
 
 export async function withTenantSchema<T>(
   prisma: PrismaClient,
-  clubId: string,
+  clubId: string | null,
   fn: (tx: PrismaClient) => Promise<T>,
 ): Promise<T> {
+  if (!clubId) {
+    throw new Error(
+      "withTenantSchema called with null clubId. " +
+        "SCOUT-authenticated handlers must never call withTenantSchema.",
+    );
+  }
   const schemaName = `clube_${clubId}`;
 
   return prisma.$transaction(async (tx) => {

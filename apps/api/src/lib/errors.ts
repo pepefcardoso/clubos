@@ -45,9 +45,11 @@ export class NotFoundError extends AppError {
   }
 }
 
-export class ConflictError extends AppError {
-  constructor(message = "Conflito de dados.") {
-    super(message, 409, true);
+export class ConflictError extends Error {
+  readonly statusCode = 409;
+  constructor(message = "Conflict") {
+    super(message);
+    this.name = "ConflictError";
   }
 }
 

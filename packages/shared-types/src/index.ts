@@ -9,6 +9,9 @@ export type ChargeStatus =
 
 export type UserRole = "ADMIN" | "TREASURER" | "PHYSIO";
 
+export type ScoutRole = "SCOUT";
+export type AppRole = UserRole | ScoutRole;
+
 export type PlanInterval = "monthly" | "quarterly" | "annual";
 
 export type PaymentMethod =

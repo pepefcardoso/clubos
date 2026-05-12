@@ -31,6 +31,7 @@ import { clubPublicRoutes } from "./modules/clubs/clubs.public.routes.js";
 import { tryoutConsentRoutes } from "./modules/tryout/tryout-consent.routes.js";
 import { ticketPublicRoutes } from "./modules/events/tickets.public.routes.js";
 import { provisionPublicSchema } from "./lib/provision-public-schema.js";
+import { scoutAuthRoutes } from "./modules/scoutlink/scouts/scouts.routes.js";
 
 export async function buildApp() {
   validateEnv();
@@ -149,6 +150,9 @@ export async function buildApp() {
   await fastify.register(authPlugin);
 
   await fastify.register(authRoutes, { prefix: "/api/auth" });
+
+  await fastify.register(scoutAuthRoutes, { prefix: "/api/auth/scout" });
+
   await fastify.register(clubRoutes, { prefix: "/api/clubs" });
 
   await fastify.register(webhookRoutes, { prefix: "/webhooks" });

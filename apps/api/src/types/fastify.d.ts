@@ -6,8 +6,8 @@ import type { RefreshJwt } from "../plugins/auth.plugin.js";
 
 export interface AccessTokenPayload {
   sub: string;
-  clubId: string;
-  role: "ADMIN" | "TREASURER" | "PHYSIO";
+  clubId: string | null;
+  role: "ADMIN" | "TREASURER" | "PHYSIO" | "SCOUT";
   type: "access";
 }
 
@@ -71,7 +71,7 @@ declare module "fastify" {
      * Responds 403 Forbidden if the authenticated user's role is not permitted.
      */
     requireRole: (
-      ...allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO">
+      ...allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO" | "SCOUT">
     ) => (
       request: import("fastify").FastifyRequest,
       reply: import("fastify").FastifyReply,

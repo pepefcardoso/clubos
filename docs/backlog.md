@@ -14,8 +14,8 @@
 
 | ID    | Title                                                           | Status | Priority | Sprint | Area  |
 | ----- | --------------------------------------------------------------- | ------ | -------- | ------ | ----- |
-| T-161 | Schema `public` cross-tenant (ScoutLink tables)                 | TODO   | HIGH     | S16    | Infra |
-| T-162 | Auth e onboarding de scout (role `SCOUT` + JWT)                 | TODO   | HIGH     | S16    | API   |
+| T-161 | Schema `public` cross-tenant (ScoutLink tables)                 | DONE   | HIGH     | S16    | Infra |
+| T-162 | Auth e onboarding de scout (role `SCOUT` + JWT)                 | DONE   | HIGH     | S16    | API   |
 | T-163 | Guard de pré-requisito de dados longitudinais                   | TODO   | HIGH     | S16    | API   |
 | T-174 | Log imutável de comunicação (`communication_log`)               | TODO   | HIGH     | S16    | Infra |
 | T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | TODO   | HIGH     | S17    | API   |
@@ -46,44 +46,6 @@
 
 ## In Progress
 
-### T-161 | [DONE] Schema `public` cross-tenant (ScoutLink tables)
-
-**Context:** ScoutLink operates across tenant boundaries — scout profiles, showcase snapshots, and contact logs live in the `public` schema, not in `clube_{id}`.  
-**Architectural context:** DDL idempotent; `public` schema only for cross-tenant entities; `clube_{id}` athlete identity linked via composite `club_id + athlete_id` — no cross-schema FK, enforced at application layer; `[SEC]` no PII in showcase snapshot — aggregated metrics only.  
-**Files:** `apps/api/src/lib/provision-public-schema.ts`, Prisma schema  
-**Acceptance criteria:**
-
-- [x] Tables `scout_profiles`, `scout_showcases`, `showcase_videos`, `contact_requests`, `communication_log`, `parental_consents` created in `public` schema
-- [x] `showcase_tier` enum: `FREE | PREMIUM`; `contact_request_status` enum: `PENDING | ACCEPTED | REJECTED`
-- [x] All monetary fields as integer cents; DDL wrapped in `IF NOT EXISTS`
-- [x] `communication_log` append-only enforced via DB trigger — UPDATE/DELETE raise exception
-- [x] `parental_consents` immutable after INSERT — same trigger pattern
-
-**Out of scope:** Scout auth (T-162), showcase API (T-164)  
-**Pattern reference:** `apps/api/src/lib/provision-tenant-schema.ts`
-
----
-
-## Todo
-
-### T-162 | [TODO] Auth e onboarding de scout (role `SCOUT` + JWT)
-
-**Context:** Scouts are external subscribers who auth independently of club staff.  
-**Architectural context:** `[SEC-AUTH]` role `SCOUT` in JWT payload; `clubId` absent from SCOUT token — `withTenantSchema` must never be called in scout handlers; `BCRYPT_ROUNDS = 12`; refresh token rotation identical to club auth.  
-**Files:** `apps/api/src/modules/auth/auth.routes.ts`, `apps/api/src/modules/scoutlink/scouts/scouts.routes.ts`, `apps/web/src/app/(auth)/scout-login/page.tsx`, `apps/web/src/app/(onboarding)/scout-onboarding/page.tsx`  
-**Acceptance criteria:**
-
-- [ ] `POST /api/auth/scout/register` creates `scout_profiles` row + issues JWT with `role: SCOUT`, no `clubId`
-- [ ] `POST /api/auth/scout/login` validates credentials; same refresh token rotation as club auth
-- [ ] `requireRole('SCOUT')` guard blocks club staff from scout routes; club roles blocked from scout routes (403)
-- [ ] `clubId` is `null` in SCOUT JWT — any handler calling `withTenantSchema` with a SCOUT token must throw immediately
-- [ ] Scout onboarding wizard: name, CRM number (optional), specialization, target positions, target age ranges
-
-**Out of scope:** Billing/subscription status (T-180), longitudinal data guard (T-163)  
-**Pattern reference:** `apps/api/src/modules/auth/auth.routes.ts`
-
----
-
 ### T-163 | [TODO] Guard de pré-requisito de dados longitudinais
 
 **Context:** A showcase with fewer than 6 months of workload data provides no analytical value and would erode scout trust. FREE tier has no minimum — only PREMIUM tier requires the gate.  
@@ -100,6 +62,8 @@
 **Pattern reference:** `assertMemberBelongsToClub` guard pattern
 
 ---
+
+## Todo
 
 ### T-174 | [TODO] Log imutável de comunicação (`communication_log`)
 
@@ -487,6 +451,38 @@
 ---
 
 ## Done
+
+### T-161 | [DONE] Schema `public` cross-tenant (ScoutLink tables)
+
+**Context:** ScoutLink operates across tenant boundaries — scout profiles, showcase snapshots, and contact logs live in the `public` schema, not in `clube_{id}`.  
+**Architectural context:** DDL idempotent; `public` schema only for cross-tenant entities; `clube_{id}` athlete identity linked via composite `club_id + athlete_id` — no cross-schema FK, enforced at application layer; `[SEC]` no PII in showcase snapshot — aggregated metrics only.  
+**Files:** `apps/api/src/lib/provision-public-schema.ts`, Prisma schema  
+**Acceptance criteria:**
+
+- [x] Tables `scout_profiles`, `scout_showcases`, `showcase_videos`, `contact_requests`, `communication_log`, `parental_consents` created in `public` schema
+- [x] `showcase_tier` enum: `FREE | PREMIUM`; `contact_request_status` enum: `PENDING | ACCEPTED | REJECTED`
+- [x] All monetary fields as integer cents; DDL wrapped in `IF NOT EXISTS`
+- [x] `communication_log` append-only enforced via DB trigger — UPDATE/DELETE raise exception
+- [x] `parental_consents` immutable after INSERT — same trigger pattern
+
+**Out of scope:** Scout auth (T-162), showcase API (T-164)  
+**Pattern reference:** `apps/api/src/lib/provision-tenant-schema.ts`
+
+### T-162 | [DONE] Auth e onboarding de scout (role `SCOUT` + JWT)
+
+**Context:** Scouts are external subscribers who auth independently of club staff.  
+**Architectural context:** `[SEC-AUTH]` role `SCOUT` in JWT payload; `clubId` absent from SCOUT token — `withTenantSchema` must never be called in scout handlers; `BCRYPT_ROUNDS = 12`; refresh token rotation identical to club auth.  
+**Files:** `apps/api/src/modules/auth/auth.routes.ts`, `apps/api/src/modules/scoutlink/scouts/scouts.routes.ts`, `apps/web/src/app/(auth)/scout-login/page.tsx`, `apps/web/src/app/(onboarding)/scout-onboarding/page.tsx`  
+**Acceptance criteria:**
+
+- [x] `POST /api/auth/scout/register` creates `scout_profiles` row + issues JWT with `role: SCOUT`, no `clubId`
+- [x] `POST /api/auth/scout/login` validates credentials; same refresh token rotation as club auth
+- [x] `requireRole('SCOUT')` guard blocks club staff from scout routes; club roles blocked from scout routes (403)
+- [x] `clubId` is `null` in SCOUT JWT — any handler calling `withTenantSchema` with a SCOUT token must throw immediately
+- [x] Scout onboarding wizard: name, CRM number (optional), specialization, target positions, target age ranges
+
+**Out of scope:** Billing/subscription status (T-180), longitudinal data guard (T-163)  
+**Pattern reference:** `apps/api/src/modules/auth/auth.routes.ts`
 
 ---
 

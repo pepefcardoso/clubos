@@ -215,7 +215,7 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
   fastify.decorate(
     "requireRole",
     function (
-      ...allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO">
+      ...allowedRoles: Array<"ADMIN" | "TREASURER" | "PHYSIO" | "SCOUT">
     ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
       return async function (
         request: FastifyRequest,
@@ -234,9 +234,14 @@ async function authPlugin(fastify: FastifyInstance): Promise<void> {
         let permitted: boolean;
 
         if (allowedRoles.length === 1) {
-          const userLevel = ROLE_HIERARCHY[user.role] ?? -1;
-          const requiredLevel = ROLE_HIERARCHY[allowedRoles[0]!] ?? 99;
-          permitted = userLevel >= requiredLevel;
+          const target = allowedRoles[0]!;
+          if (target === "SCOUT" || user.role === "SCOUT") {
+            permitted = user.role === target;
+          } else {
+            const userLevel = ROLE_HIERARCHY[user.role] ?? -1;
+            const requiredLevel = ROLE_HIERARCHY[target] ?? 99;
+            permitted = userLevel >= requiredLevel;
+          }
         } else {
           permitted = (allowedRoles as string[]).includes(user.role);
         }

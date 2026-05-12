@@ -17,7 +17,7 @@
 | T-161 | Schema `public` cross-tenant (ScoutLink tables)                 | DONE   | HIGH     | S16    | Infra |
 | T-162 | Auth e onboarding de scout (role `SCOUT` + JWT)                 | DONE   | HIGH     | S16    | API   |
 | T-163 | Guard de pré-requisito de dados longitudinais                   | DONE   | HIGH     | S16    | API   |
-| T-174 | Log imutável de comunicação (`communication_log`)               | TODO   | HIGH     | S16    | Infra |
+| T-174 | Log imutável de comunicação (`communication_log`)               | DONE   | HIGH     | S16    | Infra |
 | T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | TODO   | HIGH     | S17    | API   |
 | T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | TODO   | HIGH     | S17    | Web   |
 | T-181 | Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`) | TODO   | HIGH     | S17    | Infra |
@@ -46,26 +46,6 @@
 
 ## In Progress
 
-### T-174 | [TODO] Log imutável de comunicação (`communication_log`)
-
-**Context:** LGPD compliance requires an immutable record of every scout–club interaction; any mutation attempt must fail at the DB level, not only the application layer.  
-**Architectural context:** `[SEC]` append-only; `actorId`, `actorRole`, `targetId`, `eventType`, `ip`, `timestamp` always recorded; `metadata` JSONB must never contain CPF, phone, or email.  
-**Files:** `apps/api/src/lib/provision-public-schema.ts` (trigger DDL), `apps/api/src/modules/scoutlink/communication/communication-log.service.ts`  
-**Acceptance criteria:**
-
-- [ ] `appendCommunicationLog(entry)` inserts row — service layer has no UPDATE/DELETE methods
-- [ ] DB trigger `prevent_communication_log_mutation` raises exception on UPDATE or DELETE at DB level
-- [ ] Fields: `id`, `actor_id`, `actor_role`, `target_id`, `event_type`, `metadata` (JSONB), `ip`, `created_at`
-- [ ] Unit test verifies trigger fires and rolls back on mutation attempt
-- [ ] `metadata` schema validated by Zod before insert — rejects keys `cpf`, `phone`, `email`
-
-**Out of scope:** Contact request flow (T-172), parental consent (T-177)  
-**Pattern reference:** `audit_log` immutability pattern in `apps/api/src/modules/`
-
----
-
-## Todo
-
 ### T-164 | [TODO] API de showcase de atleta verificado (ACWR + SHA-256)
 
 **Context:** Clubs publish verified athlete snapshots — ACWR trends, RTP status, evaluation scores — signed with SHA-256 to prevent tampering after publication. Clinical data is never included.  
@@ -84,6 +64,8 @@
 **Pattern reference:** `apps/api/src/modules/charges/charges.service.ts` for atomic write pattern; SHA-256 pattern from `balance_sheets`
 
 ---
+
+## Todo
 
 ### T-165 | [TODO] UI de gestão de showcase (`ShowcaseManagerPage`)
 
@@ -481,6 +463,22 @@
 
 **Out of scope:** Showcase API itself (T-164)  
 **Pattern reference:** `assertMemberBelongsToClub` guard pattern
+
+### T-174 | [DONE] Log imutável de comunicação (`communication_log`)
+
+**Context:** LGPD compliance requires an immutable record of every scout–club interaction; any mutation attempt must fail at the DB level, not only the application layer.  
+**Architectural context:** `[SEC]` append-only; `actorId`, `actorRole`, `targetId`, `eventType`, `ip`, `timestamp` always recorded; `metadata` JSONB must never contain CPF, phone, or email.  
+**Files:** `apps/api/src/lib/provision-public-schema.ts` (trigger DDL), `apps/api/src/modules/scoutlink/communication/communication-log.service.ts`  
+**Acceptance criteria:**
+
+- [x] `appendCommunicationLog(entry)` inserts row — service layer has no UPDATE/DELETE methods
+- [x] DB trigger `prevent_communication_log_mutation` raises exception on UPDATE or DELETE at DB level
+- [x] Fields: `id`, `actor_id`, `actor_role`, `target_id`, `event_type`, `metadata` (JSONB), `ip`, `created_at`
+- [x] Unit test verifies trigger fires and rolls back on mutation attempt
+- [x] `metadata` schema validated by Zod before insert — rejects keys `cpf`, `phone`, `email`
+
+**Out of scope:** Contact request flow (T-172), parental consent (T-177)  
+**Pattern reference:** `audit_log` immutability pattern in `apps/api/src/modules/`
 
 ---
 

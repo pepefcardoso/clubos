@@ -14,6 +14,16 @@ export type AppRole = UserRole | ScoutRole;
 
 export type PlanInterval = "monthly" | "quarterly" | "annual";
 
+export type CommunicationLogEventType =
+  | "SHOWCASE_PUBLISHED"
+  | "SHOWCASE_TRANSFERRED"
+  | "CONTACT_REQUEST_CREATED"
+  | "CONTACT_BLOCKED_MINOR"
+  | "CONTACT_BLOCKED_NO_SUBSCRIPTION"
+  | "CONTACT_DUPLICATE_BLOCKED"
+  | "CONTACT_ACCEPTED"
+  | "CONTACT_REJECTED";
+
 export type PaymentMethod =
   | "PIX"
   | "CREDIT_CARD"

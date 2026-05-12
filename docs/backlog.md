@@ -19,7 +19,7 @@
 | T-163 | Guard de pré-requisito de dados longitudinais                   | DONE   | HIGH     | S16    | API   |
 | T-174 | Log imutável de comunicação (`communication_log`)               | DONE   | HIGH     | S16    | Infra |
 | T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | DONE   | HIGH     | S17    | API   |
-| T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | TODO   | HIGH     | S17    | Web   |
+| T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | DONE   | HIGH     | S17    | Web   |
 | T-181 | Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`) | TODO   | HIGH     | S17    | Infra |
 | T-166 | Backend de upload de vídeos (Cloudflare R2 + magic bytes)       | TODO   | HIGH     | S18    | API   |
 | T-167 | UI de gestão de vídeos (`AthleteVideoManager`)                  | TODO   | MEDIUM   | S18    | Web   |
@@ -46,26 +46,6 @@
 
 ## In Progress
 
-### T-165 | [TODO] UI de gestão de showcase (`ShowcaseManagerPage`)
-
-**Context:** ADMINs preview, configure, and publish athlete showcases with tier selection and visibility control.  
-**Architectural context:** `[UI-A11Y]`; tier badge with text label; PREMIUM locked behind longitudinal guard — show inline warning if data < 180 days; confirmation modal before publish; one primary action per context.  
-**Files:** `apps/web/src/app/(app)/athletes/[id]/showcase/page.tsx`, `ShowcaseManagerPage.tsx`  
-**Acceptance criteria:**
-
-- [ ] Snapshot preview: ACWR 4-week Recharts line chart, RTP badge (text + color), evaluation score grid
-- [ ] Tier selector (FREE / PREMIUM); inline warning banner if `workload_metrics` span < 180 days
-- [ ] Publish/unpublish toggle with confirmation modal; unpublish requires reason
-- [ ] `snapshot_hash` displayed as monospace string post-publish
-- [ ] Visible to `ADMIN` only; other roles → 403
-
-**Out of scope:** Video management (T-167), contact request responses (T-176)  
-**Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern; `apps/web/src/app/(app)/saf/` hash display pattern
-
----
-
-## Todo
-
 ### T-181 | [TODO] Rotas SSE v3.0
 
 **Context:** Scout clients need real-time updates when showcases change or contact requests receive a response; club clients need real-time incoming contact request notifications.  
@@ -82,6 +62,8 @@
 **Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
 
 ---
+
+## Todo
 
 ### T-166 | [TODO] Backend de upload de vídeos (Cloudflare R2 + magic bytes)
 
@@ -477,6 +459,22 @@
 
 **Out of scope:** Video attachments (T-166), freemium projection (T-179)  
 **Pattern reference:** `apps/api/src/modules/charges/charges.service.ts` for atomic write pattern; SHA-256 pattern from `balance_sheets`
+
+### T-165 | [DONE] UI de gestão de showcase (`ShowcaseManagerPage`)
+
+**Context:** ADMINs preview, configure, and publish athlete showcases with tier selection and visibility control.  
+**Architectural context:** `[UI-A11Y]`; tier badge with text label; PREMIUM locked behind longitudinal guard — show inline warning if data < 180 days; confirmation modal before publish; one primary action per context.  
+**Files:** `apps/web/src/app/(app)/athletes/[id]/showcase/page.tsx`, `ShowcaseManagerPage.tsx`  
+**Acceptance criteria:**
+
+- [x] Snapshot preview: ACWR 4-week Recharts line chart, RTP badge (text + color), evaluation score grid
+- [x] Tier selector (FREE / PREMIUM); inline warning banner if `workload_metrics` span < 180 days
+- [x] Publish/unpublish toggle with confirmation modal; unpublish requires reason
+- [x] `snapshot_hash` displayed as monospace string post-publish
+- [x] Visible to `ADMIN` only; other roles → 403
+
+**Out of scope:** Video management (T-167), contact request responses (T-176)  
+**Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern; `apps/web/src/app/(app)/saf/` hash display pattern
 
 ---
 

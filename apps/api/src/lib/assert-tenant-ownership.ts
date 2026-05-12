@@ -186,3 +186,23 @@ export async function assertPosProductExists(
   });
   if (!found) throw new NotFoundError("Produto não encontrado.");
 }
+
+/**
+ * Asserts that a ScoutShowcase for the given athleteId belongs to the
+ * authenticated club's scope in the PUBLIC schema.
+ *
+ * No withTenantSchema needed — scout_showcases lives in public schema.
+ * Returns 404 (never 403) to avoid confirming cross-tenant resource existence. [SEC-OBJ]
+ */
+export async function assertShowcaseBelongsToClub(
+  prisma: PrismaClient,
+  athleteId: string,
+  clubId: string,
+): Promise<string> {
+  const found = await prisma.scoutShowcase.findUnique({
+    where: { clubId_athleteId: { clubId, athleteId } },
+    select: { id: true },
+  });
+  if (!found) throw new NotFoundError("Showcase não encontrado.");
+  return found.id;
+}

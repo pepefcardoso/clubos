@@ -18,7 +18,7 @@
 | T-162 | Auth e onboarding de scout (role `SCOUT` + JWT)                 | DONE   | HIGH     | S16    | API   |
 | T-163 | Guard de pré-requisito de dados longitudinais                   | DONE   | HIGH     | S16    | API   |
 | T-174 | Log imutável de comunicação (`communication_log`)               | DONE   | HIGH     | S16    | Infra |
-| T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | TODO   | HIGH     | S17    | API   |
+| T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | DONE   | HIGH     | S17    | API   |
 | T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | TODO   | HIGH     | S17    | Web   |
 | T-181 | Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`) | TODO   | HIGH     | S17    | Infra |
 | T-166 | Backend de upload de vídeos (Cloudflare R2 + magic bytes)       | TODO   | HIGH     | S18    | API   |
@@ -46,27 +46,6 @@
 
 ## In Progress
 
-### T-164 | [TODO] API de showcase de atleta verificado (ACWR + SHA-256)
-
-**Context:** Clubs publish verified athlete snapshots — ACWR trends, RTP status, evaluation scores — signed with SHA-256 to prevent tampering after publication. Clinical data is never included.  
-**Architectural context:** `[SEC]` snapshot excludes `clinicalNotes`, `diagnosis`, `treatmentDetails`; ACWR from `acwr_weekly_view` materialized view; SHA-256 of serialized snapshot JSON stored as `snapshot_hash`; `[SEC-TEN]` `withTenantSchema` for all source data reads; `[PR-FIN]` ≥ 2 approvals (athlete data publication).  
-**Files:** `apps/api/src/modules/scoutlink/showcases/showcases.routes.ts`, `showcases.service.ts`  
-**Acceptance criteria:**
-
-- [ ] `POST /api/athletes/:id/showcase` creates/updates snapshot: position, age, dominant foot, ACWR 4-week array, RTP status, evaluation scores — zero clinical fields
-- [ ] Snapshot serialized → SHA-256 → stored as `snapshot_hash`; scouts can verify hash client-side
-- [ ] `GET /api/athletes/:id/showcase` returns snapshot + `snapshot_hash` + `tier`
-- [ ] `assertMemberBelongsToClub` required; `requireRole('ADMIN')` for write; `requireRole('SCOUT', 'ADMIN')` for read
-- [ ] `appendCommunicationLog` called on every publish with `event_type: SHOWCASE_PUBLISHED`
-- [ ] `assertLongitudinalDataSufficient` called before PREMIUM tier publish (T-163)
-
-**Out of scope:** Video attachments (T-166), freemium projection (T-179)  
-**Pattern reference:** `apps/api/src/modules/charges/charges.service.ts` for atomic write pattern; SHA-256 pattern from `balance_sheets`
-
----
-
-## Todo
-
 ### T-165 | [TODO] UI de gestão de showcase (`ShowcaseManagerPage`)
 
 **Context:** ADMINs preview, configure, and publish athlete showcases with tier selection and visibility control.  
@@ -84,6 +63,8 @@
 **Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern; `apps/web/src/app/(app)/saf/` hash display pattern
 
 ---
+
+## Todo
 
 ### T-181 | [TODO] Rotas SSE v3.0
 
@@ -479,6 +460,23 @@
 
 **Out of scope:** Contact request flow (T-172), parental consent (T-177)  
 **Pattern reference:** `audit_log` immutability pattern in `apps/api/src/modules/`
+
+### T-164 | [DONE] API de showcase de atleta verificado (ACWR + SHA-256)
+
+**Context:** Clubs publish verified athlete snapshots — ACWR trends, RTP status, evaluation scores — signed with SHA-256 to prevent tampering after publication. Clinical data is never included.  
+**Architectural context:** `[SEC]` snapshot excludes `clinicalNotes`, `diagnosis`, `treatmentDetails`; ACWR from `acwr_weekly_view` materialized view; SHA-256 of serialized snapshot JSON stored as `snapshot_hash`; `[SEC-TEN]` `withTenantSchema` for all source data reads; `[PR-FIN]` ≥ 2 approvals (athlete data publication).  
+**Files:** `apps/api/src/modules/scoutlink/showcases/showcases.routes.ts`, `showcases.service.ts`  
+**Acceptance criteria:**
+
+- [x] `POST /api/athletes/:id/showcase` creates/updates snapshot: position, age, dominant foot, ACWR 4-week array, RTP status, evaluation scores — zero clinical fields
+- [x] Snapshot serialized → SHA-256 → stored as `snapshot_hash`; scouts can verify hash client-side
+- [x] `GET /api/athletes/:id/showcase` returns snapshot + `snapshot_hash` + `tier`
+- [x] `assertMemberBelongsToClub` required; `requireRole('ADMIN')` for write; `requireRole('SCOUT', 'ADMIN')` for read
+- [x] `appendCommunicationLog` called on every publish with `event_type: SHOWCASE_PUBLISHED`
+- [x] `assertLongitudinalDataSufficient` called before PREMIUM tier publish (T-163)
+
+**Out of scope:** Video attachments (T-166), freemium projection (T-179)  
+**Pattern reference:** `apps/api/src/modules/charges/charges.service.ts` for atomic write pattern; SHA-256 pattern from `balance_sheets`
 
 ---
 

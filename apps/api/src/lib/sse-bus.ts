@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import type { ShowcaseTier } from "@clubos/shared-types";
 
 export interface PaymentConfirmedPayload {
   chargeId: string;
@@ -32,6 +33,12 @@ export interface EventCapacityUpdatedPayload {
   available: number;
 }
 
+export interface ShowcaseUpdatedPayload {
+  showcaseId: string;
+  athleteId: string;
+  tier: ShowcaseTier;
+}
+
 export type SseBusEvent =
   | {
       type: "PAYMENT_CONFIRMED";
@@ -48,6 +55,11 @@ export type SseBusEvent =
       type: "EVENT_CAPACITY_UPDATED";
       clubId: string;
       payload: EventCapacityUpdatedPayload;
+    }
+  | {
+      type: "SHOWCASE_UPDATED";
+      clubId: string;
+      payload: ShowcaseUpdatedPayload;
     };
 
 class SseBus extends EventEmitter {}
@@ -88,5 +100,13 @@ export function emitEventCapacityUpdated(
     clubId,
     payload,
   };
+  sseBus.emit(`club:${clubId}`, event);
+}
+
+export function emitShowcaseUpdated(
+  clubId: string,
+  payload: ShowcaseUpdatedPayload,
+): void {
+  const event: SseBusEvent = { type: "SHOWCASE_UPDATED", clubId, payload };
   sseBus.emit(`club:${clubId}`, event);
 }

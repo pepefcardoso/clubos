@@ -97,3 +97,28 @@ export interface ApiError {
 export type ShowcaseTier = "FREE" | "PREMIUM";
 export type ContactRequestStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 export type ScoutSubscriptionStatus = "ACTIVE" | "INACTIVE";
+
+export interface ShowcaseSnapshot {
+  athleteId: string;
+  clubId: string;
+  name: string;
+  position: string | null;
+  ageYears: number;
+  dominantFoot: string | null;
+  rtpStatus: string | null;
+  acwrTrend: Array<{
+    date: string;
+    acwrRatio: number | null;
+    riskZone: string;
+    acuteLoadAu: number;
+    chronicLoadAu: number;
+  }>;
+  evaluationScores: {
+    technique: number;
+    tactical: number;
+    physical: number;
+    mental: number;
+    attitude: number;
+  } | null;
+  snapshotBuiltAt: string;
+}

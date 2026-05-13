@@ -9,6 +9,7 @@ import {
   uploadAthleteVideo,
   deleteAthleteVideo,
   reorderAthleteVideos,
+  listAthleteVideos,
   VideoLimitExceededError,
   VideoTooLargeError,
   InvalidVideoTypeError,
@@ -241,6 +242,53 @@ export async function videoRoutes(fastify: FastifyInstance): Promise<void> {
           return reply.status(400).send({
             statusCode: 400,
             error: "Bad Request",
+            message: err.message,
+          });
+        throw err;
+      }
+    },
+  );
+
+  /**
+   * GET /api/athletes/:athleteId/videos
+   * Authorization: ADMIN only.
+   * Returns videos ordered by `order` asc within the authenticated club's tenant schema.
+   */
+  fastify.get(
+    "/:athleteId/videos",
+    { preHandler: [fastify.requireRole("ADMIN")] },
+    async (request, reply) => {
+      const parseResult = VideoParamsSchema.safeParse(request.params);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: parseResult.error.issues[0]?.message ?? "Invalid params",
+        });
+      }
+      const { athleteId } = parseResult.data;
+      const user = request.user as AccessTokenPayload;
+
+      if (!user.clubId) {
+        return reply.status(401).send({
+          statusCode: 401,
+          error: "Unauthorized",
+          message: "Token inválido.",
+        });
+      }
+
+      try {
+        const videos = await listAthleteVideos(
+          fastify.prisma,
+          user.clubId,
+          athleteId,
+        );
+        return reply.status(200).send(videos);
+      } catch (err) {
+        if (err instanceof NotFoundError)
+          return reply.status(404).send({
+            statusCode: 404,
+            error: "Not Found",
             message: err.message,
           });
         throw err;

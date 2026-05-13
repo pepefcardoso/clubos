@@ -22,7 +22,7 @@
 | T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | DONE   | HIGH     | S17    | Web   |
 | T-181 | Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`) | DONE   | HIGH     | S17    | Infra |
 | T-166 | Backend de upload de vídeos (Cloudflare R2 + magic bytes)       | DONE   | HIGH     | S18    | API   |
-| T-167 | UI de gestão de vídeos (`AthleteVideoManager`)                  | TODO   | MEDIUM   | S18    | Web   |
+| T-167 | UI de gestão de vídeos (`AthleteVideoManager`)                  | DONE   | MEDIUM   | S18    | Web   |
 | T-168 | API de busca filtrada de atletas (freemium enforced)            | TODO   | HIGH     | S18    | API   |
 | T-169 | UI de busca ScoutLink (`ScoutSearchPage`)                       | TODO   | HIGH     | S18    | Web   |
 | T-170 | Perfil público de atleta (`/scout/athletes/:id`)                | TODO   | HIGH     | S19    | Web   |
@@ -46,26 +46,6 @@
 
 ## In Progress
 
-### T-167 | [TODO] UI de gestão de vídeos (`AthleteVideoManager`)
-
-**Context:** ADMINs manage the athlete video gallery — upload, reorder, and delete clips — from within the showcase manager.  
-**Architectural context:** `[UI-A11Y]`; upload progress bar; duration badge per card; delete requires confirmation modal; upload button disabled at 5-video limit.  
-**Files:** `apps/web/src/app/(app)/athletes/[id]/showcase/AthleteVideoManager.tsx`  
-**Acceptance criteria:**
-
-- [ ] Drag-to-reorder grid; order persisted via `PATCH /api/athletes/:id/videos/order`
-- [ ] Upload progress bar; error state shown inline for duration > 90s or rejected file type
-- [ ] Delete requires confirmation modal; optimistic removal reverted on API error
-- [ ] "5/5 vídeos" badge shown; upload button disabled and tooltip shown at limit
-- [ ] Duration badge on each card in `MM:SS` format
-
-**Out of scope:** Video backend (T-166)  
-**Pattern reference:** attendance board drag pattern in `apps/web/src/app/(app)/training/`
-
----
-
-## Todo
-
 ### T-168 | [TODO] API de busca filtrada de atletas (freemium enforced)
 
 **Context:** Scouts filter the athlete database by technical criteria; data depth is gated by the combination of showcase tier and scout subscription status. Clinical data is never returned under any combination.  
@@ -83,6 +63,8 @@
 **Pattern reference:** `apps/api/src/modules/members/members.routes.ts` pagination pattern
 
 ---
+
+## Todo
 
 ### T-169 | [TODO] UI de busca ScoutLink (`ScoutSearchPage`)
 
@@ -471,6 +453,22 @@
 
 **Out of scope:** Video reorder (T-167), showcase publication (T-164)  
 **Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`; `CLOUDFLARE_R2_*` env vars added in T-184
+
+### T-167 | [DONE] UI de gestão de vídeos (`AthleteVideoManager`)
+
+**Context:** ADMINs manage the athlete video gallery — upload, reorder, and delete clips — from within the showcase manager.  
+**Architectural context:** `[UI-A11Y]`; upload progress bar; duration badge per card; delete requires confirmation modal; upload button disabled at 5-video limit.  
+**Files:** `apps/web/src/app/(app)/athletes/[id]/showcase/AthleteVideoManager.tsx`  
+**Acceptance criteria:**
+
+- [x] Drag-to-reorder grid; order persisted via `PATCH /api/athletes/:id/videos/order`
+- [x] Upload progress bar; error state shown inline for duration > 90s or rejected file type
+- [x] Delete requires confirmation modal; optimistic removal reverted on API error
+- [x] "5/5 vídeos" badge shown; upload button disabled and tooltip shown at limit
+- [x] Duration badge on each card in `MM:SS` format
+
+**Out of scope:** Video backend (T-166)  
+**Pattern reference:** attendance board drag pattern in `apps/web/src/app/(app)/training/`
 
 ---
 

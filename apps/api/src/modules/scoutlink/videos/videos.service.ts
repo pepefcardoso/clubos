@@ -270,3 +270,28 @@ export async function reorderAthleteVideos(
     return updated.map(toVideoResponse);
   });
 }
+
+export async function listAthleteVideos(
+  prisma: PrismaClient,
+  clubId: string,
+  athleteId: string,
+): Promise<VideoResponse[]> {
+  return withTenantSchema(prisma, clubId, async (tx) => {
+    await assertAthleteExists(tx, athleteId);
+    const rows = await tx.showcaseVideo.findMany({
+      where: { athleteId, clubId },
+      orderBy: { order: "asc" },
+      select: {
+        id: true,
+        athleteId: true,
+        clubId: true,
+        r2Key: true,
+        durationSeconds: true,
+        thumbnailUrl: true,
+        order: true,
+        uploadedAt: true,
+      },
+    });
+    return rows.map(toVideoResponse);
+  });
+}

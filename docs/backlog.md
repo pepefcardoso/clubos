@@ -20,7 +20,7 @@
 | T-174 | Log imutável de comunicação (`communication_log`)               | DONE   | HIGH     | S16    | Infra |
 | T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | DONE   | HIGH     | S17    | API   |
 | T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | DONE   | HIGH     | S17    | Web   |
-| T-181 | Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`) | TODO   | HIGH     | S17    | Infra |
+| T-181 | Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`) | DONE   | HIGH     | S17    | Infra |
 | T-166 | Backend de upload de vídeos (Cloudflare R2 + magic bytes)       | TODO   | HIGH     | S18    | API   |
 | T-167 | UI de gestão de vídeos (`AthleteVideoManager`)                  | TODO   | MEDIUM   | S18    | Web   |
 | T-168 | API de busca filtrada de atletas (freemium enforced)            | TODO   | HIGH     | S18    | API   |
@@ -46,25 +46,6 @@
 
 ## In Progress
 
-### T-181 | [TODO] Rotas SSE v3.0
-
-**Context:** Scout clients need real-time updates when showcases change or contact requests receive a response; club clients need real-time incoming contact request notifications.  
-**Architectural context:** `sse-bus.ts` coupling — add events without renaming existing; React Query keys must be invalidated in matching web modules; SCOUT token must not receive club-scoped events; scaling note required in code.  
-**Files:** `apps/api/src/modules/events/sse-bus.ts`, matching web query files  
-**Acceptance criteria:**
-
-- [ ] `SHOWCASE_UPDATED` and `CONTACT_REQUEST_RECEIVED` added to `sse-bus.ts`
-- [ ] `SHOWCASE_QUERY_KEY` invalidated on `SHOWCASE_UPDATED`; `CONTACT_REQUESTS_QUERY_KEY` on `CONTACT_REQUEST_RECEIVED`
-- [ ] Scout SSE stream (`GET /api/scout/events`) authenticated by `role: SCOUT` JWT — club-tenant events not forwarded to scout clients
-- [ ] Scaling note in `sse-bus.ts`: replace `EventEmitter` with `redis.publish/subscribe` when > 1 process — interface stays identical
-
-**Out of scope:** New SSE transport (scaling concern)  
-**Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
-
----
-
-## Todo
-
 ### T-166 | [TODO] Backend de upload de vídeos (Cloudflare R2 + magic bytes)
 
 **Context:** Clubs upload short clips (≤ 90s) to enrich showcases; strict validation at every layer prevents malicious or oversized uploads.  
@@ -83,6 +64,8 @@
 **Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`; `CLOUDFLARE_R2_*` env vars added in T-184
 
 ---
+
+## Todo
 
 ### T-167 | [TODO] UI de gestão de vídeos (`AthleteVideoManager`)
 
@@ -475,6 +458,21 @@
 
 **Out of scope:** Video management (T-167), contact request responses (T-176)  
 **Pattern reference:** `apps/web/src/app/(app)/members/` modal pattern; `apps/web/src/app/(app)/saf/` hash display pattern
+
+### T-181 | [DONE] Rotas SSE v3.0
+
+**Context:** Scout clients need real-time updates when showcases change or contact requests receive a response; club clients need real-time incoming contact request notifications.  
+**Architectural context:** `sse-bus.ts` coupling — add events without renaming existing; React Query keys must be invalidated in matching web modules; SCOUT token must not receive club-scoped events; scaling note required in code.  
+**Files:** `apps/api/src/modules/events/sse-bus.ts`, matching web query files  
+**Acceptance criteria:**
+
+- [x] `SHOWCASE_UPDATED` and `CONTACT_REQUEST_RECEIVED` added to `sse-bus.ts`
+- [x] `SHOWCASE_QUERY_KEY` invalidated on `SHOWCASE_UPDATED`; `CONTACT_REQUESTS_QUERY_KEY` on `CONTACT_REQUEST_RECEIVED`
+- [x] Scout SSE stream (`GET /api/scout/events`) authenticated by `role: SCOUT` JWT — club-tenant events not forwarded to scout clients
+- [x] Scaling note in `sse-bus.ts`: replace `EventEmitter` with `redis.publish/subscribe` when > 1 process — interface stays identical
+
+**Out of scope:** New SSE transport (scaling concern)  
+**Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
 
 ---
 

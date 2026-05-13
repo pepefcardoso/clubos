@@ -14,6 +14,7 @@ import { useToasts } from "@/hooks/use-toasts";
 import { ShowcaseTierSelector } from "./ShowcaseTierSelector";
 import { ShowcaseSnapshotPreview } from "./ShowcaseSnapshotPreview";
 import { PublishConfirmModal } from "./PublishConfirmModal";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ShowcaseManagerPageProps {
     athleteId: string;
@@ -52,6 +53,8 @@ export function ShowcaseManagerPage({ athleteId }: ShowcaseManagerPageProps) {
     const { mutate: publish, isPending } = usePublishShowcase(athleteId);
     const { toasts, pushSuccess, pushError } = useToasts();
 
+    const queryClient = useQueryClient();
+
     useEffect(() => {
         let cancelled = false;
         async function load() {
@@ -69,6 +72,33 @@ export function ShowcaseManagerPage({ athleteId }: ShowcaseManagerPageProps) {
             cancelled = true;
         };
     }, [athleteId, getAccessToken]);
+
+    useEffect(() => {
+        let es: EventSource | null = null;
+
+        async function open() {
+            const token = await getAccessToken();
+            if (!token) return;
+
+            es = new EventSource(`/api/events?token=${encodeURIComponent(token)}`);
+
+            es.addEventListener("SHOWCASE_UPDATED", (e: MessageEvent) => {
+                const data = JSON.parse(e.data) as { athleteId?: string };
+
+                if (data.athleteId === athleteId) {
+                    void queryClient.invalidateQueries({
+                        queryKey: ["showcase", athleteId],
+                    });
+                }
+            });
+        }
+
+        void open();
+
+        return () => {
+            es?.close();
+        };
+    }, [athleteId, getAccessToken, queryClient]);
 
     const tier = selectedTier ?? showcase?.tier ?? "FREE";
 
@@ -130,7 +160,6 @@ export function ShowcaseManagerPage({ athleteId }: ShowcaseManagerPageProps) {
 
     return (
         <div className="px-6 py-8 max-w-3xl mx-auto space-y-8">
-            {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
                     Showcase do Atleta
@@ -142,7 +171,6 @@ export function ShowcaseManagerPage({ athleteId }: ShowcaseManagerPageProps) {
                 </p>
             </div>
 
-            {/* Longitudinal error banner */}
             {longitudinalError && (
                 <div
                     role="alert"
@@ -157,7 +185,6 @@ export function ShowcaseManagerPage({ athleteId }: ShowcaseManagerPageProps) {
                 </div>
             )}
 
-            {/* Snapshot preview */}
             {showcase?.snapshot ? (
                 <section
                     aria-labelledby="snapshot-heading"
@@ -186,7 +213,6 @@ export function ShowcaseManagerPage({ athleteId }: ShowcaseManagerPageProps) {
 
                     <ShowcaseSnapshotPreview snapshot={showcase.snapshot} />
 
-                    {/* Snapshot hash */}
                     <div className="pt-2 border-t border-neutral-100">
                         <p className="text-xs text-neutral-500 mb-1.5">
                             Hash do snapshot (SHA-256)
@@ -236,7 +262,6 @@ export function ShowcaseManagerPage({ athleteId }: ShowcaseManagerPageProps) {
                 </section>
             )}
 
-            {/* Tier selector + publish */}
             <section
                 aria-labelledby="tier-heading"
                 className="bg-white rounded-md border border-neutral-200 p-6 space-y-4"

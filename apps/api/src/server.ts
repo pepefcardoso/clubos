@@ -32,6 +32,7 @@ import { tryoutConsentRoutes } from "./modules/tryout/tryout-consent.routes.js";
 import { ticketPublicRoutes } from "./modules/events/tickets.public.routes.js";
 import { provisionPublicSchema } from "./lib/provision-public-schema.js";
 import { scoutAuthRoutes } from "./modules/scoutlink/scouts/scouts.routes.js";
+import { scoutEventsRoutes } from "./modules/scoutlink/sse/scout-events.routes.js";
 
 export async function buildApp() {
   validateEnv();
@@ -168,6 +169,8 @@ export async function buildApp() {
   await fastify.register(ticketPublicRoutes, { prefix: "/api/events" });
 
   await fastify.register(eventsRoutes, { prefix: "/api/events" });
+
+  await fastify.register(scoutEventsRoutes, { prefix: "/api/scout/events" });
 
   fastify.get(
     "/api/members/import/template",

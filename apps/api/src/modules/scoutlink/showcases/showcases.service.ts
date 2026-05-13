@@ -121,6 +121,7 @@ async function buildSnapshot(
       position: athlete.position,
       ageYears: computeAgeYears(athlete.birthDate),
       dominantFoot: null, // TODO: [T-185] — add dominantFoot to athlete schema
+      state: null, // TODO: [T-185] populate state once Athlete.state exists
       rtpStatus: rtp?.status ?? null,
       acwrTrend: acwrRows.map((r) => ({
         date: r.date.toISOString().slice(0, 10),

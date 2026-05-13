@@ -121,4 +121,21 @@ export interface ShowcaseSnapshot {
     attitude: number;
   } | null;
   snapshotBuiltAt: string;
+  state?: string | null; // TODO: [T-185] populate once Athlete.state exists
+}
+
+export interface ScoutAthleteResult {
+  id: string;
+  athleteId: string;
+  clubId: string;
+  tier: ShowcaseTier;
+  nameInitials: string;
+  position: string | null;
+  ageYears: number;
+  state: string | null;
+  rtpStatus: string | null;
+  acwrTrend: ShowcaseSnapshot["acwrTrend"] | null;
+  evaluationScores: ShowcaseSnapshot["evaluationScores"] | null;
+  videoCount: number | null;
+  upgrade_required: boolean;
 }

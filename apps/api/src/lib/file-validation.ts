@@ -15,6 +15,8 @@ export const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/gif",
 ]);
 
+export const ALLOWED_VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"]);
+
 /**
  * Thrown when a buffer's magic bytes do not match any allowed image format.
  * Extends ValidationError so it is treated as an operational (4xx) error
@@ -106,5 +108,23 @@ export function assertSafePath(uploadDir: string, filename: string): void {
         `filename="${filename}" resolved to "${resolvedTarget}" ` +
         `which is outside uploadDir="${normalizedRoot}".`,
     );
+  }
+}
+
+export class InvalidVideoMagicBytesError extends ValidationError {
+  constructor(detectedMime?: string) {
+    super(
+      detectedMime != null
+        ? `Formato de vídeo inválido (detectado: ${detectedMime}). Envie MP4 ou WebM.`
+        : `Arquivo não reconhecido como vídeo. Envie MP4 ou WebM.`,
+    );
+    this.name = "InvalidVideoMagicBytesError";
+  }
+}
+
+export async function validateVideoMagicBytes(buffer: Buffer): Promise<void> {
+  const detected = await fileTypeFromBuffer(buffer);
+  if (detected == null || !ALLOWED_VIDEO_MIME_TYPES.has(detected.mime)) {
+    throw new InvalidVideoMagicBytesError(detected?.mime);
   }
 }

@@ -21,7 +21,7 @@
 | T-164 | API de showcase de atleta verificado (ACWR + SHA-256)           | DONE   | HIGH     | S17    | API   |
 | T-165 | UI de gestão de showcase (`ShowcaseManagerPage`)                | DONE   | HIGH     | S17    | Web   |
 | T-181 | Rotas SSE v3.0 (`SHOWCASE_UPDATED`, `CONTACT_REQUEST_RECEIVED`) | DONE   | HIGH     | S17    | Infra |
-| T-166 | Backend de upload de vídeos (Cloudflare R2 + magic bytes)       | TODO   | HIGH     | S18    | API   |
+| T-166 | Backend de upload de vídeos (Cloudflare R2 + magic bytes)       | DONE   | HIGH     | S18    | API   |
 | T-167 | UI de gestão de vídeos (`AthleteVideoManager`)                  | TODO   | MEDIUM   | S18    | Web   |
 | T-168 | API de busca filtrada de atletas (freemium enforced)            | TODO   | HIGH     | S18    | API   |
 | T-169 | UI de busca ScoutLink (`ScoutSearchPage`)                       | TODO   | HIGH     | S18    | Web   |
@@ -46,27 +46,6 @@
 
 ## In Progress
 
-### T-166 | [TODO] Backend de upload de vídeos (Cloudflare R2 + magic bytes)
-
-**Context:** Clubs upload short clips (≤ 90s) to enrich showcases; strict validation at every layer prevents malicious or oversized uploads.  
-**Architectural context:** `[SEC-FILE]` magic bytes via `file-type` — never trust `Content-Type`; filename = `randomUUID()`; duration enforced via FFprobe (not client metadata); Cloudflare R2 via S3-compatible SDK; max 5 videos per athlete.  
-**Files:** `apps/api/src/modules/scoutlink/videos/videos.routes.ts`, `videos.service.ts`  
-**Acceptance criteria:**
-
-- [ ] `POST /api/athletes/:id/videos` accepts `multipart/form-data`; validates magic bytes for `video/mp4` or `video/webm` only — rejects all other types with 415
-- [ ] FFprobe enforces ≤ 90s duration — rejects with 422 if exceeded; client-supplied duration metadata ignored
-- [ ] Filename = `randomUUID()` — original filename discarded and never stored
-- [ ] Stores `{ r2Key, durationSeconds, thumbnailUrl, athleteId, clubId, uploadedAt }` in `showcase_videos`
-- [ ] Returns 409 if athlete already has 5 videos
-- [ ] `assertMemberBelongsToClub` + `requireRole('ADMIN')`
-
-**Out of scope:** Video reorder (T-167), showcase publication (T-164)  
-**Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`; `CLOUDFLARE_R2_*` env vars added in T-184
-
----
-
-## Todo
-
 ### T-167 | [TODO] UI de gestão de vídeos (`AthleteVideoManager`)
 
 **Context:** ADMINs manage the athlete video gallery — upload, reorder, and delete clips — from within the showcase manager.  
@@ -84,6 +63,8 @@
 **Pattern reference:** attendance board drag pattern in `apps/web/src/app/(app)/training/`
 
 ---
+
+## Todo
 
 ### T-168 | [TODO] API de busca filtrada de atletas (freemium enforced)
 
@@ -473,6 +454,23 @@
 
 **Out of scope:** New SSE transport (scaling concern)  
 **Pattern reference:** `apps/api/src/modules/events/sse-bus.ts` + `PAYMENT_CONFIRMED` pattern
+
+### T-166 | [DONE] Backend de upload de vídeos (Cloudflare R2 + magic bytes)
+
+**Context:** Clubs upload short clips (≤ 90s) to enrich showcases; strict validation at every layer prevents malicious or oversized uploads.  
+**Architectural context:** `[SEC-FILE]` magic bytes via `file-type` — never trust `Content-Type`; filename = `randomUUID()`; duration enforced via FFprobe (not client metadata); Cloudflare R2 via S3-compatible SDK; max 5 videos per athlete.  
+**Files:** `apps/api/src/modules/scoutlink/videos/videos.routes.ts`, `videos.service.ts`  
+**Acceptance criteria:**
+
+- [x] `POST /api/athletes/:id/videos` accepts `multipart/form-data`; validates magic bytes for `video/mp4` or `video/webm` only — rejects all other types with 415
+- [x] FFprobe enforces ≤ 90s duration — rejects with 422 if exceeded; client-supplied duration metadata ignored
+- [x] Filename = `randomUUID()` — original filename discarded and never stored
+- [x] Stores `{ r2Key, durationSeconds, thumbnailUrl, athleteId, clubId, uploadedAt }` in `showcase_videos`
+- [x] Returns 409 if athlete already has 5 videos
+- [x] `assertMemberBelongsToClub` + `requireRole('ADMIN')`
+
+**Out of scope:** Video reorder (T-167), showcase publication (T-164)  
+**Pattern reference:** logo upload in `apps/api/src/modules/clubs/clubs.service.ts`; `CLOUDFLARE_R2_*` env vars added in T-184
 
 ---
 

@@ -24,7 +24,7 @@
 | T-166 | Backend de upload de vídeos (Cloudflare R2 + magic bytes)       | DONE   | HIGH     | S18    | API   |
 | T-167 | UI de gestão de vídeos (`AthleteVideoManager`)                  | DONE   | MEDIUM   | S18    | Web   |
 | T-168 | API de busca filtrada de atletas (freemium enforced)            | DONE   | HIGH     | S18    | API   |
-| T-169 | UI de busca ScoutLink (`ScoutSearchPage`)                       | TODO   | HIGH     | S18    | Web   |
+| T-169 | UI de busca ScoutLink (`ScoutSearchPage`)                       | DONE   | HIGH     | S18    | Web   |
 | T-170 | Perfil público de atleta (`/scout/athletes/:id`)                | TODO   | HIGH     | S19    | Web   |
 | T-171 | Job BullMQ `scout-curation-report` (curadoria mensal PDF)       | TODO   | MEDIUM   | S19    | Jobs  |
 | T-172 | API de solicitação de contato mediada (hard stop menores)       | TODO   | HIGH     | S19    | API   |
@@ -46,18 +46,18 @@
 
 ## In Progress
 
-### T-169 | [TODO] UI de busca ScoutLink (`ScoutSearchPage`)
+### T-169 | [DONE] UI de busca ScoutLink (`ScoutSearchPage`)
 
 **Context:** Scouts need a fast, filterable search interface that clearly communicates the freemium boundary with a non-blocking upgrade path.  
 **Architectural context:** `[UI-A11Y]`; locked PREMIUM fields rendered as blurred placeholders — never omitted — so layout remains stable; `[UI-BRL]` subscription price in `font-mono`; `requireRole('SCOUT')`.  
 **Files:** `apps/web/src/app/(scout)/search/page.tsx`, `ScoutSearchPage.tsx`  
 **Acceptance criteria:**
 
-- [ ] Filter panel: position multi-select, age range slider, state select, RTP status, ACWR min/max
-- [ ] Result cards: FREE fields visible; `null` PREMIUM fields rendered as blurred `████` placeholders with "Assine para ver" overlay
-- [ ] Upgrade CTA in overlay links to billing flow (T-180); price shown as `font-mono`
-- [ ] Click on any result navigates to public athlete profile (T-170)
-- [ ] `requireRole('SCOUT')` guard on route
+- [x] Filter panel: position multi-select, age range slider, state select, RTP status, ACWR min/max
+- [x] Result cards: FREE fields visible; `null` PREMIUM fields rendered as blurred `████` placeholders with "Assine para ver" overlay
+- [x] Upgrade CTA in overlay links to billing flow (T-180); price shown as `font-mono`
+- [x] Click on any result navigates to public athlete profile (T-170)
+- [x] `requireRole('SCOUT')` guard on route
 
 **Out of scope:** Billing flow (T-180), public profile (T-170)  
 **Pattern reference:** `apps/web/src/app/(app)/members/MembersPage.tsx` filter pattern

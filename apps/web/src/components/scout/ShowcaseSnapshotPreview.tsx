@@ -104,7 +104,7 @@ function AcwrTooltip({
     );
 }
 
-function AcwrMiniChart({
+export function AcwrMiniChart({
     trend,
 }: {
     trend: ShowcaseSnapshot["acwrTrend"];
@@ -188,7 +188,7 @@ const SCORE_LABELS: Record<
     attitude: "Atitude",
 };
 
-function EvaluationScoreGrid({
+export function EvaluationScoreGrid({
     scores,
 }: {
     scores: ShowcaseSnapshot["evaluationScores"];

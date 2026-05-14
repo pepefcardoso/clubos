@@ -1,6 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { SearchAthletesQuerySchema } from "./search.schema.js";
-import { searchAthletes } from "./search.service.js";
+import {
+  AthleteProfileParamsSchema,
+  SearchAthletesQuerySchema,
+} from "./search.schema.js";
+import { getAthletePublicProfile, searchAthletes } from "./search.service.js";
 import type { AccessTokenPayload } from "../../../types/fastify.js";
 
 export async function scoutSearchRoutes(
@@ -26,6 +29,38 @@ export async function scoutSearchRoutes(
         parsed.data,
       );
       return reply.status(200).send(result);
+    },
+  );
+
+  fastify.get(
+    "/:showcaseId",
+    { preHandler: [fastify.verifyAccessToken, fastify.requireRole("SCOUT")] },
+    async (request, reply) => {
+      const params = AthleteProfileParamsSchema.safeParse(request.params);
+      if (!params.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: params.error.issues[0]?.message ?? "Invalid params",
+        });
+      }
+
+      const user = request.user as AccessTokenPayload;
+      const profile = await getAthletePublicProfile(
+        fastify.prisma,
+        user.sub,
+        params.data.showcaseId,
+      );
+
+      if (!profile) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: "Perfil não encontrado.",
+        });
+      }
+
+      return reply.status(200).send(profile);
     },
   );
 }

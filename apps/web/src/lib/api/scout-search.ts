@@ -1,8 +1,9 @@
-import type {
+import { ScoutAuthApiError } from "@/lib/scout-auth";
+import {
   PaginatedResponse,
   ScoutAthleteResult,
-} from "@clubos/shared-types";
-import { ScoutAuthApiError } from "@/lib/scout-auth";
+  ScoutAthleteProfile,
+} from "../../../../../packages/shared-types/src";
 
 const API_BASE = process.env["NEXT_PUBLIC_API_URL"] ?? "";
 
@@ -16,6 +17,27 @@ export interface ScoutSearchParams {
   maxAcwr?: number;
   page: number;
   limit: number;
+}
+
+export class ScoutSearchApiError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ScoutSearchApiError";
+  }
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public error?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
 
 export async function fetchScoutAthletes(
@@ -47,4 +69,23 @@ export async function fetchScoutAthletes(
   }
 
   return res.json() as Promise<PaginatedResponse<ScoutAthleteResult>>;
+}
+
+export async function fetchAthleteProfile(
+  showcaseId: string,
+  token: string,
+): Promise<ScoutAthleteProfile> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/scout/athletes/${showcaseId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as ApiError;
+    throw new ScoutSearchApiError(res.status, body.message ?? res.statusText);
+  }
+
+  return res.json() as Promise<ScoutAthleteProfile>;
 }

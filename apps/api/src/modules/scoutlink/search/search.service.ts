@@ -2,6 +2,7 @@ import { Prisma } from "../../../../generated/prisma/index.js";
 import type { PrismaClient } from "../../../../generated/prisma/index.js";
 import type {
   PaginatedResponse,
+  ScoutAthleteProfile,
   ScoutAthleteResult,
   ShowcaseSnapshot,
   ShowcaseTier,
@@ -150,5 +151,83 @@ export async function searchAthletes(
     total: Number(countRows[0]?.count ?? 0),
     page,
     limit,
+  };
+}
+
+type ProfileRow = SearchRow & {
+  snapshot_hash: string;
+  is_published: boolean;
+  videos: Array<{
+    id: string;
+    r2_key: string;
+    duration_seconds: number;
+    thumbnail_url: string | null;
+    order: number;
+  }>;
+};
+
+export async function getAthletePublicProfile(
+  prisma: PrismaClient,
+  scoutId: string,
+  showcaseId: string,
+): Promise<ScoutAthleteProfile | null> {
+  const scout = await prisma.scoutProfile.findUnique({
+    where: { id: scoutId },
+    select: { subscriptionStatus: true, subscriptionExpiresAt: true },
+  });
+
+  const isPremiumScout =
+    scout != null &&
+    isActiveSubscription(scout.subscriptionStatus, scout.subscriptionExpiresAt);
+
+  const rows = await prisma.$queryRaw<ProfileRow[]>`
+    SELECT
+      ss.id,
+      ss."clubId",
+      ss."athleteId",
+      ss.tier::text,
+      ss.snapshot,
+      ss."snapshotHash"  AS snapshot_hash,
+      ss."isPublished"   AS is_published,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'id',               sv.id,
+            'r2_key',           sv."r2Key",
+            'duration_seconds', sv."durationSeconds",
+            'thumbnail_url',    sv."thumbnailUrl",
+            'order',            sv."order"
+          ) ORDER BY sv."order"
+        ) FILTER (WHERE sv.id IS NOT NULL),
+        '[]'
+      ) AS videos,
+      COUNT(sv.id)::integer AS video_count
+    FROM scout_showcases ss
+    LEFT JOIN showcase_videos sv
+      ON sv."athleteId" = ss."athleteId"
+     AND sv."clubId"    = ss."clubId"
+    WHERE ss.id = ${showcaseId}
+    GROUP BY ss.id
+  `;
+
+  const row = rows[0];
+  if (!row || !row.is_published) return null;
+
+  const base = projectRow(row, isPremiumScout);
+  const canSeeFull = isPremiumScout && row.tier === "PREMIUM";
+
+  return {
+    ...base,
+    snapshotHash: row.snapshot_hash,
+    snapshotBuiltAt: (row.snapshot as ShowcaseSnapshot).snapshotBuiltAt,
+    videos: canSeeFull
+      ? row.videos.map((v) => ({
+          id: v.id,
+          r2Key: v.r2_key,
+          durationSeconds: v.duration_seconds,
+          thumbnailUrl: v.thumbnail_url,
+          order: v.order,
+        }))
+      : null,
   };
 }

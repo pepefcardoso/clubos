@@ -13,3 +13,9 @@ export const SearchAthletesQuerySchema = z.object({
 });
 
 export type SearchAthletesQuery = z.infer<typeof SearchAthletesQuerySchema>;
+
+export const AthleteProfileParamsSchema = z.object({
+  showcaseId: z.string().min(1),
+});
+
+export type AthleteProfileParams = z.infer<typeof AthleteProfileParamsSchema>;

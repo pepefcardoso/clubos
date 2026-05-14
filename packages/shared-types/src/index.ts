@@ -139,3 +139,17 @@ export interface ScoutAthleteResult {
   videoCount: number | null;
   upgrade_required: boolean;
 }
+
+export interface ScoutVideoItem {
+  id: string;
+  r2Key: string;
+  durationSeconds: number;
+  thumbnailUrl: string | null;
+  order: number;
+}
+
+export interface ScoutAthleteProfile extends ScoutAthleteResult {
+  snapshotHash: string;
+  snapshotBuiltAt: string;
+  videos: ScoutVideoItem[] | null;
+}

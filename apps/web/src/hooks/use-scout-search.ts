@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useScoutAuthContext } from "@/contexts/scout-auth.context";
 import {
+  fetchAthleteProfile,
   fetchScoutAthletes,
   type ScoutSearchParams,
 } from "@/lib/api/scout-search";
@@ -22,5 +23,20 @@ export function useScoutSearch(params: ScoutSearchParams) {
     },
     staleTime: 30_000,
     placeholderData: (prev) => prev,
+  });
+}
+
+export function useAthleteProfile(showcaseId: string) {
+  const { getAccessToken } = useScoutAuthContext();
+
+  return useQuery({
+    queryKey: ["scout", "athlete-profile", showcaseId],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Unauthenticated");
+      return fetchAthleteProfile(showcaseId, token);
+    },
+    enabled: Boolean(showcaseId),
+    staleTime: 60_000,
   });
 }

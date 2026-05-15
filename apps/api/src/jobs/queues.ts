@@ -379,3 +379,28 @@ export const gameLogisticsNoticeQueue = new Queue("game-logistics-notice", {
     },
   },
 });
+
+/**
+ * Queue for monthly scout curation report PDF generation and email dispatch.
+ *
+ * Fires on the 1st of every month at 06:00 UTC (03:00 BRT).
+ * Each ACTIVE PREMIUM scout receives a PDF of the top 20 athletes matching
+ * their saved position filters, with ACWR, RTP, and evaluation data.
+ *
+ * Runs before charge generation (08:00 UTC) and before the monthly financial
+ * report (02nd 07:00 UTC) to avoid competing for DB resources during billing.
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 30s → attempt 2 → EXHAUSTED.
+ *   On exhaustion the report is skipped until next month — acceptable since
+ *   this is a non-critical informational job.
+ */
+export const scoutCurationReportQueue = new Queue("scout-curation-report", {
+  connection,
+  defaultJobOptions: {
+    removeOnComplete: { count: 200 },
+    removeOnFail: { count: 500 },
+    attempts: 2,
+    backoff: { type: "exponential", delay: 30_000 },
+  },
+});

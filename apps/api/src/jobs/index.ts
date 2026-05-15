@@ -44,6 +44,10 @@ import { startFanFunnelWorker } from "./fan-to-member-funnel/fan-to-member-funne
 import { fanFunnelQueue } from "./queues.js";
 import { startGameLogisticsNoticeWorker } from "./game-logistics-notice/game-logistics-notice.worker.js";
 import { gameLogisticsNoticeQueue } from "./queues.js";
+import { startScoutCurationReportDispatchWorker } from "./scout-curation-report/scout-curation-report-dispatch.worker.js";
+import { startScoutCurationReportWorker } from "./scout-curation-report/scout-curation-report.worker.js";
+import { SCOUT_CURATION_REPORT_JOB_NAMES } from "./scout-curation-report/scout-curation-report.types.js";
+import { scoutCurationReportQueue } from "./queues.js";
 
 /**
  * Cron expression: 1st of every month at 08:00 UTC.
@@ -171,6 +175,20 @@ const WEEKLY_ATHLETE_REPORT_CRON_ID = "weekly-athlete-report-cron";
 const MONTHLY_REPORT_CRON_ID = "monthly-financial-report-cron";
 
 /**
+ * Cron expression: 1st of every month at 06:00 UTC (03:00 BRT).
+ * Generates and emails a PDF of top-20 curated athletes to each ACTIVE scout.
+ * Fires 2h before charge generation (08:00 UTC) to avoid competing for DB
+ * resources during billing processing.
+ */
+const SCOUT_CURATION_REPORT_CRON = "0 6 1 * *";
+
+/**
+ * Stable job ID for the monthly scout curation report cron entry.
+ * Prevents duplicate registrations on restart.
+ */
+const SCOUT_CURATION_REPORT_CRON_ID = "monthly-scout-curation-report-cron";
+
+/**
  * Module-level reference to started workers.
  * Used by `closeJobs()` to gracefully drain and close all workers.
  */
@@ -236,6 +254,7 @@ const _workers: Worker[] = [];
  * update the existing repeatable job entry rather than creating a duplicate.
  *
  *   Morning cron schedule (UTC):
+ *     01st 06:00 — scout-curation-report
  *     01st 08:00 — charge generation
  *     02nd 07:00 — monthly financial report
  *     Daily 08:00 — D-0  due-today-notices
@@ -270,6 +289,8 @@ export async function registerJobs(): Promise<void> {
   _workers.push(startConfirmTicketWorker());
   _workers.push(startFanFunnelWorker());
   _workers.push(startGameLogisticsNoticeWorker());
+  _workers.push(startScoutCurationReportDispatchWorker());
+  _workers.push(startScoutCurationReportWorker());
 
   if (process.env["NODE_ENV"] !== "test") {
     await chargeGenerationQueue.upsertJobScheduler(
@@ -406,6 +427,19 @@ export async function registerJobs(): Promise<void> {
     console.info(
       `[jobs] Monthly financial report cron registered: "${MONTHLY_REPORT_CRON}" (UTC)`,
     );
+
+    await scoutCurationReportQueue.upsertJobScheduler(
+      SCOUT_CURATION_REPORT_CRON_ID,
+      { pattern: SCOUT_CURATION_REPORT_CRON },
+      {
+        name: SCOUT_CURATION_REPORT_JOB_NAMES.DISPATCH_SCOUT_CURATION_REPORT,
+        data: {},
+        opts: { attempts: 1 },
+      },
+    );
+    console.info(
+      `[jobs] Scout curation report cron registered: "${SCOUT_CURATION_REPORT_CRON}" (UTC)`,
+    );
   }
 }
 
@@ -432,5 +466,6 @@ export async function closeJobs(): Promise<void> {
   await confirmTicketQueue.close();
   await fanFunnelQueue.close();
   await gameLogisticsNoticeQueue.close();
+  await scoutCurationReportQueue.close();
   console.info("[jobs] All workers and queues closed");
 }

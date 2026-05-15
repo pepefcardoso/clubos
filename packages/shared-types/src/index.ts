@@ -22,7 +22,8 @@ export type CommunicationLogEventType =
   | "CONTACT_BLOCKED_NO_SUBSCRIPTION"
   | "CONTACT_DUPLICATE_BLOCKED"
   | "CONTACT_ACCEPTED"
-  | "CONTACT_REJECTED";
+  | "CONTACT_REJECTED"
+  | "CURATION_REPORT_SENT";
 
 export type PaymentMethod =
   | "PIX"

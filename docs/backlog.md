@@ -26,7 +26,7 @@
 | T-168 | API de busca filtrada de atletas (freemium enforced)            | DONE   | HIGH     | S18    | API   |
 | T-169 | UI de busca ScoutLink (`ScoutSearchPage`)                       | DONE   | HIGH     | S18    | Web   |
 | T-170 | Perfil público de atleta (`/scout/athletes/:id`)                | DONE   | HIGH     | S19    | Web   |
-| T-171 | Job BullMQ `scout-curation-report` (curadoria mensal PDF)       | TODO   | MEDIUM   | S19    | Jobs  |
+| T-171 | Job BullMQ `scout-curation-report` (curadoria mensal PDF)       | DONE   | MEDIUM   | S19    | Jobs  |
 | T-172 | API de solicitação de contato mediada (hard stop menores)       | TODO   | HIGH     | S19    | API   |
 | T-173 | Fluxo de resposta do clube (accept/reject)                      | TODO   | HIGH     | S19    | API   |
 | T-175 | UI de inbox mediada para scouts (`ScoutInboxPage`)              | TODO   | HIGH     | S20    | Web   |
@@ -46,29 +46,6 @@
 
 ## In Progress
 
-### T-171 | [TODO] Job BullMQ `scout-curation-report`
-
-**Context:** PREMIUM scouts receive a monthly curated PDF of the top 20 athletes matching their saved search criteria; idempotency prevents duplicate sends on retry.  
-**Architectural context:** `[SEC-JOB]` payload `scoutId + yearMonth` only — fetch preferences and contact details inside worker; `[ARCH-JOB]` idempotent by `scoutId + yearMonth`; active subscription verified inside worker before generation; failure → Sentry.  
-**Files:** `apps/api/src/jobs/scout-curation-report.worker.ts`  
-**Acceptance criteria:**
-
-- [ ] Job enqueued via cron on 1st of each month for each `scout_profiles` row with `subscription_status = ACTIVE`
-- [ ] Payload: `{ scoutId, yearMonth }` only — no name, email, filter criteria in payload
-- [ ] Worker fetches saved filters, queries top 20 athletes, generates PDF via `react-pdf`
-- [ ] Sent via Resend SDK; result recorded in `messages` table
-- [ ] Idempotent by `scoutId + yearMonth` — re-enqueue does not send duplicate
-- [ ] Skips silently (logs to Sentry at `info` level) if `subscription_status` lapsed between enqueue and execution
-
-**Out of scope:** PDF template design (separate concern), email template (managed by `templates` module)  
-**Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern; `apps/api/src/jobs/monthly-report/` PDF pattern
-
----
-
-## Todo
-
----
-
 ### T-172 | [TODO] API de solicitação de contato mediada (hard stop menores)
 
 **Context:** Scouts request contact with a club about an athlete via the platform only; direct contact with athletes — especially minors — is unconditionally blocked. Every attempt, including blocked ones, is logged.  
@@ -87,6 +64,8 @@
 **Pattern reference:** HMAC hard stop pattern in `apps/api/src/modules/webhooks/`; `audit_log` write pattern
 
 ---
+
+## Todo
 
 ### T-173 | [TODO] Fluxo de resposta do clube (accept/reject)
 
@@ -457,14 +436,31 @@
 **Files:** `apps/web/src/app/(scout)/athletes/[id]/page.tsx`  
 **Acceptance criteria:**
 
-- [ ] Displays: position, age, dominant foot, RTP badge (text + color), ACWR 4-week Recharts line chart
-- [ ] Video gallery section: visible only to PREMIUM scouts with active subscription; blurred placeholder otherwise
-- [ ] `snapshot_hash` displayed in `font-mono` with "Verificar integridade" tooltip explaining SHA-256
-- [ ] "Solicitar contato" button triggers contact request flow (T-172); disabled if scout has pending request for this athlete
-- [ ] `requireRole('SCOUT')`
+- [x] Displays: position, age, dominant foot, RTP badge (text + color), ACWR 4-week Recharts line chart
+- [x] Video gallery section: visible only to PREMIUM scouts with active subscription; blurred placeholder otherwise
+- [x] `snapshot_hash` displayed in `font-mono` with "Verificar integridade" tooltip explaining SHA-256
+- [x] "Solicitar contato" button triggers contact request flow (T-172); disabled if scout has pending request for this athlete
+- [x] `requireRole('SCOUT')`
 
 **Out of scope:** Contact request API (T-172), billing gate (T-180)  
 **Pattern reference:** `apps/web/src/app/(marketing)/eventos/` for public-facing layout; ACWR chart in `apps/web/src/app/(app)/workload/`
+
+### T-171 | [DONE] Job BullMQ `scout-curation-report`
+
+**Context:** PREMIUM scouts receive a monthly curated PDF of the top 20 athletes matching their saved search criteria; idempotency prevents duplicate sends on retry.  
+**Architectural context:** `[SEC-JOB]` payload `scoutId + yearMonth` only — fetch preferences and contact details inside worker; `[ARCH-JOB]` idempotent by `scoutId + yearMonth`; active subscription verified inside worker before generation; failure → Sentry.  
+**Files:** `apps/api/src/jobs/scout-curation-report.worker.ts`  
+**Acceptance criteria:**
+
+- [x] Job enqueued via cron on 1st of each month for each `scout_profiles` row with `subscription_status = ACTIVE`
+- [x] Payload: `{ scoutId, yearMonth }` only — no name, email, filter criteria in payload
+- [x] Worker fetches saved filters, queries top 20 athletes, generates PDF via `react-pdf`
+- [x] Sent via Resend SDK; result recorded in `messages` table
+- [x] Idempotent by `scoutId + yearMonth` — re-enqueue does not send duplicate
+- [x] Skips silently (logs to Sentry at `info` level) if `subscription_status` lapsed between enqueue and execution
+
+**Out of scope:** PDF template design (separate concern), email template (managed by `templates` module)  
+**Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern; `apps/api/src/jobs/monthly-report/` PDF pattern
 
 ---
 

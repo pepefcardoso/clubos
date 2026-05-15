@@ -161,3 +161,10 @@ export interface CreateContactRequestResponse {
   athleteId: string;
   clubId: string;
 }
+
+export interface RespondContactRequestResponse {
+  contactRequestId: string;
+  status: "ACCEPTED" | "REJECTED";
+  athleteId: string;
+  clubId: string;
+}

@@ -46,27 +46,6 @@
 
 ## In Progress
 
-### T-173 | [TODO] Fluxo de resposta do clube (accept/reject)
-
-**Context:** Club ADMIN reviews and responds to incoming contact requests; acceptance opens a mediated thread; rejection notifies the scout. PII is never included in response payloads.  
-**Architectural context:** `[SEC]` scout receives club name and specialization only — no phone/email/CPF; `appendCommunicationLog` on every state transition; SSE `CONTACT_REQUEST_RECEIVED` emitted to scout on ACCEPT.  
-**Files:** `apps/api/src/modules/scoutlink/contact/contact.routes.ts`, `contact.service.ts`  
-**Acceptance criteria:**
-
-- [ ] `PATCH /api/contact-requests/:id` with `{ action: 'ACCEPT' | 'REJECT', reason?: string }` updates `contact_request_status`
-- [ ] On `ACCEPT`: creates `communication_thread` record; emits SSE `CONTACT_REQUEST_RECEIVED` to scout's stream
-- [ ] On `REJECT`: scout receives rejection notification via `messages`; `reason` recorded in `communication_log`
-- [ ] `appendCommunicationLog` on every state transition with `event_type: CONTACT_ACCEPTED | CONTACT_REJECTED`
-- [ ] `assertContactRequestBelongsToClub` required before any mutation
-- [ ] `requireRole('ADMIN')`
-
-**Out of scope:** Scout inbox UI (T-175), club contact management UI (T-176)  
-**Pattern reference:** ticket cancellation flow in `apps/api/src/modules/events/tickets/`
-
----
-
-## Todo
-
 ### T-175 | [TODO] UI de inbox mediada para scouts (`ScoutInboxPage`)
 
 **Context:** Scouts manage all outgoing contact requests and responses from a single inbox; no athlete PII is ever displayed.  
@@ -84,6 +63,8 @@
 **Pattern reference:** `apps/web/src/app/(app)/messages/` list pattern
 
 ---
+
+## Todo
 
 ### T-176 | [TODO] UI de gestão de contatos para o clube
 
@@ -459,6 +440,23 @@
 
 **Out of scope:** Club response flow (T-173), parental consent creation (T-177)  
 **Pattern reference:** HMAC hard stop pattern in `apps/api/src/modules/webhooks/`; `audit_log` write pattern
+
+### T-173 | [DONE] Fluxo de resposta do clube (accept/reject)
+
+**Context:** Club ADMIN reviews and responds to incoming contact requests; acceptance opens a mediated thread; rejection notifies the scout. PII is never included in response payloads.  
+**Architectural context:** `[SEC]` scout receives club name and specialization only — no phone/email/CPF; `appendCommunicationLog` on every state transition; SSE `CONTACT_REQUEST_RECEIVED` emitted to scout on ACCEPT.  
+**Files:** `apps/api/src/modules/scoutlink/contact/contact.routes.ts`, `contact.service.ts`  
+**Acceptance criteria:**
+
+- [x] `PATCH /api/contact-requests/:id` with `{ action: 'ACCEPT' | 'REJECT', reason?: string }` updates `contact_request_status`
+- [x] On `ACCEPT`: creates `communication_thread` record; emits SSE `CONTACT_REQUEST_RECEIVED` to scout's stream
+- [x] On `REJECT`: scout receives rejection notification via `messages`; `reason` recorded in `communication_log`
+- [x] `appendCommunicationLog` on every state transition with `event_type: CONTACT_ACCEPTED | CONTACT_REJECTED`
+- [x] `assertContactRequestBelongsToClub` required before any mutation
+- [x] `requireRole('ADMIN')`
+
+**Out of scope:** Scout inbox UI (T-175), club contact management UI (T-176)  
+**Pattern reference:** ticket cancellation flow in `apps/api/src/modules/events/tickets/`
 
 ---
 

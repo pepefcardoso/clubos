@@ -30,7 +30,7 @@
 | T-172 | API de solicitação de contato mediada (hard stop menores)       | DONE   | HIGH     | S19    | API   |
 | T-173 | Fluxo de resposta do clube (accept/reject)                      | DONE   | HIGH     | S19    | API   |
 | T-175 | UI de inbox mediada para scouts (`ScoutInboxPage`)              | DONE   | HIGH     | S20    | Web   |
-| T-176 | UI de gestão de contatos para o clube                           | TODO   | HIGH     | S20    | Web   |
+| T-176 | UI de gestão de contatos para o clube                           | DONE   | HIGH     | S20    | Web   |
 | T-177 | Consentimento parental para contato scout (< 18 anos)           | TODO   | HIGH     | S20    | API   |
 | T-178 | Transferência de histórico de showcase                          | TODO   | MEDIUM   | S20    | API   |
 | T-179 | Modelo freemium no showcase (`showcase_tier`)                   | TODO   | HIGH     | S21    | Full  |
@@ -45,26 +45,6 @@
 ---
 
 ## In Progress
-
-### T-176 | [TODO] UI de gestão de contatos para o clube
-
-**Context:** Club ADMINs review and respond to incoming scout contact requests within the existing app shell.  
-**Architectural context:** `[UI-A11Y]`; reject (danger) requires confirmation modal with optional reason field; one primary action per context; visible to `ADMIN` only.  
-**Files:** `apps/web/src/app/(app)/athletes/contact-requests/page.tsx`, `ContactRequestsPage.tsx`  
-**Acceptance criteria:**
-
-- [ ] Lists incoming requests with scout name, specialization, target athlete name — no scout CPF/phone displayed
-- [ ] Accept button (primary); Reject button (danger) shows confirmation modal with optional reason `<textarea>`
-- [ ] Badge per request: PENDING / ACCEPTED / REJECTED with text label
-- [ ] Real-time badge update via SSE invalidation
-- [ ] Visible to `ADMIN` only; other roles → 403
-
-**Out of scope:** Contact request API (T-173), parental consent UI (T-177)  
-**Pattern reference:** `apps/web/src/app/(app)/members/` table + modal pattern
-
----
-
-## Todo
 
 ### T-177 | [TODO] Consentimento parental para contato scout (< 18 anos)
 
@@ -83,6 +63,8 @@
 **Pattern reference:** aceite parental in `apps/api/src/modules/athletes/` (v1.5 peneiras pattern)
 
 ---
+
+## Todo
 
 ### T-178 | [TODO] Transferência de histórico de showcase
 
@@ -455,6 +437,22 @@
 
 **Out of scope:** Contact request creation (T-172), billing (T-180)  
 **Pattern reference:** `apps/web/src/app/(app)/messages/` list pattern
+
+### T-176 | [DONE] UI de gestão de contatos para o clube
+
+**Context:** Club ADMINs review and respond to incoming scout contact requests within the existing app shell.  
+**Architectural context:** `[UI-A11Y]`; reject (danger) requires confirmation modal with optional reason field; one primary action per context; visible to `ADMIN` only.  
+**Files:** `apps/web/src/app/(app)/athletes/contact-requests/page.tsx`, `ContactRequestsPage.tsx`  
+**Acceptance criteria:**
+
+- [x] Lists incoming requests with scout name, specialization, target athlete name — no scout CPF/phone displayed
+- [x] Accept button (primary); Reject button (danger) shows confirmation modal with optional reason `<textarea>`
+- [x] Badge per request: PENDING / ACCEPTED / REJECTED with text label
+- [x] Real-time badge update via SSE invalidation
+- [x] Visible to `ADMIN` only; other roles → 403
+
+**Out of scope:** Contact request API (T-173), parental consent UI (T-177)  
+**Pattern reference:** `apps/web/src/app/(app)/members/` table + modal pattern
 
 ---
 

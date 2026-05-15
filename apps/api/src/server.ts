@@ -34,6 +34,7 @@ import { provisionPublicSchema } from "./lib/provision-public-schema.js";
 import { scoutAuthRoutes } from "./modules/scoutlink/scouts/scouts.routes.js";
 import { scoutEventsRoutes } from "./modules/scoutlink/sse/scout-events.routes.js";
 import { scoutSearchRoutes } from "./modules/scoutlink/search/search.routes.js";
+import { contactRequestRoutes } from "./modules/scoutlink/contact/contact.routes.js";
 
 export async function buildApp() {
   validateEnv();
@@ -174,6 +175,10 @@ export async function buildApp() {
   await fastify.register(scoutEventsRoutes, { prefix: "/api/scout/events" });
 
   await fastify.register(scoutSearchRoutes, { prefix: "/api/scout/athletes" });
+
+  await fastify.register(contactRequestRoutes, {
+    prefix: "/api/scout/contact-requests",
+  });
 
   fastify.get(
     "/api/members/import/template",

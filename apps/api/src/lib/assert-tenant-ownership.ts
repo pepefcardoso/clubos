@@ -206,3 +206,22 @@ export async function assertShowcaseBelongsToClub(
   if (!found) throw new NotFoundError("Showcase não encontrado.");
   return found.id;
 }
+
+/**
+ * Asserts that a ContactRequest with the given ID belongs to the given clubId
+ * within the PUBLIC schema.
+ *
+ * No withTenantSchema needed — contact_requests lives in public schema.
+ * Returns 404 (never 403) to avoid confirming cross-tenant resource existence. [SEC-OBJ]
+ */
+export async function assertContactRequestBelongsToClub(
+  prisma: PrismaClient,
+  contactRequestId: string,
+  clubId: string,
+): Promise<void> {
+  const found = await prisma.contactRequest.findFirst({
+    where: { id: contactRequestId, clubId },
+    select: { id: true },
+  });
+  if (!found) throw new NotFoundError("Solicitação de contato não encontrada.");
+}

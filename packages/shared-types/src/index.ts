@@ -154,3 +154,10 @@ export interface ScoutAthleteProfile extends ScoutAthleteResult {
   snapshotBuiltAt: string;
   videos: ScoutVideoItem[] | null;
 }
+
+export interface CreateContactRequestResponse {
+  contactRequestId: string;
+  status: "PENDING";
+  athleteId: string;
+  clubId: string;
+}

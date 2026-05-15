@@ -27,7 +27,7 @@
 | T-169 | UI de busca ScoutLink (`ScoutSearchPage`)                       | DONE   | HIGH     | S18    | Web   |
 | T-170 | Perfil público de atleta (`/scout/athletes/:id`)                | DONE   | HIGH     | S19    | Web   |
 | T-171 | Job BullMQ `scout-curation-report` (curadoria mensal PDF)       | DONE   | MEDIUM   | S19    | Jobs  |
-| T-172 | API de solicitação de contato mediada (hard stop menores)       | TODO   | HIGH     | S19    | API   |
+| T-172 | API de solicitação de contato mediada (hard stop menores)       | DONE   | HIGH     | S19    | API   |
 | T-173 | Fluxo de resposta do clube (accept/reject)                      | TODO   | HIGH     | S19    | API   |
 | T-175 | UI de inbox mediada para scouts (`ScoutInboxPage`)              | TODO   | HIGH     | S20    | Web   |
 | T-176 | UI de gestão de contatos para o clube                           | TODO   | HIGH     | S20    | Web   |
@@ -45,27 +45,6 @@
 ---
 
 ## In Progress
-
-### T-172 | [TODO] API de solicitação de contato mediada (hard stop menores)
-
-**Context:** Scouts request contact with a club about an athlete via the platform only; direct contact with athletes — especially minors — is unconditionally blocked. Every attempt, including blocked ones, is logged.  
-**Architectural context:** `[SEC]` hard stop: athlete age < 18 AND no `parental_consents` row → 403 unconditionally; `appendCommunicationLog` on every outcome including blocked attempts; `[PR-FIN]` ≥ 2 approvals (LGPD critical path); duplicate window 30 days.  
-**Files:** `apps/api/src/modules/scoutlink/contact/contact.routes.ts`, `contact.service.ts`  
-**Acceptance criteria:**
-
-- [ ] `POST /api/scout/contact-requests` creates `contact_requests` row with `status = PENDING`
-- [ ] Hard stop: athlete `date_of_birth` → age < 18 AND no `parental_consents` row → 403; `appendCommunicationLog` records blocked attempt with `event_type: CONTACT_BLOCKED_MINOR`
-- [ ] Active PREMIUM subscription required — FREE scouts receive 403
-- [ ] Duplicate request (`scoutId + athleteId`) within 30 days → 409; `appendCommunicationLog` records duplicate attempt
-- [ ] `appendCommunicationLog` called on every outcome: created, blocked (minor), blocked (no subscription), duplicate
-- [ ] `requireRole('SCOUT')`
-
-**Out of scope:** Club response flow (T-173), parental consent creation (T-177)  
-**Pattern reference:** HMAC hard stop pattern in `apps/api/src/modules/webhooks/`; `audit_log` write pattern
-
----
-
-## Todo
 
 ### T-173 | [TODO] Fluxo de resposta do clube (accept/reject)
 
@@ -85,6 +64,8 @@
 **Pattern reference:** ticket cancellation flow in `apps/api/src/modules/events/tickets/`
 
 ---
+
+## Todo
 
 ### T-175 | [TODO] UI de inbox mediada para scouts (`ScoutInboxPage`)
 
@@ -461,6 +442,23 @@
 
 **Out of scope:** PDF template design (separate concern), email template (managed by `templates` module)  
 **Pattern reference:** `apps/api/src/jobs/billing-reminders/` idempotency pattern; `apps/api/src/jobs/monthly-report/` PDF pattern
+
+### T-172 | [DONE] API de solicitação de contato mediada (hard stop menores)
+
+**Context:** Scouts request contact with a club about an athlete via the platform only; direct contact with athletes — especially minors — is unconditionally blocked. Every attempt, including blocked ones, is logged.  
+**Architectural context:** `[SEC]` hard stop: athlete age < 18 AND no `parental_consents` row → 403 unconditionally; `appendCommunicationLog` on every outcome including blocked attempts; `[PR-FIN]` ≥ 2 approvals (LGPD critical path); duplicate window 30 days.  
+**Files:** `apps/api/src/modules/scoutlink/contact/contact.routes.ts`, `contact.service.ts`  
+**Acceptance criteria:**
+
+- [x] `POST /api/scout/contact-requests` creates `contact_requests` row with `status = PENDING`
+- [x] Hard stop: athlete `date_of_birth` → age < 18 AND no `parental_consents` row → 403; `appendCommunicationLog` records blocked attempt with `event_type: CONTACT_BLOCKED_MINOR`
+- [x] Active PREMIUM subscription required — FREE scouts receive 403
+- [x] Duplicate request (`scoutId + athleteId`) within 30 days → 409; `appendCommunicationLog` records duplicate attempt
+- [x] `appendCommunicationLog` called on every outcome: created, blocked (minor), blocked (no subscription), duplicate
+- [x] `requireRole('SCOUT')`
+
+**Out of scope:** Club response flow (T-173), parental consent creation (T-177)  
+**Pattern reference:** HMAC hard stop pattern in `apps/api/src/modules/webhooks/`; `audit_log` write pattern
 
 ---
 

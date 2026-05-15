@@ -31,7 +31,7 @@
 | T-173 | Fluxo de resposta do clube (accept/reject)                      | DONE   | HIGH     | S19    | API   |
 | T-175 | UI de inbox mediada para scouts (`ScoutInboxPage`)              | DONE   | HIGH     | S20    | Web   |
 | T-176 | UI de gestão de contatos para o clube                           | DONE   | HIGH     | S20    | Web   |
-| T-177 | Consentimento parental para contato scout (< 18 anos)           | TODO   | HIGH     | S20    | API   |
+| T-177 | Consentimento parental para contato scout (< 18 anos)           | DONE   | HIGH     | S20    | API   |
 | T-178 | Transferência de histórico de showcase                          | TODO   | MEDIUM   | S20    | API   |
 | T-179 | Modelo freemium no showcase (`showcase_tier`)                   | TODO   | HIGH     | S21    | Full  |
 | T-180 | Billing mensal de scout (R$ 299/mês via GatewayRegistry)        | TODO   | HIGH     | S21    | API   |
@@ -45,26 +45,6 @@
 ---
 
 ## In Progress
-
-### T-177 | [TODO] Consentimento parental para contato scout (< 18 anos)
-
-**Context:** Any scout contact request targeting an athlete under 18 requires verifiable parental consent before the club can accept. The consent record is immutable after creation.  
-**Architectural context:** `[SEC]` consent hash = SHA-256(`guardianName + athleteId + timestamp + CONSENT_SECRET`); `guardianCpf` stored as `BYTEA` via `pgp_sym_encrypt`; IP recorded; row immutable via DB trigger (same pattern as `communication_log`).  
-**Files:** `apps/api/src/modules/scoutlink/contact/parental-consent.routes.ts`, `parental-consent.service.ts`, `apps/web/src/app/(app)/athletes/[id]/parental-consent/page.tsx`  
-**Acceptance criteria:**
-
-- [ ] `POST /api/athletes/:id/parental-consent` creates `parental_consents` row: `guardian_name`, `guardian_cpf` (BYTEA AES-256), `consent_hash`, `ip`, `timestamp`
-- [ ] `consent_hash` = SHA-256(`guardianName + athleteId + isoTimestamp + CONSENT_SECRET`) — computed server-side only
-- [ ] Row immutable — DB trigger prevents UPDATE/DELETE (reuse `prevent_communication_log_mutation` pattern)
-- [ ] `assertMemberBelongsToClub` required; `requireRole('ADMIN')`
-- [ ] UI: form with guardian name, CPF input, explicit consent checkbox; `consent_hash` displayed post-submit in `font-mono` for guardian's records
-
-**Out of scope:** Contact request hard stop itself (T-172)  
-**Pattern reference:** aceite parental in `apps/api/src/modules/athletes/` (v1.5 peneiras pattern)
-
----
-
-## Todo
 
 ### T-178 | [TODO] Transferência de histórico de showcase
 
@@ -84,6 +64,8 @@
 **Pattern reference:** `balance_sheets` immutability pattern for source row preservation
 
 ---
+
+## Todo
 
 ### T-179 | [TODO] Modelo freemium no showcase (`showcase_tier`)
 
@@ -453,6 +435,22 @@
 
 **Out of scope:** Contact request API (T-173), parental consent UI (T-177)  
 **Pattern reference:** `apps/web/src/app/(app)/members/` table + modal pattern
+
+### T-177 | [DONE] Consentimento parental para contato scout (< 18 anos)
+
+**Context:** Any scout contact request targeting an athlete under 18 requires verifiable parental consent before the club can accept. The consent record is immutable after creation.  
+**Architectural context:** `[SEC]` consent hash = SHA-256(`guardianName + athleteId + timestamp + CONSENT_SECRET`); `guardianCpf` stored as `BYTEA` via `pgp_sym_encrypt`; IP recorded; row immutable via DB trigger (same pattern as `communication_log`).  
+**Files:** `apps/api/src/modules/scoutlink/contact/parental-consent.routes.ts`, `parental-consent.service.ts`, `apps/web/src/app/(app)/athletes/[id]/parental-consent/page.tsx`  
+**Acceptance criteria:**
+
+- [x] `POST /api/athletes/:id/parental-consent` creates `parental_consents` row: `guardian_name`, `guardian_cpf` (BYTEA AES-256), `consent_hash`, `ip`, `timestamp`
+- [x] `consent_hash` = SHA-256(`guardianName + athleteId + isoTimestamp + CONSENT_SECRET`) — computed server-side only
+- [x] Row immutable — DB trigger prevents UPDATE/DELETE (reuse `prevent_communication_log_mutation` pattern)
+- [x] `assertMemberBelongsToClub` required; `requireRole('ADMIN')`
+- [x] UI: form with guardian name, CPF input, explicit consent checkbox; `consent_hash` displayed post-submit in `font-mono` for guardian's records
+
+**Out of scope:** Contact request hard stop itself (T-172)  
+**Pattern reference:** aceite parental in `apps/api/src/modules/athletes/` (v1.5 peneiras pattern)
 
 ---
 

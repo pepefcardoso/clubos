@@ -34,6 +34,7 @@ import { posProductRoutes } from "./events/pos/products.routes.js";
 import { showcaseRoutes } from "./scoutlink/showcases/showcases.routes.js";
 import { videoRoutes } from "./scoutlink/videos/videos.routes.js";
 import { contactResponseRoutes } from "./scoutlink/contact/contact-response.routes.js";
+import { parentalConsentRoutes } from "./scoutlink/contact/parental-consent.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -115,4 +116,5 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(contactResponseRoutes, {
     prefix: "/contact-requests",
   });
+  await fastify.register(parentalConsentRoutes, { prefix: "/athletes" });
 }

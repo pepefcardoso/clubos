@@ -209,3 +209,15 @@ export interface ClubContactRequestsResponse {
   accepted: ClubContactRequestItem[];
   rejected: ClubContactRequestItem[];
 }
+
+export interface RecordParentalConsentResponse {
+  consentId: string;
+  consentHash: string;
+  recordedAt: string;
+}
+
+export interface ParentalConsentStatusResponse {
+  exists: boolean;
+  consentId?: string;
+  recordedAt?: string;
+}

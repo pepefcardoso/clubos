@@ -28,8 +28,8 @@
 | T-170 | Perfil público de atleta (`/scout/athletes/:id`)                | DONE   | HIGH     | S19    | Web   |
 | T-171 | Job BullMQ `scout-curation-report` (curadoria mensal PDF)       | DONE   | MEDIUM   | S19    | Jobs  |
 | T-172 | API de solicitação de contato mediada (hard stop menores)       | DONE   | HIGH     | S19    | API   |
-| T-173 | Fluxo de resposta do clube (accept/reject)                      | TODO   | HIGH     | S19    | API   |
-| T-175 | UI de inbox mediada para scouts (`ScoutInboxPage`)              | TODO   | HIGH     | S20    | Web   |
+| T-173 | Fluxo de resposta do clube (accept/reject)                      | DONE   | HIGH     | S19    | API   |
+| T-175 | UI de inbox mediada para scouts (`ScoutInboxPage`)              | DONE   | HIGH     | S20    | Web   |
 | T-176 | UI de gestão de contatos para o clube                           | TODO   | HIGH     | S20    | Web   |
 | T-177 | Consentimento parental para contato scout (< 18 anos)           | TODO   | HIGH     | S20    | API   |
 | T-178 | Transferência de histórico de showcase                          | TODO   | MEDIUM   | S20    | API   |
@@ -45,26 +45,6 @@
 ---
 
 ## In Progress
-
-### T-175 | [TODO] UI de inbox mediada para scouts (`ScoutInboxPage`)
-
-**Context:** Scouts manage all outgoing contact requests and responses from a single inbox; no athlete PII is ever displayed.  
-**Architectural context:** `[UI-A11Y]`; status badge with text label; no phone/email/CPF visible — club name and sport role only; `requireRole('SCOUT')`.  
-**Files:** `apps/web/src/app/(scout)/inbox/page.tsx`, `ScoutInboxPage.tsx`  
-**Acceptance criteria:**
-
-- [ ] Lists contact requests grouped by status: PENDING / ACCEPTED / REJECTED with text badge (not color only)
-- [ ] ACCEPTED requests show club name, response timestamp, and link to message thread
-- [ ] REJECTED requests show reason if provided by club
-- [ ] "Nova solicitação" button navigates to search (T-169)
-- [ ] Real-time updates via SSE `CONTACT_REQUEST_RECEIVED` → `queryClient.invalidateQueries(CONTACT_REQUESTS_QUERY_KEY)`
-
-**Out of scope:** Contact request creation (T-172), billing (T-180)  
-**Pattern reference:** `apps/web/src/app/(app)/messages/` list pattern
-
----
-
-## Todo
 
 ### T-176 | [TODO] UI de gestão de contatos para o clube
 
@@ -83,6 +63,8 @@
 **Pattern reference:** `apps/web/src/app/(app)/members/` table + modal pattern
 
 ---
+
+## Todo
 
 ### T-177 | [TODO] Consentimento parental para contato scout (< 18 anos)
 
@@ -457,6 +439,22 @@
 
 **Out of scope:** Scout inbox UI (T-175), club contact management UI (T-176)  
 **Pattern reference:** ticket cancellation flow in `apps/api/src/modules/events/tickets/`
+
+### T-175 | [DONE] UI de inbox mediada para scouts (`ScoutInboxPage`)
+
+**Context:** Scouts manage all outgoing contact requests and responses from a single inbox; no athlete PII is ever displayed.  
+**Architectural context:** `[UI-A11Y]`; status badge with text label; no phone/email/CPF visible — club name and sport role only; `requireRole('SCOUT')`.  
+**Files:** `apps/web/src/app/(scout)/inbox/page.tsx`, `ScoutInboxPage.tsx`  
+**Acceptance criteria:**
+
+- [x] Lists contact requests grouped by status: PENDING / ACCEPTED / REJECTED with text badge (not color only)
+- [x] ACCEPTED requests show club name, response timestamp, and link to message thread
+- [x] REJECTED requests show reason if provided by club
+- [x] "Nova solicitação" button navigates to search (T-169)
+- [x] Real-time updates via SSE `CONTACT_REQUEST_RECEIVED` → `queryClient.invalidateQueries(CONTACT_REQUESTS_QUERY_KEY)`
+
+**Out of scope:** Contact request creation (T-172), billing (T-180)  
+**Pattern reference:** `apps/web/src/app/(app)/messages/` list pattern
 
 ---
 

@@ -168,3 +168,23 @@ export interface RespondContactRequestResponse {
   athleteId: string;
   clubId: string;
 }
+
+export interface ScoutContactRequestItem {
+  id: string;
+  athleteId: string;
+  athleteInitials: string;
+  athletePosition: string | null;
+  clubId: string;
+  clubName: string;
+  status: ContactRequestStatus;
+  scoutReason: string | null;
+  responseReason: string | null;
+  createdAt: string;
+  respondedAt: string | null;
+}
+
+export interface ScoutContactRequestsResponse {
+  pending: ScoutContactRequestItem[];
+  accepted: ScoutContactRequestItem[];
+  rejected: ScoutContactRequestItem[];
+}

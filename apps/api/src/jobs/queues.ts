@@ -404,3 +404,54 @@ export const scoutCurationReportQueue = new Queue("scout-curation-report", {
     backoff: { type: "exponential", delay: 30_000 },
   },
 });
+
+/**
+ * Queue for per-scout subscription renewal charges.
+ *
+ * Jobs are enqueued on-demand with a computed delay by
+ * `handleScoutBillingPaymentConfirmed` — fires RENEWAL_LEAD_DAYS (3) before
+ * `subscriptionExpiresAt`. No cron — purely event-driven.
+ *
+ * jobId = `scout-renewal:{scoutId}:{billingCycle}` — BullMQ deduplication.
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 30s → exponential → attempt 3 → EXHAUSTED.
+ *   On exhaustion the scout will be expired by the daily expiry cron.
+ */
+export const scoutSubscriptionRenewalQueue = new Queue(
+  "scout-subscription-renewal",
+  {
+    connection,
+    defaultJobOptions: {
+      removeOnComplete: { count: 200 },
+      removeOnFail: { count: 500 },
+      attempts: 3,
+      backoff: { type: "exponential", delay: 30_000 },
+    },
+  },
+);
+
+/**
+ * Queue for the daily scout subscription expiry cron.
+ *
+ * Fires at 06:00 UTC daily — 2h before the morning job window (08:00 UTC)
+ * to avoid competing with charge generation and messaging queues.
+ *
+ * Single `updateMany` on public schema — no fan-out.
+ *
+ * Retry strategy:
+ *   attempt 1 fails → wait 30s → attempt 2 → EXHAUSTED.
+ *   Subscriptions simply expire on the next day's run — acceptable.
+ */
+export const scoutSubscriptionExpiryQueue = new Queue(
+  "scout-subscription-expiry",
+  {
+    connection,
+    defaultJobOptions: {
+      removeOnComplete: { count: 50 },
+      removeOnFail: { count: 100 },
+      attempts: 2,
+      backoff: { type: "exponential", delay: 30_000 },
+    },
+  },
+);

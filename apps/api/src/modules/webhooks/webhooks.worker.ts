@@ -17,6 +17,15 @@ import {
   CONFIRM_TICKET_JOB_NAMES,
   type ConfirmTicketJobData,
 } from "../../jobs/confirm-ticket/confirm-ticket.types.js";
+import {
+  isScoutBillingPayment,
+  extractScoutBillingRef,
+  hasExistingScoutBillingPayment,
+} from "./webhooks.service.js";
+import {
+  handleScoutBillingPaymentConfirmed,
+  SCOUT_SUBSCRIPTION_PRICE_CENTS,
+} from "../scoutlink/billing/scout-billing.service.js";
 
 /**
  * Starts the webhook event processing worker.
@@ -107,6 +116,53 @@ export function startWebhookWorker(): Worker<WebhookJobData> {
           `[webhook-worker] Ticket payment — enqueued confirm-ticket for ${ticketId} (club: ${ticketClubId})`,
         );
         return { processed: true, ticketId, clubId: ticketClubId };
+      }
+
+      if (isScoutBillingPayment(externalRef)) {
+        const { scoutId, billingCycle } = extractScoutBillingRef(externalRef!);
+
+        if (!scoutId || !billingCycle) {
+          job.log(`[webhook-worker] Malformed scout-billing ref — discarding`);
+          return { skipped: true, reason: "malformed_scout_billing_ref" };
+        }
+
+        const alreadyPaid = await hasExistingScoutBillingPayment(
+          prisma,
+          scoutId,
+          billingCycle,
+        );
+        if (alreadyPaid) {
+          job.log(
+            `[webhook-worker] Scout billing ${scoutId}/${billingCycle} already paid — skipping`,
+          );
+          return { skipped: true, reason: "scout_billing_already_paid" };
+        }
+
+        try {
+          await handleScoutBillingPaymentConfirmed(prisma, {
+            scoutId,
+            billingCycle,
+            gatewayTxId: event.gatewayTxId,
+            amountCents: event.amountCents ?? SCOUT_SUBSCRIPTION_PRICE_CENTS,
+            paidAt: new Date(),
+          });
+        } catch (err: unknown) {
+          if (
+            err instanceof Error &&
+            (err as { code?: string }).code === "P2002"
+          ) {
+            job.log(
+              `[webhook-worker] Scout billing P2002 — treating as duplicate`,
+            );
+            return { skipped: true, reason: "scout_billing_already_paid" };
+          }
+          throw err;
+        }
+
+        job.log(
+          `[webhook-worker] Scout billing confirmed — scout: ${scoutId}, cycle: ${billingCycle}`,
+        );
+        return { processed: true, scoutId, billingCycle };
       }
 
       const chargeId = externalRef;

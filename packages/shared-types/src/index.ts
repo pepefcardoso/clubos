@@ -230,3 +230,17 @@ export interface ParentalConsentStatusResponse {
   consentId?: string;
   recordedAt?: string;
 }
+
+export interface ScoutSubscribeResponse {
+  billingCycle: string;
+  amountCents: number; // [FIN] 29900
+  pixCopyPaste: string | null;
+  qrCodeBase64: string | null;
+  externalId: string;
+}
+
+export interface ScoutBillingStatusResponse {
+  status: ScoutSubscriptionStatus;
+  expiresAt: string | null;
+  nextRenewalAt: string | null;
+}

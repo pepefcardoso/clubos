@@ -871,6 +871,22 @@ model ScoutProfile {
   @@map("scout_profiles")
 }
 
+model ScoutBillingPayment {
+  id           String   @id @default(cuid())
+  scoutId      String
+  billingCycle String
+  amountCents  Int
+  gatewayTxid  String   @unique
+  externalId   String?
+  gatewayName  String?
+  paidAt       DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([scoutId, billingCycle])
+  @@index([scoutId])
+  @@map("scout_billing_payments")
+}
+
 /// Athlete showcase snapshot created by club ADMIN.
 /// athleteId references clube_{clubId}.athletes — no cross-schema FK. [SEC-TEN]
 /// snapshot JSONB must never contain clinicalNotes, diagnosis, treatmentDetails. [SEC]

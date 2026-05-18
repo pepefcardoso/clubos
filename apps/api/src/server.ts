@@ -35,6 +35,7 @@ import { scoutAuthRoutes } from "./modules/scoutlink/scouts/scouts.routes.js";
 import { scoutEventsRoutes } from "./modules/scoutlink/sse/scout-events.routes.js";
 import { scoutSearchRoutes } from "./modules/scoutlink/search/search.routes.js";
 import { contactRequestRoutes } from "./modules/scoutlink/contact/contact.routes.js";
+import { scoutBillingRoutes } from "./modules/scoutlink/billing/scout-billing.routes.js";
 
 export async function buildApp() {
   validateEnv();
@@ -178,6 +179,10 @@ export async function buildApp() {
 
   await fastify.register(contactRequestRoutes, {
     prefix: "/api/scout/contact-requests",
+  });
+
+  await fastify.register(scoutBillingRoutes, {
+    prefix: "/api/scout/billing",
   });
 
   fastify.get(

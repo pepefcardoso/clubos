@@ -119,6 +119,19 @@ const PUBLIC_TABLES_DDL = `
     "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "parental_consents_pkey" PRIMARY KEY ("id")
   );
+
+  CREATE TABLE IF NOT EXISTS "scout_billing_payments" (
+    "id"           TEXT         NOT NULL,
+    "scoutId"      TEXT         NOT NULL,
+    "billingCycle" TEXT         NOT NULL,
+    "amountCents"  INTEGER      NOT NULL,
+    "gatewayTxid"  TEXT         NOT NULL,
+    "externalId"   TEXT,
+    "gatewayName"  TEXT,
+    "paidAt"       TIMESTAMP(3) NOT NULL,
+    "createdAt"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "scout_billing_payments_pkey" PRIMARY KEY ("id")
+  );
 `;
 
 const PUBLIC_INDEXES_DDL = `
@@ -159,6 +172,13 @@ const PUBLIC_INDEXES_DDL = `
 
   CREATE INDEX IF NOT EXISTS "parental_consents_athleteId_clubId_idx"
     ON "parental_consents" ("athleteId", "clubId");
+
+  CREATE UNIQUE INDEX IF NOT EXISTS "scout_billing_payments_scoutId_billingCycle_key"
+    ON "scout_billing_payments" ("scoutId", "billingCycle");
+  CREATE UNIQUE INDEX IF NOT EXISTS "scout_billing_payments_gatewayTxid_key"
+    ON "scout_billing_payments" ("gatewayTxid");
+  CREATE INDEX IF NOT EXISTS "scout_billing_payments_scoutId_idx"
+    ON "scout_billing_payments" ("scoutId");
 `;
 
 const PUBLIC_FOREIGN_KEYS_DDL = `

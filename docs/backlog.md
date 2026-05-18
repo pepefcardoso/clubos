@@ -34,7 +34,7 @@
 | T-177 | Consentimento parental para contato scout (< 18 anos)           | DONE   | HIGH     | S20    | API   |
 | T-178 | Transferência de histórico de showcase                          | DONE   | MEDIUM   | S20    | API   |
 | T-179 | Modelo freemium no showcase (`showcase_tier`)                   | DONE   | HIGH     | S21    | Full  |
-| T-180 | Billing mensal de scout (R$ 299/mês via GatewayRegistry)        | TODO   | HIGH     | S21    | API   |
+| T-180 | Billing mensal de scout (R$ 299/mês via GatewayRegistry)        | DONE   | HIGH     | S21    | API   |
 | T-182 | Matriz RBAC v3.0 (testes + hard stop menores em CI)             | TODO   | HIGH     | S21    | Test  |
 | T-183 | Testes E2E ScoutLink                                            | TODO   | HIGH     | S21    | Test  |
 | T-184 | Checklist de deploy ScoutLink (env vars + `validateEnv()`)      | TODO   | HIGH     | S21    | Infra |
@@ -45,27 +45,6 @@
 ---
 
 ## In Progress
-
-### T-180 | [TODO] Billing mensal de scout (R$ 299/mês via GatewayRegistry)
-
-**Context:** Scout PREMIUM subscription charged monthly via PIX; lapsed subscription immediately gates to FREE tier without manual intervention.  
-**Architectural context:** `[ARCH-GW]` `GatewayRegistry.forMethod('PIX')` — no concrete gateway import; `[FIN]` `29900` cents; `[PR-FIN]` ≥ 2 approvals; webhook confirmation updates `subscription_status`; lapsed gate enforced by cron — not lazily on read.  
-**Files:** `apps/api/src/modules/scoutlink/billing/scout-billing.routes.ts`, `scout-billing.service.ts`, `apps/api/src/jobs/scout-subscription-renewal.worker.ts`  
-**Acceptance criteria:**
-
-- [ ] `POST /api/scout/billing/subscribe` generates PIX charge of `29900` cents via `GatewayRegistry.forMethod('PIX')`
-- [ ] Webhook confirmation sets `subscription_status = ACTIVE`, `subscription_expires_at = now() + 30d`
-- [ ] Job `scout-subscription-renewal` enqueued 3 days before `subscription_expires_at`; idempotent by `scoutId + billingCycle`
-- [ ] Daily cron: sets `subscription_status = INACTIVE` for all rows where `subscription_expires_at < now()` — runs before business hours
-- [ ] `GET /api/scout/billing/status` returns `{ status, expiresAt, nextRenewalAt }`
-- [ ] All amounts as integer cents; `requireRole('SCOUT')`
-
-**Out of scope:** Card payment for scouts (future); multi-currency (WON'T HAVE)  
-**Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`; `apps/api/src/jobs/billing-reminders/` cron pattern
-
----
-
-## Todo
 
 ### T-182 | [TODO] Matriz RBAC v3.0 (testes + hard stop menores em CI)
 
@@ -83,6 +62,8 @@
 **Pattern reference:** `apps/api/src/modules/members/__tests__/rbac.test.ts`
 
 ---
+
+## Todo
 
 ### T-183 | [TODO] Testes E2E ScoutLink
 
@@ -447,6 +428,23 @@
 
 **Out of scope:** Billing/subscription management (T-180)  
 **Pattern reference:** conditional projection pattern in `apps/api/src/modules/athletes/` RTP status service
+
+### T-180 | [DONE] Billing mensal de scout (R$ 299/mês via GatewayRegistry)
+
+**Context:** Scout PREMIUM subscription charged monthly via PIX; lapsed subscription immediately gates to FREE tier without manual intervention.  
+**Architectural context:** `[ARCH-GW]` `GatewayRegistry.forMethod('PIX')` — no concrete gateway import; `[FIN]` `29900` cents; `[PR-FIN]` ≥ 2 approvals; webhook confirmation updates `subscription_status`; lapsed gate enforced by cron — not lazily on read.  
+**Files:** `apps/api/src/modules/scoutlink/billing/scout-billing.routes.ts`, `scout-billing.service.ts`, `apps/api/src/jobs/scout-subscription-renewal.worker.ts`  
+**Acceptance criteria:**
+
+- [x] `POST /api/scout/billing/subscribe` generates PIX charge of `29900` cents via `GatewayRegistry.forMethod('PIX')`
+- [x] Webhook confirmation sets `subscription_status = ACTIVE`, `subscription_expires_at = now() + 30d`
+- [x] Job `scout-subscription-renewal` enqueued 3 days before `subscription_expires_at`; idempotent by `scoutId + billingCycle`
+- [x] Daily cron: sets `subscription_status = INACTIVE` for all rows where `subscription_expires_at < now()` — runs before business hours
+- [x] `GET /api/scout/billing/status` returns `{ status, expiresAt, nextRenewalAt }`
+- [x] All amounts as integer cents; `requireRole('SCOUT')`
+
+**Out of scope:** Card payment for scouts (future); multi-currency (WON'T HAVE)  
+**Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`; `apps/api/src/jobs/billing-reminders/` cron pattern
 
 ---
 

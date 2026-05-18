@@ -48,6 +48,13 @@ import { startScoutCurationReportDispatchWorker } from "./scout-curation-report/
 import { startScoutCurationReportWorker } from "./scout-curation-report/scout-curation-report.worker.js";
 import { SCOUT_CURATION_REPORT_JOB_NAMES } from "./scout-curation-report/scout-curation-report.types.js";
 import { scoutCurationReportQueue } from "./queues.js";
+import { startScoutSubscriptionRenewalWorker } from "./scout-subscription-renewal/scout-subscription-renewal.worker.js";
+import { startScoutSubscriptionExpiryWorker } from "./scout-subscription-expiry/scout-subscription-expiry.worker.js";
+import { SCOUT_SUBSCRIPTION_EXPIRY_JOB_NAMES } from "./scout-subscription-expiry/scout-subscription-expiry.types.js";
+import {
+  scoutSubscriptionRenewalQueue,
+  scoutSubscriptionExpiryQueue,
+} from "./queues.js";
 
 /**
  * Cron expression: 1st of every month at 08:00 UTC.
@@ -118,6 +125,20 @@ const WEEKLY_ATHLETE_REPORT_CRON = "0 8 * * 1";
  * to ensure end-of-month payments are fully settled before reporting.
  */
 const MONTHLY_REPORT_CRON = "0 7 2 * *";
+
+/**
+ * Cron expression: every day at 06:00 UTC (03:00 BRT).
+ * Expires ACTIVE scout subscriptions whose subscriptionExpiresAt is in the past.
+ * Fires 2h before the morning job window (08:00 UTC) to avoid queue contention.
+ */
+const SCOUT_SUBSCRIPTION_EXPIRY_CRON = "0 6 * * *";
+
+/**
+ * Stable job ID for the daily scout subscription expiry cron.
+ * Prevents duplicate registrations on restart.
+ */
+const SCOUT_SUBSCRIPTION_EXPIRY_CRON_ID =
+  "daily-scout-subscription-expiry-cron";
 
 /**
  * Stable job ID for the charge generation cron entry.
@@ -291,6 +312,8 @@ export async function registerJobs(): Promise<void> {
   _workers.push(startGameLogisticsNoticeWorker());
   _workers.push(startScoutCurationReportDispatchWorker());
   _workers.push(startScoutCurationReportWorker());
+  _workers.push(startScoutSubscriptionRenewalWorker());
+  _workers.push(startScoutSubscriptionExpiryWorker());
 
   if (process.env["NODE_ENV"] !== "test") {
     await chargeGenerationQueue.upsertJobScheduler(
@@ -440,6 +463,19 @@ export async function registerJobs(): Promise<void> {
     console.info(
       `[jobs] Scout curation report cron registered: "${SCOUT_CURATION_REPORT_CRON}" (UTC)`,
     );
+
+    await scoutSubscriptionExpiryQueue.upsertJobScheduler(
+      SCOUT_SUBSCRIPTION_EXPIRY_CRON_ID,
+      { pattern: SCOUT_SUBSCRIPTION_EXPIRY_CRON },
+      {
+        name: SCOUT_SUBSCRIPTION_EXPIRY_JOB_NAMES.EXPIRE_LAPSED_SUBSCRIPTIONS,
+        data: {},
+        opts: { attempts: 2 },
+      },
+    );
+    console.info(
+      `[jobs] Scout subscription expiry cron registered: "${SCOUT_SUBSCRIPTION_EXPIRY_CRON}" (UTC)`,
+    );
   }
 }
 
@@ -467,5 +503,7 @@ export async function closeJobs(): Promise<void> {
   await fanFunnelQueue.close();
   await gameLogisticsNoticeQueue.close();
   await scoutCurationReportQueue.close();
+  await scoutSubscriptionRenewalQueue.close();
+  await scoutSubscriptionExpiryQueue.close();
   console.info("[jobs] All workers and queues closed");
 }

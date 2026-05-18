@@ -368,3 +368,35 @@ export async function handlePaymentReceived(
     };
   });
 }
+
+export function isScoutBillingPayment(ref: string | null | undefined): boolean {
+  return typeof ref === "string" && ref.startsWith("scout-billing:");
+}
+
+/**
+ * Parses `scout-billing:{scoutId}:{billingCycle}` into its parts.
+ * Caller must guard with `isScoutBillingPayment()` first.
+ */
+export function extractScoutBillingRef(ref: string): {
+  scoutId: string;
+  billingCycle: string;
+} {
+  const parts = ref.split(":");
+  return { scoutId: parts[1] ?? "", billingCycle: parts[2] ?? "" };
+}
+
+/**
+ * DB-level idempotency check for scout billing payments.
+ * Returns true when the (scoutId, billingCycle) pair already has a confirmed payment row.
+ */
+export async function hasExistingScoutBillingPayment(
+  prisma: PrismaClient,
+  scoutId: string,
+  billingCycle: string,
+): Promise<boolean> {
+  const existing = await prisma.scoutBillingPayment.findUnique({
+    where: { scoutId_billingCycle: { scoutId, billingCycle } },
+    select: { id: true },
+  });
+  return existing !== null;
+}

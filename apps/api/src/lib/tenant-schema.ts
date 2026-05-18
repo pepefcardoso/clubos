@@ -9,7 +9,7 @@ import { seedInjuryProtocols } from "./seed-injury-protocols.js";
  * This guard prevents SQL injection via the schema name even if a malformed
  * value somehow reaches this function.
  */
-function assertValidClubId(clubId: string): void {
+export function assertValidClubId(clubId: string): void {
   if (!/^[a-z0-9]{20,30}$/.test(clubId)) {
     throw new Error(
       `Invalid clubId format: "${clubId}". ` +

@@ -35,6 +35,7 @@ import { showcaseRoutes } from "./scoutlink/showcases/showcases.routes.js";
 import { videoRoutes } from "./scoutlink/videos/videos.routes.js";
 import { contactResponseRoutes } from "./scoutlink/contact/contact-response.routes.js";
 import { parentalConsentRoutes } from "./scoutlink/contact/parental-consent.routes.js";
+import { showcaseTransferRoutes } from "./scoutlink/showcases/showcase-transfer.routes.js";
 
 /**
  * All routes registered inside this plugin are automatically protected
@@ -112,6 +113,7 @@ export async function protectedRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(checklistRoutes, { prefix: "/events" });
   await fastify.register(posProductRoutes, { prefix: "/clubs" });
   await fastify.register(showcaseRoutes, { prefix: "/athletes" });
+  await fastify.register(showcaseTransferRoutes, { prefix: "/athletes" });
   await fastify.register(videoRoutes, { prefix: "/athletes" });
   await fastify.register(contactResponseRoutes, {
     prefix: "/contact-requests",

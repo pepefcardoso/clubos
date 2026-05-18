@@ -169,6 +169,15 @@ export interface RespondContactRequestResponse {
   clubId: string;
 }
 
+export interface ShowcaseTransferResponse {
+  showcaseId: string;
+  sourceShowcaseId: string;
+  athleteId: string;
+  sourceClubId: string;
+  targetClubId: string;
+  transferredAt: string;
+}
+
 export interface ScoutContactRequestItem {
   id: string;
   athleteId: string;

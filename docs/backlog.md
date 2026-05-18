@@ -32,7 +32,7 @@
 | T-175 | UI de inbox mediada para scouts (`ScoutInboxPage`)              | DONE   | HIGH     | S20    | Web   |
 | T-176 | UI de gestão de contatos para o clube                           | DONE   | HIGH     | S20    | Web   |
 | T-177 | Consentimento parental para contato scout (< 18 anos)           | DONE   | HIGH     | S20    | API   |
-| T-178 | Transferência de histórico de showcase                          | TODO   | MEDIUM   | S20    | API   |
+| T-178 | Transferência de histórico de showcase                          | DONE   | MEDIUM   | S20    | API   |
 | T-179 | Modelo freemium no showcase (`showcase_tier`)                   | TODO   | HIGH     | S21    | Full  |
 | T-180 | Billing mensal de scout (R$ 299/mês via GatewayRegistry)        | TODO   | HIGH     | S21    | API   |
 | T-182 | Matriz RBAC v3.0 (testes + hard stop menores em CI)             | TODO   | HIGH     | S21    | Test  |
@@ -45,27 +45,6 @@
 ---
 
 ## In Progress
-
-### T-178 | [TODO] Transferência de histórico de showcase
-
-**Context:** When an athlete transfers clubs, their showcase history can follow them with explicit digital consent from the source club; source club retains a read-only copy.  
-**Architectural context:** `[SEC-TEN]` `assertValidClubId(targetClubId)`; `appendCommunicationLog` on transfer with both club IDs; source row gets `transferred_at` — never deleted; consent hash validated before any mutation.  
-**Files:** `apps/api/src/modules/scoutlink/showcases/showcase-transfer.routes.ts`, `showcase-transfer.service.ts`  
-**Acceptance criteria:**
-
-- [ ] `POST /api/athletes/:id/showcase/transfer` accepts `{ targetClubId, consentHash }`
-- [ ] Validates `consentHash` matches stored `parental_consents` or admin consent record before proceeding — rejects with 403 if mismatch
-- [ ] Copies `scout_showcases` snapshot reference to `targetClubId`; source row updated with `transferred_at` timestamp — never deleted
-- [ ] `assertValidClubId(targetClubId)` called; `assertMemberBelongsToClub` on source
-- [ ] `appendCommunicationLog` records `event_type: SHOWCASE_TRANSFERRED` with `metadata: { sourceClubId, targetClubId }`
-- [ ] `requireRole('ADMIN')`
-
-**Out of scope:** Athlete contract transfer (separate `contracts` module concern)  
-**Pattern reference:** `balance_sheets` immutability pattern for source row preservation
-
----
-
-## Todo
 
 ### T-179 | [TODO] Modelo freemium no showcase (`showcase_tier`)
 
@@ -87,6 +66,8 @@
 **Pattern reference:** conditional projection pattern in `apps/api/src/modules/athletes/` RTP status service
 
 ---
+
+## Todo
 
 ### T-180 | [TODO] Billing mensal de scout (R$ 299/mês via GatewayRegistry)
 
@@ -451,6 +432,23 @@
 
 **Out of scope:** Contact request hard stop itself (T-172)  
 **Pattern reference:** aceite parental in `apps/api/src/modules/athletes/` (v1.5 peneiras pattern)
+
+### T-178 | [DONE] Transferência de histórico de showcase
+
+**Context:** When an athlete transfers clubs, their showcase history can follow them with explicit digital consent from the source club; source club retains a read-only copy.  
+**Architectural context:** `[SEC-TEN]` `assertValidClubId(targetClubId)`; `appendCommunicationLog` on transfer with both club IDs; source row gets `transferred_at` — never deleted; consent hash validated before any mutation.  
+**Files:** `apps/api/src/modules/scoutlink/showcases/showcase-transfer.routes.ts`, `showcase-transfer.service.ts`  
+**Acceptance criteria:**
+
+- [x] `POST /api/athletes/:id/showcase/transfer` accepts `{ targetClubId, consentHash }`
+- [x] Validates `consentHash` matches stored `parental_consents` or admin consent record before proceeding — rejects with 403 if mismatch
+- [x] Copies `scout_showcases` snapshot reference to `targetClubId`; source row updated with `transferred_at` timestamp — never deleted
+- [x] `assertValidClubId(targetClubId)` called; `assertMemberBelongsToClub` on source
+- [x] `appendCommunicationLog` records `event_type: SHOWCASE_TRANSFERRED` with `metadata: { sourceClubId, targetClubId }`
+- [x] `requireRole('ADMIN')`
+
+**Out of scope:** Athlete contract transfer (separate `contracts` module concern)  
+**Pattern reference:** `balance_sheets` immutability pattern for source row preservation
 
 ---
 

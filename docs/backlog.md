@@ -33,7 +33,7 @@
 | T-176 | UI de gestão de contatos para o clube                           | DONE   | HIGH     | S20    | Web   |
 | T-177 | Consentimento parental para contato scout (< 18 anos)           | DONE   | HIGH     | S20    | API   |
 | T-178 | Transferência de histórico de showcase                          | DONE   | MEDIUM   | S20    | API   |
-| T-179 | Modelo freemium no showcase (`showcase_tier`)                   | TODO   | HIGH     | S21    | Full  |
+| T-179 | Modelo freemium no showcase (`showcase_tier`)                   | DONE   | HIGH     | S21    | Full  |
 | T-180 | Billing mensal de scout (R$ 299/mês via GatewayRegistry)        | TODO   | HIGH     | S21    | API   |
 | T-182 | Matriz RBAC v3.0 (testes + hard stop menores em CI)             | TODO   | HIGH     | S21    | Test  |
 | T-183 | Testes E2E ScoutLink                                            | TODO   | HIGH     | S21    | Test  |
@@ -45,29 +45,6 @@
 ---
 
 ## In Progress
-
-### T-179 | [TODO] Modelo freemium no showcase (`showcase_tier`)
-
-**Context:** The freemium projection must be the single source of truth used by search (T-168), profile (T-170), and curation (T-171) — no duplication of gating logic across routes.  
-**Architectural context:** `null` returned for gated fields — never omitted — so frontend can render blurred placeholders consistently; `upgrade_required` flag present whenever any field is gated.  
-**Files:** `apps/api/src/modules/scoutlink/showcases/showcase.service.ts`  
-**Acceptance criteria:**
-
-- [ ] `projectShowcase(snapshot, scoutSubscriptionStatus, showcaseTier)` handles all 4 combinations:
-  - FREE scout + FREE tier → initials only, no ACWR, `upgrade_required: true`
-  - FREE scout + PREMIUM tier → same as above (scout tier is binding ceiling)
-  - PREMIUM scout + FREE tier → full identity fields visible, no ACWR (showcase tier is binding floor)
-  - PREMIUM scout + PREMIUM tier → full projection, `upgrade_required: false`
-- [ ] Gated fields returned as `null`, not omitted — Zod output schema enforces this
-- [ ] Unit tests cover all 4 combinations with snapshot assertions
-- [ ] `projectShowcase` imported and used in search service (T-168) — no inline projection logic in routes
-
-**Out of scope:** Billing/subscription management (T-180)  
-**Pattern reference:** conditional projection pattern in `apps/api/src/modules/athletes/` RTP status service
-
----
-
-## Todo
 
 ### T-180 | [TODO] Billing mensal de scout (R$ 299/mês via GatewayRegistry)
 
@@ -87,6 +64,8 @@
 **Pattern reference:** `apps/api/src/modules/charges/charges.service.ts`; `apps/api/src/jobs/billing-reminders/` cron pattern
 
 ---
+
+## Todo
 
 ### T-182 | [TODO] Matriz RBAC v3.0 (testes + hard stop menores em CI)
 
@@ -449,6 +428,25 @@
 
 **Out of scope:** Athlete contract transfer (separate `contracts` module concern)  
 **Pattern reference:** `balance_sheets` immutability pattern for source row preservation
+
+### T-179 | [DONE] Modelo freemium no showcase (`showcase_tier`)
+
+**Context:** The freemium projection must be the single source of truth used by search (T-168), profile (T-170), and curation (T-171) — no duplication of gating logic across routes.  
+**Architectural context:** `null` returned for gated fields — never omitted — so frontend can render blurred placeholders consistently; `upgrade_required` flag present whenever any field is gated.  
+**Files:** `apps/api/src/modules/scoutlink/showcases/showcase.service.ts`  
+**Acceptance criteria:**
+
+- [x] `projectShowcase(snapshot, scoutSubscriptionStatus, showcaseTier)` handles all 4 combinations:
+  - FREE scout + FREE tier → initials only, no ACWR, `upgrade_required: true`
+  - FREE scout + PREMIUM tier → same as above (scout tier is binding ceiling)
+  - PREMIUM scout + FREE tier → full identity fields visible, no ACWR (showcase tier is binding floor)
+  - PREMIUM scout + PREMIUM tier → full projection, `upgrade_required: false`
+- [x] Gated fields returned as `null`, not omitted — Zod output schema enforces this
+- [x] Unit tests cover all 4 combinations with snapshot assertions
+- [x] `projectShowcase` imported and used in search service (T-168) — no inline projection logic in routes
+
+**Out of scope:** Billing/subscription management (T-180)  
+**Pattern reference:** conditional projection pattern in `apps/api/src/modules/athletes/` RTP status service
 
 ---
 

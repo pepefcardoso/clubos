@@ -8,6 +8,7 @@ import type {
   ShowcaseTier,
 } from "@clubos/shared-types";
 import type { SearchAthletesQuery } from "./search.schema.js";
+import { projectShowcase } from "../showcases/showcase.service.js";
 
 type SearchRow = {
   id: string;
@@ -18,40 +19,8 @@ type SearchRow = {
   video_count: number;
 };
 
-function toInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => (w[0] ?? "").toUpperCase())
-    .join("");
-}
-
 function isActiveSubscription(status: string, expiresAt: Date | null): boolean {
   return status === "ACTIVE" && expiresAt != null && expiresAt > new Date();
-}
-
-function projectRow(
-  row: SearchRow,
-  isPremiumScout: boolean,
-): ScoutAthleteResult {
-  const snap = row.snapshot as ShowcaseSnapshot;
-  const canSeeFull = isPremiumScout && row.tier === "PREMIUM";
-
-  return {
-    id: row.id,
-    athleteId: row.athleteId,
-    clubId: row.clubId,
-    tier: row.tier as ShowcaseTier,
-    nameInitials: toInitials(snap.name),
-    position: snap.position,
-    ageYears: snap.ageYears,
-    state: snap.state ?? null,
-    rtpStatus: snap.rtpStatus,
-    acwrTrend: canSeeFull ? snap.acwrTrend : null,
-    evaluationScores: canSeeFull ? snap.evaluationScores : null,
-    videoCount: canSeeFull ? row.video_count : null,
-    upgrade_required: !canSeeFull,
-  };
 }
 
 export async function searchAthletes(
@@ -147,7 +116,18 @@ export async function searchAthletes(
   ]);
 
   return {
-    data: rows.map((r) => projectRow(r, isPremiumScout)),
+    data: rows.map((r) => ({
+      id: r.id,
+      athleteId: r.athleteId,
+      clubId: r.clubId,
+      tier: r.tier as ShowcaseTier,
+      ...projectShowcase(
+        r.snapshot as ShowcaseSnapshot,
+        isPremiumScout,
+        r.tier as ShowcaseTier,
+        r.video_count,
+      ),
+    })),
     total: Number(countRows[0]?.count ?? 0),
     page,
     limit,
@@ -213,7 +193,18 @@ export async function getAthletePublicProfile(
   const row = rows[0];
   if (!row || !row.is_published) return null;
 
-  const base = projectRow(row, isPremiumScout);
+  const base = {
+    id: row.id,
+    athleteId: row.athleteId,
+    clubId: row.clubId,
+    tier: row.tier as ShowcaseTier,
+    ...projectShowcase(
+      row.snapshot as ShowcaseSnapshot,
+      isPremiumScout,
+      row.tier as ShowcaseTier,
+      row.video_count,
+    ),
+  };
   const canSeeFull = isPremiumScout && row.tier === "PREMIUM";
 
   return {

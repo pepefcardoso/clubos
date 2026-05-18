@@ -132,7 +132,7 @@ export interface ScoutAthleteResult {
   tier: ShowcaseTier;
   nameInitials: string;
   position: string | null;
-  ageYears: number;
+  ageYears: number | null;
   state: string | null;
   rtpStatus: string | null;
   acwrTrend: ShowcaseSnapshot["acwrTrend"] | null;
